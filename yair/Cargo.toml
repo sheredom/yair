@@ -1,0 +1,9 @@
+[package]
+name = "yair"
+version = "0.0.1"
+authors = ["Neil Henning <sheredom@gmail.com>"]
+edition = "2018"
+
+[dependencies]
+bytemuck = "1.1.0"
+generational-arena = "0.2.6"
