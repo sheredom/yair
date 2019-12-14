@@ -1,0 +1,33 @@
+COMMENT = _{ "/*" ~ (!"*/" ~ ANY)* ~ "*/" | "//" ~ (!line_terminator ~ ANY)* }
+WHITESPACE = _{
+  SPACE_SEPARATOR |
+  line_terminator
+}
+
+alpha = { 'a'..'z' | 'A'..'Z' }
+digit = { '0'..'9' }
+hex = _{ '0'..'9' | 'a'..'f' | 'A'..'F' }
+unicode_hex = { hex{1, 6} }
+predefined = { "n" | "r" | "t" | "\\" | "0" | "\"" | "'" }
+byte       = { "x" ~ hex{2} }
+unicode    = { "u" ~ "{" ~ unicode_hex ~ "}" }
+escape     = { "\\" ~ (predefined | byte | unicode) }
+
+string = { "\"" ~ (raw_string | escape)* ~ "\"" }
+raw_string = { (!("\\" | "\"") ~ ANY)+ }
+
+// Quoted identifiers can be anything (including unicode!).
+quoted_ident = { "\"" ~ (raw_string)* ~ "\"" }
+
+// Unquoted identifiers can only be ASCII alphanumerical.
+unquoted_ident = @{ ASCII_ALPHA ~ ASCII_ALPHANUMERIC* }
+
+ident = _{ quoted_ident | unquoted_ident }
+
+line_terminator = _{ "\u{000A}" | "\u{000D}" | "\u{2028}" | "\u{2029}" }
+
+function_or_global = _{ ident* }
+
+module = { "mod" ~ ident ~ "{" ~ "}" }
+
+main = _{ SOI ~ module* ~ EOI }

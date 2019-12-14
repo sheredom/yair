@@ -1,5 +1,6 @@
 use crate::*;
 
+#[derive(Serialize, Deserialize)]
 pub struct FunctionPayload {
     pub(crate) name: String,
     pub(crate) function_type: Type,
@@ -7,7 +8,7 @@ pub struct FunctionPayload {
     pub(crate) blocks: Vec<Block>,
 }
 
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy, Debug, Serialize, Deserialize)]
 pub struct Function(pub(crate) generational_arena::Index);
 
 impl Function {
@@ -17,13 +18,14 @@ impl Function {
     ///
     /// ```
     /// # use yair::*;
-    /// # let mut module = Module::create_module().build();
-    /// # let function = module.create_function().with_name("foo").build();
-    /// let name = function.get_name(&module);
+    /// # let mut library = Library::new();
+    /// # let module = library.create_module().build();
+    /// # let function = module.create_function(&mut library).with_name("foo").build();
+    /// let name = function.get_name(&library);
     /// # assert_eq!(name, "foo");
     /// ```
-    pub fn get_name<'a>(&self, module: &'a Module) -> &'a str {
-        let function = &module.functions[self.0];
+    pub fn get_name<'a>(&self, library: &'a Library) -> &'a str {
+        let function = &library.functions[self.0];
 
         &function.name
     }
@@ -34,16 +36,17 @@ impl Function {
     ///
     /// ```
     /// # use yair::*;
-    /// # let mut module = Module::create_module().build();
-    /// # let void_ty = module.get_void_type();
-    /// # let function = module.create_function().with_name("foo").build();
-    /// let return_type = function.get_return_type(&module);
+    /// # let mut library = Library::new();
+    /// # let module = library.create_module().build();
+    /// # let void_ty = library.get_void_type();
+    /// # let function = module.create_function(&mut library).with_name("foo").build();
+    /// let return_type = function.get_return_type(&library);
     /// # assert_eq!(return_type, void_ty);
     /// ```
-    pub fn get_return_type(&self, module: &Module) -> Type {
-        let function = &module.functions[self.0];
+    pub fn get_return_type(&self, library: &Library) -> Type {
+        let function = &library.functions[self.0];
 
-        match module.types[function.function_type.0] {
+        match library.types[function.function_type.0] {
             TypePayload::Function(return_type, _) => return_type,
             _ => panic!("Function type was wrong"),
         }
@@ -55,14 +58,15 @@ impl Function {
     ///
     /// ```
     /// # use yair::*;
-    /// # let mut module = Module::create_module().build();
-    /// # let ty = module.get_int_type(8);
-    /// # let function = module.create_function().with_name("func").with_argument_types(&[ ty ]).build();
-    /// let arg = function.get_arg(&module, 0);
-    /// # assert_eq!(arg.get_type(&module), ty);
+    /// # let mut library = Library::new();
+    /// # let module = library.create_module().build();
+    /// # let ty = library.get_int_type(8);
+    /// # let function = module.create_function(&mut library).with_name("func").with_argument_types(&[ ty ]).build();
+    /// let arg = function.get_arg(&library, 0);
+    /// # assert_eq!(arg.get_type(&library), ty);
     /// ```
-    pub fn get_arg(&self, module: &Module, index: usize) -> Value {
-        let function = &module.functions[self.0];
+    pub fn get_arg(&self, library: &Library, index: usize) -> Value {
+        let function = &library.functions[self.0];
 
         assert!(
             index < function.arguments.len(),
@@ -80,27 +84,30 @@ impl Function {
     ///
     /// ```
     /// # use yair::*;
-    /// # let mut module = Module::create_module().build();
-    /// # let function = module.create_function().with_name("func").build();;
-    /// let block_builder = function.create_block(&mut module);
+    /// # let mut library = Library::new();
+    /// # let module = library.create_module().build();
+    /// # let function = module.create_function(&mut library).with_name("func").build();;
+    /// let block_builder = function.create_block(&mut library);
     /// ```
-    pub fn create_block<'a>(&self, module: &'a mut Module) -> BlockBuilder<'a> {
-        BlockBuilder::with_module_and_function(module, *self)
+    pub fn create_block<'a>(&self, library: &'a mut Library) -> BlockBuilder<'a> {
+        BlockBuilder::with_library_and_function(library, *self)
     }
 }
 
 pub struct FunctionBuilder<'a> {
-    module: &'a mut Module,
+    library: &'a mut Library,
+    module: Module,
     name: &'a str,
     return_type: Type,
     argument_types: &'a [Type],
 }
 
 impl<'a> FunctionBuilder<'a> {
-    pub(crate) fn with_module(module: &'a mut Module) -> Self {
-        let void_ty = module.get_void_type();
+    pub(crate) fn with_library_and_module(library: &'a mut Library, module: Module) -> Self {
+        let void_ty = library.get_void_type();
 
         FunctionBuilder {
+            library,
             module,
             name: "",
             return_type: void_ty,
@@ -114,8 +121,9 @@ impl<'a> FunctionBuilder<'a> {
     ///
     /// ```
     /// # use yair::*;
-    /// # let mut module = Module::create_module().build();
-    /// # let function_builder = module.create_function();
+    /// # let mut library = Library::new();
+    /// # let module = library.create_module().build();
+    /// # let function_builder = module.create_function(&mut library);
     /// function_builder.with_name("func");
     /// ```
     pub fn with_name(mut self, name: &'a str) -> Self {
@@ -131,9 +139,10 @@ impl<'a> FunctionBuilder<'a> {
     ///
     /// ```
     /// # use yair::*;
-    /// # let mut module = Module::create_module().build();
-    /// # let u32_ty = module.get_uint_type(32);
-    /// # let function_builder = module.create_function();
+    /// # let mut library = Library::new();
+    /// # let module = library.create_module().build();
+    /// # let u32_ty = library.get_uint_type(32);
+    /// # let function_builder = module.create_function(&mut library);
     /// function_builder.with_return_type(u32_ty);
     /// ```
     pub fn with_return_type(mut self, return_type: Type) -> Self {
@@ -149,10 +158,11 @@ impl<'a> FunctionBuilder<'a> {
     ///
     /// ```
     /// # use yair::*;
-    /// # let mut module = Module::create_module().build();
-    /// # let i8_ty = module.get_int_type(8);
-    /// # let u32_ty = module.get_uint_type(32);
-    /// # let function_builder = module.create_function();
+    /// # let mut library = Library::new();
+    /// # let module = library.create_module().build();
+    /// # let i8_ty = library.get_int_type(8);
+    /// # let u32_ty = library.get_uint_type(32);
+    /// # let function_builder = module.create_function(&mut library);
     /// function_builder.with_argument_types(&[i8_ty, u32_ty]);
     /// ```
     pub fn with_argument_types(mut self, argument_types: &'a [Type]) -> Self {
@@ -166,15 +176,16 @@ impl<'a> FunctionBuilder<'a> {
     ///
     /// ```
     /// # use yair::*;
-    /// # let mut module = Module::create_module().build();
-    /// # let function_builder = module.create_function().with_name("func");
+    /// # let mut library = Library::new();
+    /// # let module = library.create_module().build();
+    /// # let function_builder = module.create_function(&mut library).with_name("func");
     /// let function = function_builder.build();
     /// ```
     pub fn build(self) -> Function {
         debug_assert!(!self.name.is_empty(), "name must be non-0 in length");
 
         let function_type = self
-            .module
+            .library
             .get_fn_type(self.return_type, self.argument_types);
 
         let mut function = FunctionPayload {
@@ -186,13 +197,17 @@ impl<'a> FunctionBuilder<'a> {
 
         for argument_type in self.argument_types {
             let argument = self
-                .module
+                .library
                 .values
                 .insert(ValuePayload::Argument(Argument { ty: *argument_type }));
             function.arguments.push(Value(argument));
         }
 
-        Function(self.module.functions.insert(function))
+        let func = Function(self.library.functions.insert(function));
+
+        self.library.modules[self.module.0].functions.push(func);
+
+        func
     }
 }
 
@@ -203,8 +218,12 @@ mod tests {
     #[test]
     #[should_panic]
     fn bad_arg_index() {
-        let mut module = Module::create_module().build();
-        let function = module.create_function().with_name("func").build();
-        let _ = function.get_arg(&module, 0);
+        let mut library = Library::new();
+        let module = library.create_module().build();
+        let function = module
+            .create_function(&mut library)
+            .with_name("func")
+            .build();
+        let _ = function.get_arg(&library, 0);
     }
 }

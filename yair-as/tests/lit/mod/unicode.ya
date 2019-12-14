@@ -1,0 +1,5 @@
+// RUN: @yair_as @file -o "@first_tempfile"
+
+mod "😀" {
+  
+}

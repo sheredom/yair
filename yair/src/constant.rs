@@ -2,7 +2,7 @@ use crate::*;
 use std::hash::Hash;
 use std::hash::Hasher;
 
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub enum Constant {
     Bool(bool, Type),
     Int(i64, Type),
@@ -42,6 +42,33 @@ impl Hash for Constant {
     }
 }
 
+impl PartialEq for Constant {
+    fn eq(&self, other: &Self) -> bool {
+        match self {
+            Constant::Bool(a, _) => match other {
+                Constant::Bool(b, _) => a == b,
+                _ => false,
+            },
+            Constant::Int(a, _) => match other {
+                Constant::Int(b, _) => a == b,
+                _ => false,
+            },
+            Constant::UInt(a, _) => match other {
+                Constant::UInt(b, _) => a == b,
+                _ => false,
+            },
+            Constant::Float(a, _) => match other {
+                Constant::Float(b, _) => a == b,
+                _ => false,
+            },
+            Constant::Composite(a, _) => match other {
+                Constant::Composite(b, _) => a == b,
+                _ => false,
+            },
+        }
+    }
+}
+
 impl Typed for Constant {
     /// Get the type of a constant.
     ///
@@ -49,11 +76,11 @@ impl Typed for Constant {
     ///
     /// ```
     /// # use yair::*;
-    /// # let mut module = Module::create_module().build();
-    /// # let constant = module.get_bool_constant(true);
-    /// let ty = constant.get_type(&module);
+    /// # let mut library = Library::new();
+    /// # let constant = library.get_bool_constant(true);
+    /// let ty = constant.get_type(&library);
     /// ```
-    fn get_type(&self, _: &Module) -> Type {
+    fn get_type(&self, _: &Library) -> Type {
         match self {
             Constant::Bool(_, ty) => *ty,
             Constant::Int(_, ty) => *ty,

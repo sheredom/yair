@@ -1,6 +1,6 @@
 use crate::*;
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Hash, Eq, PartialEq, Serialize, Deserialize)]
 pub struct Global {
     name: String,
     ty: Type,
@@ -13,29 +13,31 @@ impl Typed for Global {
     ///
     /// ```
     /// # use yair::*;
-    /// # let mut module = Module::create_module().build();
-    /// # let builder = module.create_global().with_name("var");
-    /// # let global = builder.build();
-    /// let ty = global.get_type(&module);
-    /// # let void_ty = module.get_void_type();
-    /// # assert_eq!(ty, module.get_ptr_type(void_ty, Domain::CPU_AND_GPU));
+    /// # let mut library = Library::new();
+    /// # let module = library.create_module().build();
+    /// # let global = module.create_global(&mut library).with_name("var").build();
+    /// let ty = global.get_type(&library);
+    /// # let void_ty = library.get_void_type();
+    /// # assert_eq!(ty, library.get_ptr_type(void_ty, Domain::CPU_AND_GPU));
     /// ```
-    fn get_type(&self, _: &Module) -> Type {
+    fn get_type(&self, _: &Library) -> Type {
         self.ty
     }
 }
 
 pub struct GlobalBuilder<'a> {
-    module: &'a mut Module,
+    library: &'a mut Library,
+    module: Module,
     name: &'a str,
     ty: Type,
     domain: Domain,
 }
 
 impl<'a> GlobalBuilder<'a> {
-    pub(crate) fn with_module(module: &'a mut Module) -> Self {
-        let void_ty = module.get_void_type();
+    pub(crate) fn with_library_and_module(library: &'a mut Library, module: Module) -> Self {
+        let void_ty = library.get_void_type();
         GlobalBuilder {
+            library,
             module,
             name: "",
             ty: void_ty,
@@ -49,8 +51,9 @@ impl<'a> GlobalBuilder<'a> {
     ///
     /// ```
     /// # use yair::*;
-    /// # let mut module = Module::create_module().build();
-    /// # let builder = module.create_global();
+    /// # let mut library = Library::new();
+    /// # let module = library.create_module().build();
+    /// # let builder = module.create_global(&mut library);
     /// builder.with_name("var");
     /// ```
     pub fn with_name(mut self, name: &'a str) -> Self {
@@ -66,9 +69,10 @@ impl<'a> GlobalBuilder<'a> {
     ///
     /// ```
     /// # use yair::*;
-    /// # let mut module = Module::create_module().build();
-    /// # let u32_ty = module.get_uint_type(32);
-    /// # let builder = module.create_global();
+    /// # let mut library = Library::new();
+    /// # let module = library.create_module().build();
+    /// # let u32_ty = library.get_uint_type(32);
+    /// # let builder = module.create_global(&mut library);
     /// builder.with_type(u32_ty);
     /// ```
     pub fn with_type(mut self, ty: Type) -> Self {
@@ -84,8 +88,9 @@ impl<'a> GlobalBuilder<'a> {
     ///
     /// ```
     /// # use yair::*;
-    /// # let mut module = Module::create_module().build();
-    /// # let builder = module.create_global();
+    /// # let mut library = Library::new();
+    /// # let module = library.create_module().build();
+    /// # let builder = module.create_global(&mut library);
     /// builder.with_domain(Domain::CPU);
     /// ```
     pub fn with_domain(mut self, domain: Domain) -> Self {
@@ -99,20 +104,25 @@ impl<'a> GlobalBuilder<'a> {
     ///
     /// ```
     /// # use yair::*;
-    /// # let mut module = Module::create_module().build();
-    /// # let builder = module.create_global().with_name("var");
+    /// # let mut library = Library::new();
+    /// # let module = library.create_module().build();
+    /// # let builder = module.create_global(&mut library).with_name("var");
     /// let global = builder.build();
     /// ```
     pub fn build(self) -> Value {
         debug_assert!(!self.name.is_empty(), "name must be non-0 in length");
 
-        let global_type = self.module.get_ptr_type(self.ty, self.domain);
+        let global_type = self.library.get_ptr_type(self.ty, self.domain);
 
         let global = Global {
             name: self.name.to_string(),
             ty: global_type,
         };
 
-        Value(self.module.values.insert(ValuePayload::Global(global)))
+        let index = Value(self.library.values.insert(ValuePayload::Global(global)));
+
+        self.library.modules[self.module.0].globals.push(index);
+
+        index
     }
 }
