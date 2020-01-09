@@ -1,7 +1,5 @@
 // RUN: @yair_as @file -o "@first_tempfile"
 
 mod "😀" {
-  
+  export var void_ptr : **f64
 }
-
-mod bar42 {}

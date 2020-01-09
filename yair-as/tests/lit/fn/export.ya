@@ -1,7 +1,5 @@
 // RUN: @yair_as @file -o "@first_tempfile"
 
 mod "😀" {
-  
+  export fn foo() : u8
 }
-
-mod bar42 {}

@@ -1,7 +1,5 @@
 // RUN: @yair_as @file -o "@first_tempfile"
 
 mod "😀" {
-  
+  fn foo(heja: <bool, 2>) : u8
 }
-
-mod bar42 {}

@@ -1,0 +1,18 @@
+// RUN: @yair_as @file -o "@first_tempfile"
+
+mod "😀" {
+  var bool : bool
+  var i8 : i8
+  var i16 : i16
+  var i32 : i32
+  var i64 : i64
+  var u8 : u8
+  var u16 : u16
+  var u32 : u32
+  var u64 : u64
+  var f16 : f16
+  var f32 : f32
+  var f64 : f64
+  var void_ptr : *void
+  var "🎄" : i32
+}

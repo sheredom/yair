@@ -1,7 +1,5 @@
 // RUN: @yair_as @file -o "@first_tempfile"
 
 mod "😀" {
-  
+  var bool : {<bool, 2>, i32, f64, [*void, 42]}
 }
-
-mod bar42 {}

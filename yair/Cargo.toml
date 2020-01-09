@@ -7,4 +7,5 @@ edition = "2018"
 [dependencies]
 bytemuck = "1.1.0"
 generational-arena = { version = "0.2.6", features = ["serde"] }
+radix_trie = { version = "0.1.6", features = ["serde"] }
 serde = { version = "1.0.103", features = ["derive"] }

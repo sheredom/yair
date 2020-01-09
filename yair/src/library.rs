@@ -1,5 +1,7 @@
 use crate::*;
 use generational_arena::Arena;
+use generational_arena::Index;
+use radix_trie::Trie;
 use std::collections::HashMap;
 
 #[derive(Serialize, Deserialize)]
@@ -9,7 +11,8 @@ pub struct Library {
     pub(crate) functions: Arena<FunctionPayload>,
     pub(crate) blocks: Arena<BlockPayload>,
     pub(crate) values: Arena<ValuePayload>,
-    filenames: Arena<String>,
+    pub(crate) names: Arena<String>,
+    name_lookups: Trie<String, Index>,
     void_ty: Option<Type>,
     bool_ty: Option<Type>,
     i8_ty: Option<Type>,
@@ -27,6 +30,7 @@ pub struct Library {
     vec_tys: HashMap<(Type, u8), Type>,
     array_tys: HashMap<(Type, usize), Type>,
     struct_tys: HashMap<Vec<Type>, Type>,
+    named_struct_tys: HashMap<(Module, String), Type>,
     constants: HashMap<Constant, Value>,
 }
 
@@ -46,7 +50,8 @@ impl Library {
             functions: Arena::new(),
             blocks: Arena::new(),
             values: Arena::new(),
-            filenames: Arena::new(),
+            names: Arena::new(),
+            name_lookups: Trie::new(),
             void_ty: None,
             bool_ty: None,
             i8_ty: None,
@@ -64,6 +69,7 @@ impl Library {
             vec_tys: HashMap::new(),
             array_tys: HashMap::new(),
             struct_tys: HashMap::new(),
+            named_struct_tys: HashMap::new(),
             constants: HashMap::new(),
         }
     }
@@ -89,9 +95,9 @@ impl Library {
     /// # use yair::*;
     /// # let mut library = Library::new();
     /// # let module = library.create_module().build();
-    /// let ty = library.get_void_type();
+    /// let ty = library.get_void_ty();
     /// ```
-    pub fn get_void_type(&mut self) -> Type {
+    pub fn get_void_ty(&mut self) -> Type {
         match self.void_ty {
             Some(ty) => ty,
             None => {
@@ -132,9 +138,9 @@ impl Library {
     /// # use yair::*;
     /// # let mut library = Library::new();
     /// # let module = library.create_module().build();
-    /// let i32_ty = library.get_int_type(32);
+    /// let i32_ty = library.get_int_ty(32);
     /// ```
-    pub fn get_int_type(&mut self, bits: u8) -> Type {
+    pub fn get_int_ty(&mut self, bits: u8) -> Type {
         let option = match bits {
             8 => &mut self.i8_ty,
             16 => &mut self.i16_ty,
@@ -163,9 +169,9 @@ impl Library {
     /// # use yair::*;
     /// # let mut library = Library::new();
     /// # let module = library.create_module().build();
-    /// let u32_ty = library.get_uint_type(32);
+    /// let u32_ty = library.get_uint_ty(32);
     /// ```
-    pub fn get_uint_type(&mut self, bits: u8) -> Type {
+    pub fn get_uint_ty(&mut self, bits: u8) -> Type {
         let option = match bits {
             8 => &mut self.u8_ty,
             16 => &mut self.u16_ty,
@@ -194,9 +200,9 @@ impl Library {
     /// # use yair::*;
     /// # let mut library = Library::new();
     /// # let module = library.create_module().build();
-    /// let u32_ty = library.get_uint_type(32);
+    /// let u32_ty = library.get_uint_ty(32);
     /// ```
-    pub fn get_float_type(&mut self, bits: u8) -> Type {
+    pub fn get_float_ty(&mut self, bits: u8) -> Type {
         let option = match bits {
             16 => &mut self.half_ty,
             32 => &mut self.float_ty,
@@ -225,14 +231,17 @@ impl Library {
     /// # use yair::*;
     /// # let mut library = Library::new();
     /// # let module = library.create_module().build();
-    /// # let u32_ty = library.get_uint_type(32);
+    /// # let u32_ty = library.get_uint_ty(32);
     /// let vec_ty = library.get_vec_type(u32_ty, 8);
     /// ```
     pub fn get_vec_type(&mut self, element: Type, width: u8) -> Type {
-        match self.types[element.0] {
+        match &self.types[element.0] {
+            TypePayload::Bool => (),
             TypePayload::Int(_) => (),
             TypePayload::UInt(_) => (),
-            _ => panic!("Unhandled element type for vector"),
+            TypePayload::Float(_) => (),
+            TypePayload::Pointer(_, _) => (),
+            t => panic!("Unhandled element type for vector {:?}", t),
         }
 
         match width {
@@ -261,7 +270,7 @@ impl Library {
     /// # use yair::*;
     /// # let mut library = Library::new();
     /// # let module = library.create_module().build();
-    /// # let u32_ty = library.get_uint_type(32);
+    /// # let u32_ty = library.get_uint_ty(32);
     /// let ptr_ty = library.get_ptr_type(u32_ty, Domain::CPU);
     /// ```
     pub fn get_ptr_type(&mut self, pointee: Type, domain: Domain) -> Type {
@@ -283,9 +292,9 @@ impl Library {
     /// # use yair::*;
     /// # let mut library = Library::new();
     /// # let module = library.create_module().build();
-    /// # let void_ty = library.get_void_type();
-    /// # let i8_ty = library.get_int_type(8);
-    /// # let u16_ty = library.get_uint_type(16);
+    /// # let void_ty = library.get_void_ty();
+    /// # let i8_ty = library.get_int_ty(8);
+    /// # let u16_ty = library.get_uint_ty(16);
     /// let func_ty = library.get_fn_type(void_ty, &[i8_ty, u16_ty]);
     /// ```
     pub fn get_fn_type(&mut self, return_type: Type, argument_types: &[Type]) -> Type {
@@ -303,7 +312,7 @@ impl Library {
     /// # use yair::*;
     /// # let mut library = Library::new();
     /// # let module = library.create_module().build();
-    /// # let u32_ty = library.get_uint_type(32);
+    /// # let u32_ty = library.get_uint_ty(32);
     /// let array_ty = library.get_array_ty(u32_ty, 42);
     /// ```
     pub fn get_array_ty(&mut self, element: Type, len: usize) -> Type {
@@ -324,8 +333,7 @@ impl Library {
     /// ```
     /// # use yair::*;
     /// # let mut library = Library::new();
-    /// # let module = library.create_module().build();
-    /// # let u32_ty = library.get_uint_type(32);
+    /// # let u32_ty = library.get_uint_ty(32);
     /// # let array_ty = library.get_array_ty(u32_ty, 42);
     /// # let bool_ty = library.get_bool_ty();
     /// let struct_ty = library.get_struct_ty(&[ u32_ty, bool_ty, array_ty ]);
@@ -340,6 +348,49 @@ impl Library {
                 ty
             }
         }
+    }
+
+    /// Get a named struct type.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # use yair::*;
+    /// # let mut library = Library::new();
+    /// # let module = library.create_module().build();
+    /// # let u32_ty = library.get_uint_ty(32);
+    /// # let array_ty = library.get_array_ty(u32_ty, 42);
+    /// # let bool_ty = library.get_bool_ty();
+    /// let struct_ty = library.get_named_struct_ty(module, "foo", &[ u32_ty, bool_ty, array_ty ]);
+    /// # assert_eq!(struct_ty, library.get_named_struct_ty(module, "foo", &[ u32_ty, bool_ty, array_ty ]));
+    /// ```
+    pub fn get_named_struct_ty(&mut self, module: Module, name: &str, elements: &[Type]) -> Type {
+        let key = (module, name.to_string());
+        match self.named_struct_tys.get(&key) {
+            Some(ty) => *ty,
+            None => {
+                let struct_ty = self.get_struct_ty(elements);
+                let ty = Type(self.types.insert(TypePayload::NamedStruct(
+                    module,
+                    name.to_string(),
+                    struct_ty,
+                )));
+                self.named_struct_tys.insert(key, ty);
+                ty
+            }
+        }
+    }
+
+    pub(crate) fn get_name(&mut self, name: &str) -> Name {
+        Name(match self.name_lookups.get(name) {
+            Some(x) => *x,
+            None => {
+                let string = name.to_string();
+                let index = self.names.insert(string.clone());
+                self.name_lookups.insert(string, index);
+                index
+            }
+        })
     }
 
     /// Get a location. A location consists of a filename, the start position
@@ -359,20 +410,8 @@ impl Library {
         start: (usize, usize),
         end: (usize, usize),
     ) -> Location {
-        for (index, string) in self.filenames.iter() {
-            if filename == string {
-                return Location {
-                    filename: Filename(index),
-                    start,
-                    end,
-                };
-            }
-        }
-
-        let index = self.filenames.insert(filename.to_string());
-
         Location {
-            filename: Filename(index),
+            filename: self.get_name(filename),
             start,
             end,
         }
@@ -407,7 +446,7 @@ impl Library {
     /// let constant = library.get_int_constant(8, 42);
     /// ```
     pub fn get_int_constant(&mut self, bits: u8, cnst: i64) -> Value {
-        let constant = Constant::Int(cnst, self.get_int_type(bits));
+        let constant = Constant::Int(cnst, self.get_int_ty(bits));
         match self.constants.get(&constant) {
             Some(value) => *value,
             None => Value(self.values.insert(ValuePayload::Constant(constant))),
@@ -425,7 +464,7 @@ impl Library {
     /// let constant = library.get_uint_constant(16, 42);
     /// ```
     pub fn get_uint_constant(&mut self, bits: u8, cnst: u64) -> Value {
-        let constant = Constant::UInt(cnst, self.get_uint_type(bits));
+        let constant = Constant::UInt(cnst, self.get_uint_ty(bits));
         match self.constants.get(&constant) {
             Some(value) => *value,
             None => Value(self.values.insert(ValuePayload::Constant(constant))),
@@ -443,7 +482,7 @@ impl Library {
     /// let constant = library.get_float_constant(64, 42.0);
     /// ```
     pub fn get_float_constant(&mut self, bits: u8, cnst: f64) -> Value {
-        let constant = Constant::Float(cnst, self.get_float_type(bits));
+        let constant = Constant::Float(cnst, self.get_float_ty(bits));
         match self.constants.get(&constant) {
             Some(value) => *value,
             None => Value(self.values.insert(ValuePayload::Constant(constant))),

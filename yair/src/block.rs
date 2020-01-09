@@ -19,9 +19,9 @@ impl Block {
     /// # let mut library = Library::new();
     /// # let module = library.create_module().build();
     /// # let function = module.create_function(&mut library).with_name("func").build();
-    /// # let ty = library.get_uint_type(32);
+    /// # let ty = library.get_uint_ty(32);
     /// # let _ = function.create_block(&mut library).build();
-    /// # let block = function.create_block(&mut library).with_argument_types(&[ ty ]).build();
+    /// # let block = function.create_block(&mut library).with_argument(ty).build();
     /// let arg = block.get_arg(&library, 0);
     /// # assert_eq!(arg.get_type(&library), ty);
     /// ```
@@ -58,7 +58,7 @@ impl Block {
 pub struct BlockBuilder<'a> {
     library: &'a mut Library,
     function: Function,
-    argument_types: &'a [Type],
+    argument_types: Vec<Type>,
 }
 
 impl<'a> BlockBuilder<'a> {
@@ -81,13 +81,13 @@ impl<'a> BlockBuilder<'a> {
     /// # let mut library = Library::new();
     /// # let module = library.create_module().build();
     /// # let function = module.create_function(&mut library).with_name("func").build();
-    /// # let i8_ty = library.get_int_type(8);
-    /// # let u32_ty = library.get_uint_type(32);
+    /// # let i8_ty = library.get_int_ty(8);
+    /// # let u32_ty = library.get_uint_ty(32);
     /// # let block_builder = function.create_block(&mut library);
-    /// block_builder.with_argument_types(&[i8_ty, u32_ty]);
+    /// block_builder.with_argument(i8_ty).with_argument(u32_ty);
     /// ```
-    pub fn with_argument_types(mut self, argument_types: &'a [Type]) -> Self {
-        self.argument_types = argument_types;
+    pub fn with_argument(mut self, ty: Type) -> Self {
+        self.argument_types.push(ty);
         self
     }
 
@@ -109,6 +109,8 @@ impl<'a> BlockBuilder<'a> {
             instructions: Vec::new(),
         };
 
+        let name = self.library.get_name("");
+
         let function = &mut self.library.functions[self.function.0];
 
         if function.blocks.is_empty() {
@@ -119,10 +121,10 @@ impl<'a> BlockBuilder<'a> {
         }
 
         for argument_type in self.argument_types {
-            let argument = self
-                .library
-                .values
-                .insert(ValuePayload::Argument(Argument { ty: *argument_type }));
+            let argument = self.library.values.insert(ValuePayload::Argument(Argument {
+                name,
+                ty: argument_type,
+            }));
             block.arguments.push(Value(argument));
         }
 
@@ -156,14 +158,14 @@ mod tests {
     fn first_had_args() {
         let mut library = Library::new();
         let module = library.create_module().build();
-        let u32_ty = library.get_uint_type(32);
+        let u32_ty = library.get_uint_ty(32);
         let function = module
             .create_function(&mut library)
             .with_name("func")
             .build();
         let _ = function
             .create_block(&mut library)
-            .with_argument_types(&[u32_ty])
+            .with_argument(u32_ty)
             .build();
     }
 }

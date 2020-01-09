@@ -1,9 +1,29 @@
 use crate::*;
 
 #[derive(Clone, Debug, Hash, Eq, PartialEq, Serialize, Deserialize)]
-pub struct Global {
-    name: String,
+pub(crate) struct Global {
+    name: Name,
     ty: Type,
+    export: bool,
+}
+
+impl Named for Global {
+    /// Get the type of a global.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # use yair::*;
+    /// # let mut library = Library::new();
+    /// # let module = library.create_module().build();
+    /// # let global = module.create_global(&mut library).with_name("var").build();
+    /// let ty = global.get_type(&library);
+    /// # let void_ty = library.get_void_ty();
+    /// # assert_eq!(ty, library.get_ptr_type(void_ty, Domain::CrossDevice));
+    /// ```
+    fn get_name<'a>(&self, library: &'a Library) -> &'a str {
+        &library.names[self.name.0]
+    }
 }
 
 impl Typed for Global {
@@ -17,8 +37,8 @@ impl Typed for Global {
     /// # let module = library.create_module().build();
     /// # let global = module.create_global(&mut library).with_name("var").build();
     /// let ty = global.get_type(&library);
-    /// # let void_ty = library.get_void_type();
-    /// # assert_eq!(ty, library.get_ptr_type(void_ty, Domain::CPU_AND_GPU));
+    /// # let void_ty = library.get_void_ty();
+    /// # assert_eq!(ty, library.get_ptr_type(void_ty, Domain::CrossDevice));
     /// ```
     fn get_type(&self, _: &Library) -> Type {
         self.ty
@@ -31,17 +51,19 @@ pub struct GlobalBuilder<'a> {
     name: &'a str,
     ty: Type,
     domain: Domain,
+    export: bool,
 }
 
 impl<'a> GlobalBuilder<'a> {
     pub(crate) fn with_library_and_module(library: &'a mut Library, module: Module) -> Self {
-        let void_ty = library.get_void_type();
+        let void_ty = library.get_void_ty();
         GlobalBuilder {
             library,
             module,
             name: "",
             ty: void_ty,
-            domain: Domain::CPU_AND_GPU,
+            domain: Domain::CrossDevice,
+            export: false,
         }
     }
 
@@ -71,7 +93,7 @@ impl<'a> GlobalBuilder<'a> {
     /// # use yair::*;
     /// # let mut library = Library::new();
     /// # let module = library.create_module().build();
-    /// # let u32_ty = library.get_uint_type(32);
+    /// # let u32_ty = library.get_uint_ty(32);
     /// # let builder = module.create_global(&mut library);
     /// builder.with_type(u32_ty);
     /// ```
@@ -82,7 +104,7 @@ impl<'a> GlobalBuilder<'a> {
 
     /// Add a domain for the global.
     ///
-    /// The default domain is `CPU_AND_GPU` if none is specified.
+    /// The default domain is `CrossDevice` if none is specified.
     ///
     /// # Examples
     ///
@@ -95,6 +117,24 @@ impl<'a> GlobalBuilder<'a> {
     /// ```
     pub fn with_domain(mut self, domain: Domain) -> Self {
         self.domain = domain;
+        self
+    }
+
+    /// Sets whether the variable is exported from the module or not.
+    ///
+    /// By default variables are not exported.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # use yair::*;
+    /// # let mut library = Library::new();
+    /// # let module = library.create_module().build();
+    /// # let builder = module.create_global(&mut library);
+    /// builder.with_export(true);
+    /// ```
+    pub fn with_export(mut self, export: bool) -> Self {
+        self.export = export;
         self
     }
 
@@ -115,8 +155,9 @@ impl<'a> GlobalBuilder<'a> {
         let global_type = self.library.get_ptr_type(self.ty, self.domain);
 
         let global = Global {
-            name: self.name.to_string(),
+            name: self.library.get_name(self.name),
             ty: global_type,
+            export: self.export,
         };
 
         let index = Value(self.library.values.insert(ValuePayload::Global(global)));

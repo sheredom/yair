@@ -1,7 +1,7 @@
 use crate::*;
 
 #[derive(Debug, Serialize, Deserialize)]
-pub enum ValuePayload {
+pub(crate) enum ValuePayload {
     Undef(Type),
     Argument(Argument),
     Instruction(Instruction),
@@ -55,18 +55,21 @@ impl Value {
     }
 }
 
+impl Named for Value {
+    /// Get the name of a value.
+    fn get_name<'a>(&self, library: &'a Library) -> &'a str {
+        match &library.values[self.0] {
+            ValuePayload::Undef(_) => panic!("Undef values cannot have names"),
+            ValuePayload::Argument(arg) => arg.get_name(library),
+            ValuePayload::Instruction(inst) => inst.get_name(library),
+            ValuePayload::Constant(_) => panic!("Constants cannot have names"),
+            ValuePayload::Global(glbl) => glbl.get_name(library),
+        }
+    }
+}
+
 impl Typed for Value {
     /// Get the type of a value.
-    ///
-    /// # Examples
-    ///
-    /// ```
-    /// # use yair::*;
-    /// # let mut library = Library::new();
-    /// # let module = library.create_module().build();
-    /// # let function_builder = module.create_function(&mut library).with_name("func");
-    /// # let function = function_builder.build();
-    /// ```
     fn get_type(&self, library: &Library) -> Type {
         match &library.values[self.0] {
             ValuePayload::Undef(ty) => *ty,

@@ -7,7 +7,7 @@ pub(crate) struct ModulePayload {
     pub(crate) globals: Vec<Value>,
 }
 
-#[derive(Clone, Copy, Debug, Serialize, Deserialize)]
+#[derive(Clone, Copy, Debug, Eq, PartialEq, Hash, Serialize, Deserialize)]
 pub struct Module(pub(crate) generational_arena::Index);
 
 impl Module {

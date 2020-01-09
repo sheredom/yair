@@ -1,5 +1,6 @@
 extern crate bytemuck;
 extern crate generational_arena;
+extern crate radix_trie;
 extern crate serde;
 
 mod argument;
@@ -30,7 +31,7 @@ use serde::{Deserialize, Serialize};
 /// and pointer types to encode where the memory resides.
 #[derive(Clone, Copy, Debug, Eq, Hash, PartialEq, Serialize, Deserialize)]
 pub enum Domain {
-    CPU_AND_GPU,
+    CrossDevice,
     CPU,
     GPU,
     STACK,
@@ -46,6 +47,7 @@ enum TypePayload {
     Vector(Type, u8),
     Pointer(Type, Domain),
     Struct(Vec<Type>),
+    NamedStruct(Module, String, Type),
     Function(Type, Vec<Type>),
     Array(Type, usize),
 }
@@ -55,6 +57,13 @@ impl Default for TypePayload {
         TypePayload::Void
     }
 }
+
+pub trait Named {
+    fn get_name<'a>(&self, library: &'a Library) -> &'a str;
+}
+
+#[derive(Clone, Copy, Debug, Eq, Hash, PartialEq, Serialize, Deserialize)]
+pub struct Name(pub(crate) generational_arena::Index);
 
 pub trait Typed {
     fn get_type(&self, library: &Library) -> Type;
@@ -72,7 +81,7 @@ impl Type {
     /// # use yair::*;
     /// # let mut library = Library::new();
     /// # let module = library.create_module().build();
-    /// # let u32_ty = library.get_uint_type(32);
+    /// # let u32_ty = library.get_uint_ty(32);
     /// let bits = u32_ty.get_bits(&library);
     /// # assert_eq!(bits, 32);
     /// ```
@@ -95,7 +104,7 @@ impl Type {
     /// # use yair::*;
     /// # let mut library = Library::new();
     /// # let module = library.create_module().build();
-    /// # let u32_ty = library.get_uint_type(32);
+    /// # let u32_ty = library.get_uint_ty(32);
     /// # let u32_ptr_ty = library.get_ptr_type(u32_ty, Domain::CPU);
     /// let pointee = u32_ptr_ty.get_pointee(&library);
     /// # assert_eq!(pointee, u32_ty);
@@ -115,7 +124,7 @@ impl Type {
     /// # use yair::*;
     /// # let mut library = Library::new();
     /// # let module = library.create_module().build();
-    /// # let u32_ty = library.get_uint_type(32);
+    /// # let u32_ty = library.get_uint_ty(32);
     /// # let u32_ptr_ty = library.get_ptr_type(u32_ty, Domain::CPU);
     /// let domain = u32_ptr_ty.get_domain(&library);
     /// # assert_eq!(domain, Domain::CPU);
@@ -135,7 +144,7 @@ impl Type {
     /// # use yair::*;
     /// # let mut library = Library::new();
     /// # let module = library.create_module().build();
-    /// # let u32_ty = library.get_uint_type(32);
+    /// # let u32_ty = library.get_uint_ty(32);
     /// # let vec_ty = library.get_vec_type(u32_ty, 4);
     /// let element = vec_ty.get_element(&library, 3);
     /// # assert_eq!(element, u32_ty);
@@ -150,6 +159,7 @@ impl Type {
                 *ty
             }
             TypePayload::Struct(tys) => tys[index],
+            TypePayload::NamedStruct(_, _, ty) => ty.get_element(library, index),
             TypePayload::Array(ty, size) => {
                 assert!(index < *size, "Index is beyond the end of the array");
                 *ty
@@ -166,7 +176,7 @@ impl Type {
     /// # use yair::*;
     /// # let mut library = Library::new();
     /// # let module = library.create_module().build();
-    /// # let u32_ty = library.get_uint_type(32);
+    /// # let u32_ty = library.get_uint_ty(32);
     /// # let vec_ty = library.get_vec_type(u32_ty, 4);
     /// let is_vec = vec_ty.is_vector(&library);
     /// # assert!(is_vec);
@@ -186,7 +196,7 @@ impl Type {
     /// # use yair::*;
     /// # let mut library = Library::new();
     /// # let module = library.create_module().build();
-    /// # let u32_ty = library.get_uint_type(32);
+    /// # let u32_ty = library.get_uint_ty(32);
     /// # let vec_ty = library.get_vec_type(u32_ty, 4);
     /// let is_integral = u32_ty.is_integral(&library);
     /// # assert!(is_integral);
@@ -208,7 +218,7 @@ impl Type {
     /// # use yair::*;
     /// # let mut library = Library::new();
     /// # let module = library.create_module().build();
-    /// # let u32_ty = library.get_uint_type(32);
+    /// # let u32_ty = library.get_uint_ty(32);
     /// # let vec_ty = library.get_vec_type(u32_ty, 4);
     /// # let bool_ty = library.get_bool_ty();
     /// let is_integral = u32_ty.is_integral_or_integral_vector(&library);
@@ -235,7 +245,7 @@ impl Type {
     /// # use yair::*;
     /// # let mut library = Library::new();
     /// # let module = library.create_module().build();
-    /// # let u32_ty = library.get_uint_type(32);
+    /// # let u32_ty = library.get_uint_ty(32);
     /// # let vec_ty = library.get_vec_type(u32_ty, 4);
     /// # let bool_ty = library.get_bool_ty();
     /// let is_boolean = bool_ty.is_boolean(&library);
@@ -278,7 +288,7 @@ impl Type {
     /// # use yair::*;
     /// # let mut library = Library::new();
     /// # let module = library.create_module().build();
-    /// # let u32_ty = library.get_uint_type(32);
+    /// # let u32_ty = library.get_uint_ty(32);
     /// # let ty = library.get_array_ty(u32_ty, 42);
     /// # let index = library.get_int_constant(8, 0);
     /// let indexed_type = ty.get_indexed(&library, index);
@@ -299,6 +309,7 @@ impl Type {
                     _ => panic!("Cannot index into a struct with a non-integral constant"),
                 }
             }
+            TypePayload::NamedStruct(_, _, ty) => ty.get_indexed(library, index),
             _ => panic!("Unable to index into type!"),
         }
     }
@@ -312,21 +323,21 @@ mod tests {
     #[should_panic]
     fn bad_int_ty() {
         let mut library = Library::new();
-        let _ = library.get_int_type(31);
+        let _ = library.get_int_ty(31);
     }
 
     #[test]
     #[should_panic]
     fn bad_uint_ty() {
         let mut library = Library::new();
-        let _ = library.get_uint_type(13);
+        let _ = library.get_uint_ty(13);
     }
 
     #[test]
     #[should_panic]
     fn bad_vec_ty_element() {
         let mut library = Library::new();
-        let void_ty = library.get_void_type();
+        let void_ty = library.get_void_ty();
         let _ = library.get_vec_type(void_ty, 4);
     }
 
@@ -334,7 +345,7 @@ mod tests {
     #[should_panic]
     fn bad_vec_ty_width() {
         let mut library = Library::new();
-        let u32_ty = library.get_uint_type(32);
+        let u32_ty = library.get_uint_ty(32);
         let _ = library.get_vec_type(u32_ty, 1);
     }
 
@@ -342,7 +353,7 @@ mod tests {
     #[should_panic]
     fn bad_get_bits() {
         let mut library = Library::new();
-        let u32_ty = library.get_uint_type(32);
+        let u32_ty = library.get_uint_ty(32);
         let u32_ptr_ty = library.get_ptr_type(u32_ty, Domain::CPU);
         let _ = u32_ptr_ty.get_bits(&library);
     }
@@ -351,7 +362,7 @@ mod tests {
     #[should_panic]
     fn bad_get_pointee() {
         let mut library = Library::new();
-        let u32_ty = library.get_uint_type(32);
+        let u32_ty = library.get_uint_ty(32);
         let _ = u32_ty.get_pointee(&library);
     }
 
@@ -359,7 +370,7 @@ mod tests {
     #[should_panic]
     fn bad_get_element_index() {
         let mut library = Library::new();
-        let u32_ty = library.get_uint_type(32);
+        let u32_ty = library.get_uint_ty(32);
         let vec_ty = library.get_vec_type(u32_ty, 4);
         vec_ty.get_element(&library, 5);
     }
@@ -368,7 +379,7 @@ mod tests {
     #[should_panic]
     fn bad_get_element_type() {
         let mut library = Library::new();
-        let u32_ty = library.get_uint_type(32);
+        let u32_ty = library.get_uint_ty(32);
         u32_ty.get_element(&library, 0);
     }
 }
