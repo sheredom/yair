@@ -1,0 +1,4 @@
+// RUN: @yair_as @file --color never 2>&1 || echo 0
+
+// CHECK: error: Expected '{' to open a module
+mod foo. {}

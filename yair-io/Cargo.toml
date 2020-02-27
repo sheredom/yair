@@ -1,0 +1,28 @@
+[package]
+name = "yair-io"
+version = "0.0.1"
+authors = ["Neil Henning <sheredom@gmail.com>"]
+edition = "2018"
+
+[dependencies]
+clap = { version = "2.33.0", features = ["yaml"] }
+codespan = "0.7.0"
+codespan-reporting = "0.7.0"
+rmp-serde = "0.14.3"
+serde = { version = "1.0.104", features = ["derive"] }
+yair = { path = "../yair", version = "0.0.1" }
+
+[dev-dependencies]
+lit = "0.3.4"
+
+[lib]
+name = "yair_io"
+path = "src/lib.rs"
+
+[[bin]]
+name = "yair-as"
+path = "src/yair-as.rs"
+
+[[bin]]
+name = "yair-dis"
+path = "src/yair-dis.rs"

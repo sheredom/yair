@@ -1,0 +1,5 @@
+// RUN: @yair_as @file -o "@first_tempfile" --color never 2>&1 || echo 0
+
+mod "😀"
+
+// CHECK: error: Expected '{'

@@ -21,9 +21,9 @@ impl Block {
     /// # let function = module.create_function(&mut library).with_name("func").build();
     /// # let ty = library.get_uint_ty(32);
     /// # let _ = function.create_block(&mut library).build();
-    /// # let block = function.create_block(&mut library).with_argument(ty).build();
+    /// let block = function.create_block(&mut library).with_argument(ty).build();
     /// let arg = block.get_arg(&library, 0);
-    /// # assert_eq!(arg.get_type(&library), ty);
+    /// assert_eq!(arg.get_type(&library), ty);
     /// ```
     pub fn get_arg(&self, library: &Library, index: usize) -> Value {
         let block = &library.blocks[self.0];
@@ -36,6 +36,27 @@ impl Block {
         );
 
         block.arguments[index]
+    }
+
+    /// Get an argument from a block.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # use yair::*;
+    /// # let mut library = Library::new();
+    /// # let module = library.create_module().build();
+    /// # let function = module.create_function(&mut library).with_name("func").build();
+    /// # let ty = library.get_uint_ty(32);
+    /// # let _ = function.create_block(&mut library).build();
+    /// let block = function.create_block(&mut library).with_argument(ty).build();
+    /// let num_args = block.get_num_args(&library);
+    /// assert_eq!(num_args, 1);
+    /// ```
+    pub fn get_num_args(&self, library: &Library) -> usize {
+        let block = &library.blocks[self.0];
+
+        block.arguments.len()
     }
 
     /// Add instructions to the block.
@@ -113,13 +134,6 @@ impl<'a> BlockBuilder<'a> {
 
         let function = &mut self.library.functions[self.function.0];
 
-        if function.blocks.is_empty() {
-            assert!(
-                self.argument_types.is_empty(),
-                "The first block in a function cannot have any argument types"
-            );
-        }
-
         for argument_type in self.argument_types {
             let argument = self.library.values.insert(ValuePayload::Argument(Argument {
                 name,
@@ -154,13 +168,13 @@ mod tests {
     }
 
     #[test]
-    #[should_panic]
     fn first_had_args() {
         let mut library = Library::new();
         let module = library.create_module().build();
         let u32_ty = library.get_uint_ty(32);
         let function = module
             .create_function(&mut library)
+            .with_argument("a", u32_ty)
             .with_name("func")
             .build();
         let _ = function

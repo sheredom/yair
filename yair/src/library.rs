@@ -87,6 +87,23 @@ impl Library {
         ModuleBuilder::with_library(self)
     }
 
+    /// Get all the modules in the library.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # use yair::*;
+    /// # let mut library = Library::new();
+    /// let module_a = library.create_module().with_name("a").build();
+    /// let module_b = library.create_module().with_name("b").build();
+    /// let modules = library.get_modules();
+    /// assert_eq!(modules.nth(0).get_name(&library), "a");
+    /// assert_eq!(modules.nth(1).get_name(&library), "b");
+    /// ```
+    pub fn get_modules(&self) -> ModuleIterator {
+        ModuleIterator::new(&self.modules)
+    }
+
     /// Get the void type.
     ///
     /// # Examples
@@ -490,8 +507,39 @@ impl Library {
     }
 }
 
-impl Default for library::Library {
+impl Default for Library {
     fn default() -> Self {
         Self::new()
+    }
+}
+
+pub struct ModuleIterator {
+    vec: Vec<Module>,
+    next: usize,
+}
+
+impl ModuleIterator {
+    fn new(iter: &generational_arena::Arena<ModulePayload>) -> ModuleIterator {
+        let mut vec = Vec::new();
+
+        for (index, _) in iter.iter() {
+            vec.push(Module(index));
+        }
+
+        ModuleIterator { vec, next: 0 }
+    }
+}
+
+impl Iterator for ModuleIterator {
+    type Item = Module;
+
+    fn next(&mut self) -> Option<Module> {
+        if self.next < self.vec.len() {
+            let next = self.next;
+            self.next += 1;
+            Some(self.vec[next])
+        } else {
+            None
+        }
     }
 }

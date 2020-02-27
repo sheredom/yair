@@ -1,0 +1,23 @@
+name: yair-dis
+version: "0.0.1"
+author: Neil Henning <sheredom@gmail.com>
+about: Disassemble a YAIR binary file (.yair) to a YAIR text file (.ya).
+args:
+    - input:
+        help: The input .yair file (or - for stdin)
+        required: true
+        index: 1
+    - output:
+        short: o
+        long: output
+        value_name: FILE
+        help: Where to write the output disassembled .ya file (or - for stdout)
+        takes_value: true
+        default_value: "-"
+    - color:
+        long: color
+        value_name: COLOR
+        help: Whether to allow colored command line output
+        takes_value: true
+        default_value: "auto"
+        possible_values: [ "auto", "always", "ansi", "never" ]

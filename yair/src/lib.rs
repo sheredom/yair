@@ -259,6 +259,27 @@ impl Type {
         }
     }
 
+    /// Checks whether a type is a void type.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # use yair::*;
+    /// # let mut library = Library::new();
+    /// # let module = library.create_module().build();
+    /// # let u32_ty = library.get_uint_ty(32);
+    /// # let vec_ty = library.get_vec_type(u32_ty, 4);
+    /// # let void_ty = library.get_void_ty();
+    /// assert!(void_ty.is_void(&library));
+    /// # assert!(!vec_ty.is_boolean(&library));
+    /// ```
+    pub fn is_void(&self, library: &Library) -> bool {
+        match library.types[self.0] {
+            TypePayload::Void => true,
+            _ => false,
+        }
+    }
+
     /// Checks whether a type is a pointer type.
     ///
     /// # Examples

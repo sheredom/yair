@@ -6,7 +6,7 @@ mod tests {
     use std::env::consts;
     use std::path::PathBuf;
 
-    fn yair_as_dir() -> PathBuf {
+    fn bin_dir() -> PathBuf {
         env::current_exe()
             .ok()
             .map(|mut path| {
@@ -18,8 +18,16 @@ mod tests {
     }
 
     fn yair_as_exe() -> String {
-        yair_as_dir()
+        bin_dir()
             .join(format!("yair-as{}", env::consts::EXE_SUFFIX))
+            .to_str()
+            .unwrap()
+            .to_string()
+    }
+
+    fn yair_dis_exe() -> String {
+        bin_dir()
+            .join(format!("yair-dis{}", env::consts::EXE_SUFFIX))
             .to_str()
             .unwrap()
             .to_string()
@@ -32,6 +40,9 @@ mod tests {
             config.add_extension("ya");
 
             config.constants.insert("yair_as".to_owned(), yair_as_exe());
+            config
+                .constants
+                .insert("yair_dis".to_owned(), yair_dis_exe());
             config
                 .constants
                 .insert("arch".to_owned(), consts::ARCH.to_owned());

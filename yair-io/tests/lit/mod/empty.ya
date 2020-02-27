@@ -1,0 +1,1 @@
+// RUN: @yair_as @file | @yair_dis -

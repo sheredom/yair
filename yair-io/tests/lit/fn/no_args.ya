@@ -3,5 +3,5 @@
 mod "😀" {
   fn foo() : u8
 
-  fn "🎄"() : {<bool, 2>, i32, f64, [*void, 42]}
+  fn "🎄"() : {<bool, 2>, i32, f64, [*void, 42], * (cpu) * (any) bool}
 }

@@ -13,3 +13,11 @@ args:
         value_name: FILE
         help: Where to write the output assembled .yair file (or - for stdout)
         takes_value: true
+        default_value: "-"
+    - color:
+        long: color
+        value_name: COLOR
+        help: Whether to allow colored command line output
+        takes_value: true
+        default_value: "auto"
+        possible_values: [ "auto", "always", "ansi", "never" ]

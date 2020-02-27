@@ -1,0 +1,4 @@
+// RUN: @yair_as @file | @yair_dis -
+
+// CHECK: mod "😀" {}
+mod "😀" {}

@@ -14,5 +14,6 @@ mod "😀" {
   var f32 : f32
   var f64 : f64
   var void_ptr : *void
+  var gpu_ptr : *(gpu) void
   var "🎄" : i32
 }

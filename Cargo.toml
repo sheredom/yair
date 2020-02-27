@@ -1,5 +1,5 @@
 [workspace]
 members = [
   "yair",
-  "yair-as"
+  "yair-io"
 ]
