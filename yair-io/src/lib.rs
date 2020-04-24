@@ -1094,13 +1094,11 @@ pub fn disassemble(library: &Library, mut writer: impl std::io::Write) -> std::i
                     match inst {
                         Instruction::Return(loc) => writer
                             .write_fmt(format_args!("      ret {}\n", get_loc(library, loc)))?,
-                        Instruction::ReturnValue(_, val, loc) => {
-                            writer.write_fmt(format_args!(
-                                "      ret {}{}\n",
-                                values.get(&val).expect("ICE: bad"),
-                                get_loc(library, loc)
-                            ))?
-                        }
+                        Instruction::ReturnValue(_, val, loc) => writer.write_fmt(format_args!(
+                            "      ret {}{}\n",
+                            values.get(&val).expect("ICE: bad"),
+                            get_loc(library, loc)
+                        ))?,
                         Instruction::Cmp(ty, cmp, a, b, loc) => writer.write_fmt(format_args!(
                             "      {} = {} {} {} {}{}\n",
                             values.get(&value).expect("ICE: bad"),
@@ -1242,7 +1240,7 @@ pub fn disassemble(library: &Library, mut writer: impl std::io::Write) -> std::i
                                 values.get(&false_val).expect("ICE: bad"),
                                 get_loc(library, loc)
                             ))?,
-                        Instruction::GetElementPtr(ty, ptr, args, loc) => {
+                        Instruction::GetElementPtr(_, ptr, args, loc) => {
                             writer.write_fmt(format_args!(
                                 "      {} = gep {}",
                                 values.get(&value).expect("ICE: bad"),
@@ -1264,8 +1262,8 @@ pub fn disassemble(library: &Library, mut writer: impl std::io::Write) -> std::i
 
             // If we found at least one block, the function had a body
             if !first {
-                    writer.write_fmt(format_args!("  }}\n"))?;
-                }
+                writer.write_fmt(format_args!("  }}\n"))?;
+            }
         }
 
         writer.write_fmt(format_args!("}}\n"))?;
