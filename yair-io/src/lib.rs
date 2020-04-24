@@ -39,7 +39,7 @@ impl<'a> Assembler<'a> {
     }
 
     fn get_current_char(&self) -> Option<char> {
-        self.get_current_str().chars().nth(0)
+        self.get_current_str().chars().next()
     }
 
     fn get_current_str(&self) -> &'a str {
