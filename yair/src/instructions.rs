@@ -1,45 +1,94 @@
 use crate::*;
+use std::fmt;
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
-pub enum InstructionPayload {
-    Return,
-    ReturnValue(Value),
-    Add(Value, Value),
-    Sub(Value, Value),
-    Mul(Value, Value),
-    Div(Value, Value),
-    Rem(Value, Value),
-    Neg(Value),
-    And(Value, Value),
-    Or(Value, Value),
-    Xor(Value, Value),
-    Not(Value),
-    Shl(Value, Value),
-    Shr(Value, Value),
-    Cast(Value, Type),
-    BitCast(Value, Type),
-    Load(Value),
-    Store(Value, Value),
-    Extract(Value, usize),
-    Insert(Value, Value, usize),
-    CmpEqual(Value, Value, Type),
-    CmpNotEqual(Value, Value, Type),
-    CmpLessThan(Value, Value, Type),
-    CmpLessThanEqual(Value, Value, Type),
-    CmpGreaterThan(Value, Value, Type),
-    CmpGreaterThanEqual(Value, Value, Type),
-    StackAlloc(Name, Type),
-    Call(Function, Vec<Value>),
-    Branch(Block, Vec<Value>),
-    ConditionalBranch(Value, Block, Vec<Value>),
-    Select(Value, Value, Value),
-    GetElementPtr(Value, Vec<Value>, Type),
+pub enum Cmp {
+    Eq,
+    Ne,
+    Lt,
+    Le,
+    Gt,
+    Ge,
+}
+
+impl fmt::Display for Cmp {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match *self {
+            Cmp::Eq => write!(f, "eq"),
+            Cmp::Ne => write!(f, "ne"),
+            Cmp::Lt => write!(f, "lt"),
+            Cmp::Le => write!(f, "le"),
+            Cmp::Gt => write!(f, "gt"),
+            Cmp::Ge => write!(f, "ge"),
+        }
+    }
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
-pub struct Instruction {
-    pub(crate) location: Option<Location>,
-    pub(crate) payload: InstructionPayload,
+pub enum Unary {
+    Neg,
+    Not,
+}
+
+impl fmt::Display for Unary {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match *self {
+            Unary::Neg => write!(f, "neg"),
+            Unary::Not => write!(f, "not"),
+        }
+    }
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub enum Binary {
+    Add,
+    Sub,
+    Mul,
+    Div,
+    Rem,
+    And,
+    Or,
+    Xor,
+    Shl,
+    Shr,
+}
+
+impl fmt::Display for Binary {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match *self {
+            Binary::Add => write!(f, "add"),
+            Binary::Sub => write!(f, "sub"),
+            Binary::Mul => write!(f, "mul"),
+            Binary::Div => write!(f, "div"),
+            Binary::Rem => write!(f, "rem"),
+            Binary::And => write!(f, "and"),
+            Binary::Or => write!(f, "or"),
+            Binary::Xor => write!(f, "xor"),
+            Binary::Shl => write!(f, "shl"),
+            Binary::Shr => write!(f, "shr"),
+        }
+    }
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub enum Instruction {
+    Return(Option<Location>),
+    ReturnValue(Type, Value, Option<Location>),
+    Cmp(Type, Cmp, Value, Value, Option<Location>),
+    Unary(Type, Unary, Value, Option<Location>),
+    Binary(Type, Binary, Value, Value, Option<Location>),
+    Cast(Type, Value, Option<Location>),
+    BitCast(Type, Value, Option<Location>),
+    Load(Value, Option<Location>),
+    Store(Value, Value, Option<Location>),
+    Extract(Value, usize, Option<Location>),
+    Insert(Value, Value, usize, Option<Location>),
+    StackAlloc(Name, Type, Option<Location>),
+    Call(Function, Vec<Value>, Option<Location>),
+    Branch(Block, Vec<Value>, Option<Location>),
+    ConditionalBranch(Value, Block, Block, Vec<Value>, Option<Location>),
+    Select(Type, Value, Value, Value, Option<Location>),
+    GetElementPtr(Type, Value, Vec<Value>, Option<Location>),
 }
 
 impl Typed for Instruction {
@@ -63,43 +112,28 @@ impl Typed for Instruction {
     ///
     /// ```
     fn get_type(&self, library: &Library) -> Type {
-        match self.payload {
-            InstructionPayload::Return => panic!("Cannot get the type of a void return"),
-            InstructionPayload::ReturnValue(val) => val.get_type(library),
-            InstructionPayload::Add(x, _) => x.get_type(library),
-            InstructionPayload::Sub(x, _) => x.get_type(library),
-            InstructionPayload::Mul(x, _) => x.get_type(library),
-            InstructionPayload::Div(x, _) => x.get_type(library),
-            InstructionPayload::Rem(x, _) => x.get_type(library),
-            InstructionPayload::Neg(x) => x.get_type(library),
-            InstructionPayload::And(x, _) => x.get_type(library),
-            InstructionPayload::Or(x, _) => x.get_type(library),
-            InstructionPayload::Xor(x, _) => x.get_type(library),
-            InstructionPayload::Not(x) => x.get_type(library),
-            InstructionPayload::Cast(_, ty) => ty,
-            InstructionPayload::BitCast(_, ty) => ty,
-            InstructionPayload::Load(ptr) => ptr.get_type(library).get_pointee(library),
-            InstructionPayload::Store(_, _) => panic!("Cannot get the type of a store"),
-            InstructionPayload::Extract(val, index) => {
-                val.get_type(library).get_element(library, index)
+        match self {
+            Instruction::Return(_) => panic!("Cannot get the type of a void return"),
+            Instruction::ReturnValue(ty, _, _) => *ty,
+            Instruction::Cmp(ty, _, _, _, _) => *ty,
+            Instruction::Unary(ty, _, _, _) => *ty,
+            Instruction::Binary(ty, _, _, _, _) => *ty,
+            Instruction::Cast(ty, _, _) => *ty,
+            Instruction::BitCast(ty, _, _) => *ty,
+            Instruction::Load(ptr, _) => ptr.get_type(library).get_pointee(library),
+            Instruction::Store(_, _, _) => panic!("Cannot get the type of a store"),
+            Instruction::Extract(val, index, _) => {
+                val.get_type(library).get_element(library, *index)
             }
-            InstructionPayload::Insert(_, val, _) => val.get_type(library),
-            InstructionPayload::Shl(x, _) => x.get_type(library),
-            InstructionPayload::Shr(x, _) => x.get_type(library),
-            InstructionPayload::CmpEqual(_, _, ty) => ty,
-            InstructionPayload::CmpNotEqual(_, _, ty) => ty,
-            InstructionPayload::CmpLessThan(_, _, ty) => ty,
-            InstructionPayload::CmpLessThanEqual(_, _, ty) => ty,
-            InstructionPayload::CmpGreaterThan(_, _, ty) => ty,
-            InstructionPayload::CmpGreaterThanEqual(_, _, ty) => ty,
-            InstructionPayload::StackAlloc(_, ty) => ty,
-            InstructionPayload::Call(function, _) => function.get_return_type(library),
-            InstructionPayload::Branch(_, _) => panic!("Cannot get the type of a branch"),
-            InstructionPayload::ConditionalBranch(_, _, _) => {
+            Instruction::Insert(_, val, _, _) => val.get_type(library),
+            Instruction::StackAlloc(_, ty, _) => *ty,
+            Instruction::Call(function, _, _) => function.get_return_type(library),
+            Instruction::Branch(_, _, _) => panic!("Cannot get the type of a branch"),
+            Instruction::ConditionalBranch(_, _, _, _, _) => {
                 panic!("Cannot get the type of a conditional branch")
             }
-            InstructionPayload::Select(_, x, _) => x.get_type(library),
-            InstructionPayload::GetElementPtr(_, _, ty) => ty,
+            Instruction::Select(ty, _, _, _, _) => *ty,
+            Instruction::GetElementPtr(ty, _, _, _) => *ty,
         }
     }
 }
@@ -123,11 +157,10 @@ impl Named for Instruction {
     /// # instruction_builder.ret(None);
     /// let name = instruction.get_name(&library);
     /// # assert_eq!(name, "😀");
-    ///
     /// ```
     fn get_name<'a>(&self, library: &'a Library) -> &'a str {
-        match self.payload {
-            InstructionPayload::StackAlloc(name, _) => &library.names[name.0],
+        match self {
+            Instruction::StackAlloc(name, _, _) => &library.names[name.0],
             _ => panic!("Cannot get the name of instruction"),
         }
     }
@@ -143,8 +176,7 @@ impl<'a> InstructionBuilder<'a> {
         InstructionBuilder { library, block }
     }
 
-    fn make_value(&mut self, payload: InstructionPayload, location: Option<Location>) -> Value {
-        let instruction = Instruction { location, payload };
+    fn make_value(&mut self, instruction: Instruction) -> Value {
         let index = self
             .library
             .values
@@ -170,7 +202,7 @@ impl<'a> InstructionBuilder<'a> {
     /// instruction_builder.ret(location);
     /// ```
     pub fn ret(mut self, location: Option<Location>) -> Value {
-        self.make_value(InstructionPayload::Return, location)
+        self.make_value(Instruction::Return(location))
     }
 
     /// Record a return from the function which closes the block.
@@ -190,7 +222,11 @@ impl<'a> InstructionBuilder<'a> {
     /// instruction_builder.ret_val(return_value, location);
     /// ```
     pub fn ret_val(mut self, value: Value, location: Option<Location>) -> Value {
-        self.make_value(InstructionPayload::ReturnValue(value), location)
+        self.make_value(Instruction::ReturnValue(
+            value.get_type(self.library),
+            value,
+            location,
+        ))
     }
 
     /// Record an addition instruction in the block.
@@ -215,7 +251,13 @@ impl<'a> InstructionBuilder<'a> {
     /// ```
     pub fn add(&mut self, x: Value, y: Value, location: Option<Location>) -> Value {
         assert_eq!(x.get_type(self.library), y.get_type(self.library));
-        self.make_value(InstructionPayload::Add(x, y), location)
+        self.make_value(Instruction::Binary(
+            x.get_type(self.library),
+            Binary::Add,
+            x,
+            y,
+            location,
+        ))
     }
 
     /// Record a subtract instruction in the block.
@@ -240,7 +282,13 @@ impl<'a> InstructionBuilder<'a> {
     /// ```
     pub fn sub(&mut self, x: Value, y: Value, location: Option<Location>) -> Value {
         assert_eq!(x.get_type(self.library), y.get_type(self.library));
-        self.make_value(InstructionPayload::Sub(x, y), location)
+        self.make_value(Instruction::Binary(
+            x.get_type(self.library),
+            Binary::Sub,
+            x,
+            y,
+            location,
+        ))
     }
 
     /// Record a multiply instruction in the block.
@@ -265,7 +313,13 @@ impl<'a> InstructionBuilder<'a> {
     /// ```
     pub fn mul(&mut self, x: Value, y: Value, location: Option<Location>) -> Value {
         assert_eq!(x.get_type(self.library), y.get_type(self.library));
-        self.make_value(InstructionPayload::Mul(x, y), location)
+        self.make_value(Instruction::Binary(
+            x.get_type(self.library),
+            Binary::Mul,
+            x,
+            y,
+            location,
+        ))
     }
 
     /// Record a divide instruction in the block.
@@ -290,7 +344,44 @@ impl<'a> InstructionBuilder<'a> {
     /// ```
     pub fn div(&mut self, x: Value, y: Value, location: Option<Location>) -> Value {
         assert_eq!(x.get_type(self.library), y.get_type(self.library));
-        self.make_value(InstructionPayload::Div(x, y), location)
+        self.make_value(Instruction::Binary(
+            x.get_type(self.library),
+            Binary::Div,
+            x,
+            y,
+            location,
+        ))
+    }
+
+    /// Record a remainder instruction in the block.
+    ///
+    /// Restrictions:
+    /// - `x` and `y` must have the same type, which matches the type of the newly returned value.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # use yair::*;
+    /// # let mut library = Library::new();
+    /// # let module = library.create_module().build();
+    /// # let u32_ty = library.get_uint_ty(32);
+    /// # let function = module.create_function(&mut library).with_name("func").with_return_type(u32_ty).with_argument("a", u32_ty).with_argument("b", u32_ty).build();
+    /// # let block = function.create_block(&mut library).build();
+    /// # let x = function.get_arg(&library, 0);
+    /// # let y = function.get_arg(&library, 1);
+    /// # let mut instruction_builder = block.create_instructions(&mut library);
+    /// # let location = None;
+    /// let rem = instruction_builder.rem(x, y, location);
+    /// ```
+    pub fn rem(&mut self, x: Value, y: Value, location: Option<Location>) -> Value {
+        assert_eq!(x.get_type(self.library), y.get_type(self.library));
+        self.make_value(Instruction::Binary(
+            x.get_type(self.library),
+            Binary::Rem,
+            x,
+            y,
+            location,
+        ))
     }
 
     /// Negate a value.
@@ -310,7 +401,12 @@ impl<'a> InstructionBuilder<'a> {
     /// let div = instruction_builder.neg(x, location);
     /// ```
     pub fn neg(&mut self, x: Value, location: Option<Location>) -> Value {
-        self.make_value(InstructionPayload::Neg(x), location)
+        self.make_value(Instruction::Unary(
+            x.get_type(self.library),
+            Unary::Neg,
+            x,
+            location,
+        ))
     }
 
     /// Record a bitwise and instruction in the block.
@@ -339,7 +435,13 @@ impl<'a> InstructionBuilder<'a> {
             .get_type(self.library)
             .is_integral_or_integral_vector(self.library));
         assert_eq!(x.get_type(self.library), y.get_type(self.library));
-        self.make_value(InstructionPayload::And(x, y), location)
+        self.make_value(Instruction::Binary(
+            x.get_type(self.library),
+            Binary::And,
+            x,
+            y,
+            location,
+        ))
     }
 
     /// Record a bitwise or instruction in the block.
@@ -368,7 +470,13 @@ impl<'a> InstructionBuilder<'a> {
             .get_type(self.library)
             .is_integral_or_integral_vector(self.library));
         assert_eq!(x.get_type(self.library), y.get_type(self.library));
-        self.make_value(InstructionPayload::Or(x, y), location)
+        self.make_value(Instruction::Binary(
+            x.get_type(self.library),
+            Binary::Or,
+            x,
+            y,
+            location,
+        ))
     }
 
     /// Record a bitwise xor instruction in the block.
@@ -397,7 +505,13 @@ impl<'a> InstructionBuilder<'a> {
             .get_type(self.library)
             .is_integral_or_integral_vector(self.library));
         assert_eq!(x.get_type(self.library), y.get_type(self.library));
-        self.make_value(InstructionPayload::Xor(x, y), location)
+        self.make_value(Instruction::Binary(
+            x.get_type(self.library),
+            Binary::Xor,
+            x,
+            y,
+            location,
+        ))
     }
 
     /// Record a bitwise not instruction in the block.
@@ -423,7 +537,12 @@ impl<'a> InstructionBuilder<'a> {
         assert!(x
             .get_type(self.library)
             .is_integral_or_integral_vector(self.library));
-        self.make_value(InstructionPayload::Not(x), location)
+        self.make_value(Instruction::Unary(
+            x.get_type(self.library),
+            Unary::Not,
+            x,
+            location,
+        ))
     }
 
     /// Record a shift left instruction in the block.
@@ -448,7 +567,13 @@ impl<'a> InstructionBuilder<'a> {
     /// ```
     pub fn shl(&mut self, x: Value, y: Value, location: Option<Location>) -> Value {
         assert_eq!(x.get_type(self.library), y.get_type(self.library));
-        self.make_value(InstructionPayload::Shl(x, y), location)
+        self.make_value(Instruction::Binary(
+            x.get_type(self.library),
+            Binary::Shl,
+            x,
+            y,
+            location,
+        ))
     }
 
     /// Record a shift right instruction in the block.
@@ -473,7 +598,13 @@ impl<'a> InstructionBuilder<'a> {
     /// ```
     pub fn shr(&mut self, x: Value, y: Value, location: Option<Location>) -> Value {
         assert_eq!(x.get_type(self.library), y.get_type(self.library));
-        self.make_value(InstructionPayload::Shr(x, y), location)
+        self.make_value(Instruction::Binary(
+            x.get_type(self.library),
+            Binary::Shr,
+            x,
+            y,
+            location,
+        ))
     }
 
     /// Cast a value to another type.
@@ -498,7 +629,7 @@ impl<'a> InstructionBuilder<'a> {
     /// ```
     pub fn cast(&mut self, x: Value, ty: Type, location: Option<Location>) -> Value {
         assert_ne!(x.get_type(self.library), ty);
-        self.make_value(InstructionPayload::Cast(x, ty), location)
+        self.make_value(Instruction::Cast(ty, x, location))
     }
 
     /// Bitcast a value to another type.
@@ -527,7 +658,7 @@ impl<'a> InstructionBuilder<'a> {
         let x_ty = x.get_type(self.library);
         assert_ne!(x_ty, ty);
         assert_eq!(x_ty.get_bits(self.library), ty.get_bits(self.library));
-        self.make_value(InstructionPayload::BitCast(x, ty), location)
+        self.make_value(Instruction::BitCast(ty, x, location))
     }
 
     /// Load a value from a pointer.
@@ -552,7 +683,7 @@ impl<'a> InstructionBuilder<'a> {
     /// ```
     pub fn load(&mut self, ptr: Value, location: Option<Location>) -> Value {
         assert!(ptr.get_type(self.library).is_ptr(self.library));
-        self.make_value(InstructionPayload::Load(ptr), location)
+        self.make_value(Instruction::Load(ptr, location))
     }
 
     /// Store a value to a pointer.
@@ -584,7 +715,7 @@ impl<'a> InstructionBuilder<'a> {
             ptr.get_type(self.library).get_pointee(self.library),
             val.get_type(self.library)
         );
-        self.make_value(InstructionPayload::Store(ptr, val), location)
+        self.make_value(Instruction::Store(ptr, val, location))
     }
 
     /// Extract an element from a vector or struct type.
@@ -607,7 +738,7 @@ impl<'a> InstructionBuilder<'a> {
     pub fn extract(&mut self, val: Value, idx: usize, location: Option<Location>) -> Value {
         let ty = val.get_type(self.library);
         assert!(ty.is_vector(self.library));
-        self.make_value(InstructionPayload::Extract(val, idx), location)
+        self.make_value(Instruction::Extract(val, idx, location))
     }
 
     /// Insert an element into a vector or struct type.
@@ -639,7 +770,7 @@ impl<'a> InstructionBuilder<'a> {
             val.get_type(self.library).get_element(self.library, idx),
             element.get_type(self.library)
         );
-        self.make_value(InstructionPayload::Insert(val, element, idx), location)
+        self.make_value(Instruction::Insert(val, element, idx, location))
     }
 
     /// Record a compare equal instruction in the block.
@@ -665,7 +796,7 @@ impl<'a> InstructionBuilder<'a> {
     pub fn cmp_eq(&mut self, x: Value, y: Value, location: Option<Location>) -> Value {
         assert_eq!(x.get_type(self.library), y.get_type(self.library));
         let bool_ty = self.library.get_bool_ty();
-        self.make_value(InstructionPayload::CmpEqual(x, y, bool_ty), location)
+        self.make_value(Instruction::Cmp(bool_ty, Cmp::Eq, x, y, location))
     }
 
     /// Record a compare not-equal instruction in the block.
@@ -691,7 +822,7 @@ impl<'a> InstructionBuilder<'a> {
     pub fn cmp_ne(&mut self, x: Value, y: Value, location: Option<Location>) -> Value {
         assert_eq!(x.get_type(self.library), y.get_type(self.library));
         let bool_ty = self.library.get_bool_ty();
-        self.make_value(InstructionPayload::CmpNotEqual(x, y, bool_ty), location)
+        self.make_value(Instruction::Cmp(bool_ty, Cmp::Ne, x, y, location))
     }
 
     /// Record a compare less-than instruction in the block.
@@ -717,7 +848,7 @@ impl<'a> InstructionBuilder<'a> {
     pub fn cmp_lt(&mut self, x: Value, y: Value, location: Option<Location>) -> Value {
         assert_eq!(x.get_type(self.library), y.get_type(self.library));
         let bool_ty = self.library.get_bool_ty();
-        self.make_value(InstructionPayload::CmpLessThan(x, y, bool_ty), location)
+        self.make_value(Instruction::Cmp(bool_ty, Cmp::Lt, x, y, location))
     }
 
     /// Record a compare less-than-equal instruction in the block.
@@ -743,10 +874,7 @@ impl<'a> InstructionBuilder<'a> {
     pub fn cmp_le(&mut self, x: Value, y: Value, location: Option<Location>) -> Value {
         assert_eq!(x.get_type(self.library), y.get_type(self.library));
         let bool_ty = self.library.get_bool_ty();
-        self.make_value(
-            InstructionPayload::CmpLessThanEqual(x, y, bool_ty),
-            location,
-        )
+        self.make_value(Instruction::Cmp(bool_ty, Cmp::Le, x, y, location))
     }
 
     /// Record a compare greater-than instruction in the block.
@@ -772,7 +900,7 @@ impl<'a> InstructionBuilder<'a> {
     pub fn cmp_gt(&mut self, x: Value, y: Value, location: Option<Location>) -> Value {
         assert_eq!(x.get_type(self.library), y.get_type(self.library));
         let bool_ty = self.library.get_bool_ty();
-        self.make_value(InstructionPayload::CmpGreaterThan(x, y, bool_ty), location)
+        self.make_value(Instruction::Cmp(bool_ty, Cmp::Gt, x, y, location))
     }
 
     /// Record a compare greater-than-equal instruction in the block.
@@ -798,10 +926,7 @@ impl<'a> InstructionBuilder<'a> {
     pub fn cmp_ge(&mut self, x: Value, y: Value, location: Option<Location>) -> Value {
         assert_eq!(x.get_type(self.library), y.get_type(self.library));
         let bool_ty = self.library.get_bool_ty();
-        self.make_value(
-            InstructionPayload::CmpGreaterThanEqual(x, y, bool_ty),
-            location,
-        )
+        self.make_value(Instruction::Cmp(bool_ty, Cmp::Ge, x, y, location))
     }
 
     /// Stack allocate a variable.
@@ -824,8 +949,7 @@ impl<'a> InstructionBuilder<'a> {
     pub fn stack_alloc(&mut self, name: &str, ty: Type, location: Option<Location>) -> Value {
         let ptr_ty = self.library.get_ptr_type(ty, Domain::STACK);
         let name_index = self.library.get_name(name);
-
-        self.make_value(InstructionPayload::StackAlloc(name_index, ptr_ty), location)
+        self.make_value(Instruction::StackAlloc(name_index, ptr_ty, location))
     }
 
     /// Call a function.
@@ -852,7 +976,7 @@ impl<'a> InstructionBuilder<'a> {
         args: &[Value],
         location: Option<Location>,
     ) -> Value {
-        self.make_value(InstructionPayload::Call(function, args.to_vec()), location)
+        self.make_value(Instruction::Call(function, args.to_vec(), location))
     }
 
     /// Record an unconditional branch between blocks.
@@ -874,7 +998,7 @@ impl<'a> InstructionBuilder<'a> {
     /// instruction_builder.branch(called_block, &[ x, y ], location);
     /// ```
     pub fn branch(mut self, block: Block, args: &[Value], location: Option<Location>) {
-        self.make_value(InstructionPayload::Branch(block, args.to_vec()), location);
+        self.make_value(Instruction::Branch(block, args.to_vec(), location));
     }
 
     /// Record a conditional branch between blocks.
@@ -891,26 +1015,31 @@ impl<'a> InstructionBuilder<'a> {
     /// # let u32_ty = library.get_uint_ty(32);
     /// # let function = module.create_function(&mut library).with_name("func").with_return_type(u32_ty).with_argument("a", u32_ty).with_argument("b", u32_ty).build();
     /// # let block = function.create_block(&mut library).build();
-    /// # let called_block = function.create_block(&mut library).with_argument(u32_ty).with_argument(u32_ty).build();
+    /// # let true_block = function.create_block(&mut library).with_argument(u32_ty).with_argument(u32_ty).build();
+    /// # let false_block = function.create_block(&mut library).with_argument(u32_ty).with_argument(u32_ty).build();
     /// # let x = function.get_arg(&library, 0);
     /// # let y = function.get_arg(&library, 1);
     /// # let mut instruction_builder = block.create_instructions(&mut library);
     /// # let location = None;
     /// # let condition = instruction_builder.cmp_ge(x, y, location);
-    /// instruction_builder.conditional_branch(condition, called_block, &[ x, y ], location);
+    /// instruction_builder.conditional_branch(condition, true_block, false_block, &[ x, y ], location);
     /// ```
     pub fn conditional_branch(
         mut self,
         condition: Value,
-        block: Block,
+        true_block: Block,
+        false_block: Block,
         args: &[Value],
         location: Option<Location>,
     ) {
         assert!(condition.get_type(self.library).is_boolean(self.library));
-        self.make_value(
-            InstructionPayload::ConditionalBranch(condition, block, args.to_vec()),
+        self.make_value(Instruction::ConditionalBranch(
+            condition,
+            true_block,
+            false_block,
+            args.to_vec(),
             location,
-        );
+        ));
     }
 
     /// Record a select between two values in the block.
@@ -944,7 +1073,13 @@ impl<'a> InstructionBuilder<'a> {
     ) -> Value {
         assert!(condition.get_type(self.library).is_boolean(self.library));
         assert_eq!(x.get_type(self.library), y.get_type(self.library));
-        self.make_value(InstructionPayload::Select(condition, x, y), location)
+        self.make_value(Instruction::Select(
+            x.get_type(self.library),
+            condition,
+            x,
+            y,
+            location,
+        ))
     }
 
     /// Get a pointer to an element from within another pointer.
@@ -999,9 +1134,11 @@ impl<'a> InstructionBuilder<'a> {
             .library
             .get_ptr_type(ty, ptr_ty.get_domain(self.library));
 
-        self.make_value(
-            InstructionPayload::GetElementPtr(ptr, indices.to_vec(), ty),
+        self.make_value(Instruction::GetElementPtr(
+            ty,
+            ptr,
+            indices.to_vec(),
             location,
-        )
+        ))
     }
 }

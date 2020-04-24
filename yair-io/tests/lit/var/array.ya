@@ -1,5 +1,7 @@
-// RUN: @yair_as @file -o "@first_tempfile"
+// RUN: @yair_as @file | @yair_dis -
 
+// CHECK: mod "😀"
 mod "😀" {
+  // CHECK: var bool : [<bool, 2>, 42]
   var bool : [<bool, 2>, 42]
 }

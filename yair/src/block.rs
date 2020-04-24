@@ -9,6 +9,12 @@ pub struct BlockPayload {
 #[derive(Clone, Copy, Debug, Serialize, Deserialize)]
 pub struct Block(pub(crate) generational_arena::Index);
 
+impl UniqueIndex for Block {
+    fn get_unique_index(&self) -> usize {
+        self.0.into_raw_parts().0
+    }
+}
+
 impl Block {
     /// Get an argument from a block.
     ///
@@ -73,6 +79,30 @@ impl Block {
     /// ```
     pub fn create_instructions<'a>(&self, library: &'a mut Library) -> InstructionBuilder<'a> {
         InstructionBuilder::with_library_and_block(library, *self)
+    }
+
+    /// Get all the blocks in a function.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # use yair::*;
+    /// # let mut library = Library::new();
+    /// # let module = library.create_module().build();
+    /// # let u32_ty = library.get_uint_ty(32);
+    /// # let function = module.create_function(&mut library).with_name("func").build();
+    /// # let _ = function.create_block(&mut library).build();
+    /// # let block = function.create_block(&mut library).build();
+    /// # let constant = library.get_uint_constant(32, 42);
+    /// let mut instruction_builder = block.create_instructions(&mut library);
+    /// let instruction = instruction_builder.stack_alloc("😀", u32_ty, None);
+    /// instruction_builder.ret(None);
+    /// let mut instructions = block.get_insts(&library);
+    /// assert_eq!(instructions.nth(0).unwrap(), instruction);
+    /// ```
+    pub fn get_insts(&self, library: &Library) -> InstructionIterator {
+        let block = &library.blocks[self.0];
+        InstructionIterator::new(&block.instructions)
     }
 }
 
@@ -181,5 +211,33 @@ mod tests {
             .create_block(&mut library)
             .with_argument(u32_ty)
             .build();
+    }
+}
+
+pub struct InstructionIterator {
+    vec: Vec<Value>,
+    next: usize,
+}
+
+impl InstructionIterator {
+    fn new(iter: &[Value]) -> InstructionIterator {
+        InstructionIterator {
+            vec: iter.to_vec(),
+            next: 0,
+        }
+    }
+}
+
+impl Iterator for InstructionIterator {
+    type Item = Value;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        if self.next < self.vec.len() {
+            let next = self.next;
+            self.next += 1;
+            Some(self.vec[next])
+        } else {
+            None
+        }
     }
 }

@@ -9,8 +9,14 @@ pub(crate) enum ValuePayload {
     Global(Global),
 }
 
-#[derive(Clone, Copy, Debug, Hash, PartialEq, Serialize, Deserialize)]
+#[derive(Clone, Copy, Debug, Eq, Hash, PartialEq, Serialize, Deserialize)]
 pub struct Value(pub(crate) generational_arena::Index);
+
+impl UniqueIndex for Value {
+    fn get_unique_index(&self) -> usize {
+        self.0.into_raw_parts().0
+    }
+}
 
 impl Value {
     /// Return true if a value is a constant.
@@ -51,6 +57,75 @@ impl Value {
         match &library.values[self.0] {
             ValuePayload::Constant(c) => &c,
             _ => panic!("Cannot get the constant from a non-constant value"),
+        }
+    }
+
+    /// Return true if a value is an instruction.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # use yair::*;
+    /// # let mut library = Library::new();
+    /// # let module = library.create_module().build();
+    /// # let u32_ty = library.get_uint_ty(32);
+    /// # let function = module.create_function(&mut library).with_name("func").with_return_type(u32_ty).build();
+    /// # let _ = function.create_block(&mut library).build();
+    /// # let block = function.create_block(&mut library).build();
+    /// # let constant = library.get_uint_constant(32, 42);
+    /// # let mut instruction_builder = block.create_instructions(&mut library);
+    /// # let instruction = instruction_builder.ret_val(constant, None);
+    /// let is_inst = instruction.is_inst(&library);
+    /// # assert!(is_inst);
+    /// ```
+    pub fn is_inst(&self, library: &Library) -> bool {
+        match library.values[self.0] {
+            ValuePayload::Instruction(_) => true,
+            _ => false,
+        }
+    }
+
+    /// If the value is an instruction, get the instruction, otherwise panic.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # use yair::*;
+    /// # let mut library = Library::new();
+    /// # let module = library.create_module().build();
+    /// # let u32_ty = library.get_uint_ty(32);
+    /// # let function = module.create_function(&mut library).with_name("func").with_return_type(u32_ty).build();
+    /// # let _ = function.create_block(&mut library).build();
+    /// # let block = function.create_block(&mut library).build();
+    /// # let constant = library.get_uint_constant(32, 42);
+    /// # let mut instruction_builder = block.create_instructions(&mut library);
+    /// # let value = instruction_builder.ret_val(constant, None);
+    /// let instruction = value.get_inst(&library);
+    /// ```
+    pub fn get_inst<'a>(&self, library: &'a Library) -> &'a Instruction {
+        match &library.values[self.0] {
+            ValuePayload::Instruction(i) => &i,
+            _ => panic!("Cannot get the instruction from a non-instruction value"),
+        }
+    }
+
+    /// Return true if the value is a global export.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # use yair::*;
+    /// # let mut library = Library::new();
+    /// # let module = library.create_module().with_name("module").build();
+    /// # let u32_ty = library.get_uint_ty(32);
+    /// let global = module.create_global(&mut library).with_export(true).with_name("global").with_type(u32_ty).build();
+    /// let is_export = global.is_export(&library);
+    /// # assert!(is_export);
+    /// ```
+    pub fn is_export(&self, library: &Library) -> bool {
+        match &library.values[self.0] {
+            ValuePayload::Global(g) => g.export,
+            _ => false,
         }
     }
 }

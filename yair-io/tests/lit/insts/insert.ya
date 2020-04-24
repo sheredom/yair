@@ -1,0 +1,14 @@
+// RUN: @yair_as @file | @yair_dis -
+
+// CHECK: mod "😀"
+mod "😀" {
+  // CHECK: fn foo(a : u8, b : <u8, 2>) : <u8, 2> {
+  fn foo(a: u8, b: <u8, 2>) : <u8, 2> {
+    // CHECK: b0(v2 : u8, v3 : <u8, 2>):
+    bar(a: u8, b: <u8, 2>):
+      // CHECK: v4 = insert v3, v2, 1
+      c = insert b, a, 1
+      // CHECK: ret v4
+      ret c
+  }
+}

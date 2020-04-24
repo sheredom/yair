@@ -4,7 +4,7 @@ use crate::*;
 pub(crate) struct Global {
     name: Name,
     ty: Type,
-    export: bool,
+    pub(crate) export: bool,
 }
 
 impl Named for Global {

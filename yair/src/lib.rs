@@ -47,7 +47,6 @@ enum TypePayload {
     Vector(Type, u8),
     Pointer(Type, Domain),
     Struct(Vec<Type>),
-    NamedStruct(Module, String, Type),
     Function(Type, Vec<Type>),
     Array(Type, usize),
 }
@@ -65,8 +64,18 @@ pub trait Named {
 #[derive(Clone, Copy, Debug, Eq, Hash, PartialEq, Serialize, Deserialize)]
 pub struct Name(pub(crate) generational_arena::Index);
 
+impl Named for Name {
+    fn get_name<'a>(&self, library: &'a Library) -> &'a str {
+        &library.names[self.0]
+    }
+}
+
 pub trait Typed {
     fn get_type(&self, library: &Library) -> Type;
+}
+
+pub trait UniqueIndex {
+    fn get_unique_index(&self) -> usize;
 }
 
 #[derive(Clone, Copy, Debug, Eq, Hash, PartialEq, Serialize, Deserialize)]
@@ -93,6 +102,27 @@ impl Type {
             TypePayload::Float(x) => x as usize,
             TypePayload::Vector(ty, width) => ty.get_bits(library) * (width as usize),
             _ => panic!("Cannot get the bit-width of type"),
+        }
+    }
+
+    /// Get the length of an aggregate type.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # use yair::*;
+    /// # let mut library = Library::new();
+    /// # let module = library.create_module().build();
+    /// # let u32_ty = library.get_uint_ty(32);
+    /// let vec_ty = library.get_vec_type(u32_ty, 4);
+    /// assert_eq!(vec_ty.get_len(&library), 4);
+    /// ```
+    pub fn get_len(&self, library: &Library) -> usize {
+        match &library.types[self.0] {
+            TypePayload::Vector(_, width) => *width as usize,
+            TypePayload::Array(_, width) => *width,
+            TypePayload::Struct(vec) => vec.len(),
+            _ => panic!("Cannot get the length of a non-aggregate type"),
         }
     }
 
@@ -159,12 +189,51 @@ impl Type {
                 *ty
             }
             TypePayload::Struct(tys) => tys[index],
-            TypePayload::NamedStruct(_, _, ty) => ty.get_element(library, index),
             TypePayload::Array(ty, size) => {
                 assert!(index < *size, "Index is beyond the end of the array");
                 *ty
             }
             _ => panic!("Cannot get the element from type"),
+        }
+    }
+
+    /// Checks whether a type is a array type.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # use yair::*;
+    /// # let mut library = Library::new();
+    /// # let module = library.create_module().build();
+    /// # let u32_ty = library.get_uint_ty(32);
+    /// # let array_ty = library.get_array_ty(u32_ty, 4);
+    /// let is_array = array_ty.is_array(&library);
+    /// # assert!(is_array);
+    /// ```
+    pub fn is_array(&self, library: &Library) -> bool {
+        match library.types[self.0] {
+            TypePayload::Array(_, _) => true,
+            _ => false,
+        }
+    }
+
+    /// Checks whether a type is a struct type.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # use yair::*;
+    /// # let mut library = Library::new();
+    /// # let module = library.create_module().build();
+    /// # let u32_ty = library.get_uint_ty(32);
+    /// # let struct_ty = library.get_struct_ty(&[ u32_ty ]);
+    /// let is_struct = struct_ty.is_struct(&library);
+    /// # assert!(is_struct);
+    /// ```
+    pub fn is_struct(&self, library: &Library) -> bool {
+        match library.types[self.0] {
+            TypePayload::Struct(_) => true,
+            _ => false,
         }
     }
 
@@ -184,6 +253,60 @@ impl Type {
     pub fn is_vector(&self, library: &Library) -> bool {
         match library.types[self.0] {
             TypePayload::Vector(_, _) => true,
+            _ => false,
+        }
+    }
+
+    /// Checks whether a type is an int type.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # use yair::*;
+    /// # let mut library = Library::new();
+    /// # let module = library.create_module().build();
+    /// # let i32_ty = library.get_int_ty(32);
+    /// assert!(i32_ty.is_int(&library));
+    /// ```
+    pub fn is_int(&self, library: &Library) -> bool {
+        match library.types[self.0] {
+            TypePayload::Int(_) => true,
+            _ => false,
+        }
+    }
+
+    /// Checks whether a type is an uint type.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # use yair::*;
+    /// # let mut library = Library::new();
+    /// # let module = library.create_module().build();
+    /// # let u32_ty = library.get_uint_ty(32);
+    /// assert!(u32_ty.is_uint(&library));
+    /// ```
+    pub fn is_uint(&self, library: &Library) -> bool {
+        match library.types[self.0] {
+            TypePayload::UInt(_) => true,
+            _ => false,
+        }
+    }
+
+    /// Checks whether a type is a float type.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # use yair::*;
+    /// # let mut library = Library::new();
+    /// # let module = library.create_module().build();
+    /// # let f32_ty = library.get_float_ty(32);
+    /// assert!(f32_ty.is_float(&library));
+    /// ```
+    pub fn is_float(&self, library: &Library) -> bool {
+        match library.types[self.0] {
+            TypePayload::Float(_) => true,
             _ => false,
         }
     }
@@ -330,7 +453,6 @@ impl Type {
                     _ => panic!("Cannot index into a struct with a non-integral constant"),
                 }
             }
-            TypePayload::NamedStruct(_, _, ty) => ty.get_indexed(library, index),
             _ => panic!("Unable to index into type!"),
         }
     }

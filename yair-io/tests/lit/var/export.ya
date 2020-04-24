@@ -1,5 +1,7 @@
-// RUN: @yair_as @file -o "@first_tempfile"
+// RUN: @yair_as @file | @yair_dis -
 
+// CHECK: mod "😀"
 mod "😀" {
+  // CHECK: export var void_ptr : *(any) *(any) f64
   export var void_ptr : **f64
 }

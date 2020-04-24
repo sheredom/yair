@@ -96,9 +96,9 @@ impl Library {
     /// # let mut library = Library::new();
     /// let module_a = library.create_module().with_name("a").build();
     /// let module_b = library.create_module().with_name("b").build();
-    /// let modules = library.get_modules();
-    /// assert_eq!(modules.nth(0).get_name(&library), "a");
-    /// assert_eq!(modules.nth(1).get_name(&library), "b");
+    /// let mut modules = library.get_modules();
+    /// assert_eq!(modules.nth(0).unwrap().get_name(&library), "a");
+    /// assert_eq!(modules.nth(0).unwrap().get_name(&library), "b");
     /// ```
     pub fn get_modules(&self) -> ModuleIterator {
         ModuleIterator::new(&self.modules)
@@ -362,37 +362,6 @@ impl Library {
             None => {
                 let ty = Type(self.types.insert(TypePayload::Struct(elements.to_vec())));
                 self.struct_tys.insert(elements.to_vec(), ty);
-                ty
-            }
-        }
-    }
-
-    /// Get a named struct type.
-    ///
-    /// # Examples
-    ///
-    /// ```
-    /// # use yair::*;
-    /// # let mut library = Library::new();
-    /// # let module = library.create_module().build();
-    /// # let u32_ty = library.get_uint_ty(32);
-    /// # let array_ty = library.get_array_ty(u32_ty, 42);
-    /// # let bool_ty = library.get_bool_ty();
-    /// let struct_ty = library.get_named_struct_ty(module, "foo", &[ u32_ty, bool_ty, array_ty ]);
-    /// # assert_eq!(struct_ty, library.get_named_struct_ty(module, "foo", &[ u32_ty, bool_ty, array_ty ]));
-    /// ```
-    pub fn get_named_struct_ty(&mut self, module: Module, name: &str, elements: &[Type]) -> Type {
-        let key = (module, name.to_string());
-        match self.named_struct_tys.get(&key) {
-            Some(ty) => *ty,
-            None => {
-                let struct_ty = self.get_struct_ty(elements);
-                let ty = Type(self.types.insert(TypePayload::NamedStruct(
-                    module,
-                    name.to_string(),
-                    struct_ty,
-                )));
-                self.named_struct_tys.insert(key, ty);
                 ty
             }
         }

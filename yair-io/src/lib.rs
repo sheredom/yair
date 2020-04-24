@@ -5,8 +5,6 @@ extern crate yair;
 
 use codespan::{FileId, Span};
 use codespan_reporting::diagnostic::{Diagnostic, Label};
-use rmp_serde::Serializer;
-use serde::Serialize;
 use std::collections::HashMap;
 use std::str::FromStr;
 use yair::*;
@@ -57,7 +55,7 @@ impl<'a> Assembler<'a> {
     fn pop_if_next_symbol(&mut self, str: &str) -> Result<bool, Diagnostic> {
         self.skip_comments_or_whitespace();
 
-        if self.get_current_str().len() == 0 {
+        if self.get_current_str().is_empty() {
             Err(Diagnostic::new_error(
                 "unexpected end of file",
                 Label::new(self.file, self.single_char_span(), "here"),
@@ -187,7 +185,7 @@ impl<'a> Assembler<'a> {
     fn parse_identifier_with_span(&mut self) -> Result<(&'a str, Span), Diagnostic> {
         self.skip_comments_or_whitespace();
 
-        if self.get_current_str().len() == 0 {
+        if self.get_current_str().is_empty() {
             return Err(self.unexpected_end_of_file());
         }
 
@@ -238,24 +236,20 @@ impl<'a> Assembler<'a> {
     }
 
     fn try_parse_int_or_float(&mut self, library: &mut Library, c: char) -> Option<Type> {
-        match self.try_parse_int_or_float_val(library, c, 8) {
-            Some(x) => return Some(x),
-            None => (),
+        if let Some(x) = self.try_parse_int_or_float_val(library, c, 8) {
+            return Some(x);
         }
 
-        match self.try_parse_int_or_float_val(library, c, 16) {
-            Some(x) => return Some(x),
-            None => (),
+        if let Some(x) = self.try_parse_int_or_float_val(library, c, 16) {
+            return Some(x);
         }
 
-        match self.try_parse_int_or_float_val(library, c, 32) {
-            Some(x) => return Some(x),
-            None => (),
+        if let Some(x) = self.try_parse_int_or_float_val(library, c, 32) {
+            return Some(x);
         }
 
-        match self.try_parse_int_or_float_val(library, c, 64) {
-            Some(x) => return Some(x),
-            None => (),
+        if let Some(x) = self.try_parse_int_or_float_val(library, c, 64) {
+            return Some(x);
         }
 
         None
@@ -270,7 +264,7 @@ impl<'a> Assembler<'a> {
         loop {
             self.skip_comments_or_whitespace();
 
-            if self.get_current_str().len() == 0 {
+            if self.get_current_str().is_empty() {
                 return Err(Diagnostic::new_error(
                     "Expected '}' to close a struct",
                     Label::new(self.file, self.single_char_span(), "should be '}'"),
@@ -297,7 +291,7 @@ impl<'a> Assembler<'a> {
                 break;
             }
 
-            if !self.get_current_str().starts_with(",") {
+            if !self.get_current_str().starts_with(',') {
                 return Err(Diagnostic::new_error(
                     "Expected ',' between elements of a struct",
                     Label::new(self.file, self.single_char_span(), "should be ','"),
@@ -342,7 +336,7 @@ impl<'a> Assembler<'a> {
 
         match split.parse::<T>() {
             Ok(t) => Ok(t),
-            Err(e) => Err(Diagnostic::new_error(
+            Err(_) => Err(Diagnostic::new_error(
                 "Literal did not parse as the correct type",
                 Label::new(self.file, self.single_char_span(), "here"),
             )),
@@ -359,7 +353,7 @@ impl<'a> Assembler<'a> {
 
         self.skip_comments_or_whitespace();
 
-        if !self.get_current_str().starts_with(",") {
+        if !self.get_current_str().starts_with(',') {
             return Err(Diagnostic::new_error(
                 "Vector type was malformed",
                 Label::new(self.file, self.single_char_span(), "missing ','"),
@@ -371,7 +365,7 @@ impl<'a> Assembler<'a> {
 
         let width = self.parse_literal()?;
 
-        if !self.get_current_str().starts_with(">") {
+        if !self.get_current_str().starts_with('>') {
             return Err(Diagnostic::new_error(
                 "Vector type was malformed",
                 Label::new(self.file, self.single_char_span(), "missing '>'"),
@@ -394,7 +388,7 @@ impl<'a> Assembler<'a> {
 
         self.skip_comments_or_whitespace();
 
-        if !self.get_current_str().starts_with(",") {
+        if !self.get_current_str().starts_with(',') {
             return Err(Diagnostic::new_error(
                 "Array type was malformed",
                 Label::new(self.file, self.single_char_span(), "missing ','"),
@@ -406,7 +400,7 @@ impl<'a> Assembler<'a> {
 
         let len = self.parse_literal()?;
 
-        if !self.get_current_str().starts_with("]") {
+        if !self.get_current_str().starts_with(']') {
             return Err(Diagnostic::new_error(
                 "Array type was malformed",
                 Label::new(self.file, self.single_char_span(), "missing ']'"),
@@ -478,19 +472,16 @@ impl<'a> Assembler<'a> {
     fn parse_type(&mut self, library: &mut Library) -> Result<Type, Diagnostic> {
         self.skip_comments_or_whitespace();
 
-        match self.try_parse_int_or_float(library, 'i') {
-            Some(t) => return Ok(t),
-            None => (),
+        if let Some(t) = self.try_parse_int_or_float(library, 'i') {
+            return Ok(t);
         }
 
-        match self.try_parse_int_or_float(library, 'u') {
-            Some(t) => return Ok(t),
-            None => (),
+        if let Some(t) = self.try_parse_int_or_float(library, 'u') {
+            return Ok(t);
         }
 
-        match self.try_parse_int_or_float(library, 'f') {
-            Some(t) => return Ok(t),
-            None => (),
+        if let Some(t) = self.try_parse_int_or_float(library, 'f') {
+            return Ok(t);
         }
 
         if self.get_current_str().starts_with("void") {
@@ -499,13 +490,13 @@ impl<'a> Assembler<'a> {
         } else if self.get_current_str().starts_with("bool") {
             self.bump_current_by("bool".len());
             Ok(library.get_bool_ty())
-        } else if self.get_current_str().starts_with("<") {
+        } else if self.get_current_str().starts_with('<') {
             self.parse_vector_type(library)
-        } else if self.get_current_str().starts_with("{") {
+        } else if self.get_current_str().starts_with('{') {
             self.parse_struct_type(library)
-        } else if self.get_current_str().starts_with("[") {
+        } else if self.get_current_str().starts_with('[') {
             self.parse_array_type(library)
-        } else if self.get_current_str().starts_with("*") {
+        } else if self.get_current_str().starts_with('*') {
             self.parse_pointer_type(library)
         } else {
             Err(Diagnostic::new_error(
@@ -564,9 +555,8 @@ impl<'a> Assembler<'a> {
 
         self.current_blocks.insert(name, block);
 
-        for i in 0..block.get_num_args(library) {
-            self.current_values
-                .insert(args[i].0, block.get_arg(library, i));
+        for (i, arg) in args.iter().enumerate().take(block.get_num_args(library)) {
+            self.current_values.insert(arg.0, block.get_arg(library, i));
         }
 
         let func_ret_is_void = self
@@ -609,6 +599,30 @@ impl<'a> Assembler<'a> {
                     let index = self.parse_literal()?;
 
                     let value = builder.extract(aggregate, index, None);
+
+                    self.current_values.insert(identifier, value);
+                } else if self.pop_if_next_symbol("insert")? {
+                    let aggregate = self.parse_value()?;
+
+                    if !self.pop_if_next_symbol(",")? {
+                        return Err(Diagnostic::new_error(
+                            "Expected ',' between arguments to an instruction",
+                            Label::new(self.file, self.single_char_span(), "here"),
+                        ));
+                    }
+
+                    let value = self.parse_value()?;
+
+                    if !self.pop_if_next_symbol(",")? {
+                        return Err(Diagnostic::new_error(
+                            "Expected ',' between arguments to an instruction",
+                            Label::new(self.file, self.single_char_span(), "here"),
+                        ));
+                    }
+
+                    let index = self.parse_literal()?;
+
+                    let value = builder.insert(aggregate, value, index, None);
 
                     self.current_values.insert(identifier, value);
                 }
@@ -656,13 +670,11 @@ impl<'a> Assembler<'a> {
 
         let ty = self.parse_type(library)?;
 
-        if !self.peek_if_next_symbol(")") {
-            if !self.pop_if_next_symbol(",")? {
-                return Err(Diagnostic::new_error(
-                    "Expected ',' between arguments",
-                    Label::new(self.file, self.single_char_span(), "should be ','"),
-                ));
-            }
+        if !self.peek_if_next_symbol(")") && !self.pop_if_next_symbol(",")? {
+            return Err(Diagnostic::new_error(
+                "Expected ',' between arguments",
+                Label::new(self.file, self.single_char_span(), "should be ','"),
+            ));
         }
 
         Ok((name, ty))
@@ -838,7 +850,7 @@ impl<'a> Assembler<'a> {
         loop {
             self.skip_comments_or_whitespace();
 
-            if self.get_current_str().len() == 0 {
+            if self.get_current_str().is_empty() {
                 return Err(Diagnostic::new_error(
                     "Expected '}' to close a module",
                     Label::new(self.file, self.single_char_span(), "should be '}'"),
@@ -895,6 +907,87 @@ pub fn assemble(file: FileId, data: &str) -> Result<Library, Diagnostic> {
     }
 }
 
+fn get_domain(domain: Domain) -> &'static str {
+    match domain {
+        Domain::CrossDevice => "any",
+        Domain::CPU => "cpu",
+        Domain::GPU => "gpu",
+        Domain::STACK => "stack",
+    }
+}
+
+fn get_type_name(library: &Library, ty: Type) -> String {
+    if ty.is_void(library) {
+        "void".to_string()
+    } else if ty.is_boolean(library) {
+        "bool".to_string()
+    } else if ty.is_vector(library) {
+        format!(
+            "<{}, {}>",
+            get_type_name(library, ty.get_element(library, 0)),
+            ty.get_len(library)
+        )
+    } else if ty.is_array(library) {
+        format!(
+            "[{}, {}]",
+            get_type_name(library, ty.get_element(library, 0)),
+            ty.get_len(library)
+        )
+    } else if ty.is_struct(library) {
+        let mut string = "{".to_string();
+
+        for i in 0..ty.get_len(library) {
+            if i != 0 {
+                string.push_str(", ");
+            }
+
+            string.push_str(&get_type_name(library, ty.get_element(library, i)));
+        }
+
+        string.push_str("}");
+
+        string
+    } else if ty.is_int(library) {
+        format!("i{}", ty.get_bits(library))
+    } else if ty.is_uint(library) {
+        format!("u{}", ty.get_bits(library))
+    } else if ty.is_float(library) {
+        format!("f{}", ty.get_bits(library))
+    } else if ty.is_ptr(library) {
+        format!(
+            "*({}) {}",
+            get_domain(ty.get_domain(library)),
+            get_type_name(library, ty.get_pointee(library))
+        )
+    } else {
+        panic!("Unknown type");
+    }
+}
+
+fn get_identifier(string: &str) -> String {
+    if string
+        .chars()
+        .all(|c| c.is_ascii_alphanumeric() || c == '_')
+    {
+        string.to_string()
+    } else {
+        format!("\"{}\"", string)
+    }
+}
+
+fn get_loc(library: &Library, loc: &Option<Location>) -> String {
+    if loc.is_none() {
+        return "".to_string();
+    }
+
+    format!(
+        " !\"{}\":{:?}:{:?}",
+        loc.unwrap().get_name(library),
+        loc.unwrap().get_start(),
+        loc.unwrap().get_end()
+    )
+}
+
 pub fn disassemble(library: &Library, mut writer: impl std::io::Write) -> std::io::Result<()> {
     let modules = library.get_modules();
 
@@ -903,13 +996,279 @@ pub fn disassemble(library: &Library, mut writer: impl std::io::Write) -> std::i
 
         writer.write_fmt(format_args!("mod "))?;
 
-        if name.chars().all(|c| c.is_ascii_alphanumeric() || c == '_') {
-            writer.write_fmt(format_args!("{}", name))?;
-        } else {
-            writer.write_fmt(format_args!("\"{}\"", name))?;
+        writer.write_fmt(format_args!("{}", get_identifier(name)))?;
+
+        writer.write_fmt(format_args!(" {{"))?;
+
+        let mut printed_newline = false;
+
+        for global in module.get_globals(library) {
+            if !printed_newline {
+                writer.write_fmt(format_args!("\n"))?;
+                printed_newline = true;
+            }
+
+            let export = if global.is_export(library) {
+                "  export "
+            } else {
+                "  "
+            };
+            let name = get_identifier(global.get_name(library));
+            let ty = global.get_type(library).get_pointee(library);
+            let ty_name = get_type_name(library, ty);
+
+            writer.write_fmt(format_args!("{}var {} : {}\n", export, name, ty_name))?;
         }
 
-        writer.write_fmt(format_args!(" {{}}\n"))?;
+        for function in module.get_functions(library) {
+            if !printed_newline {
+                writer.write_fmt(format_args!("\n"))?;
+                printed_newline = true;
+            }
+
+            let export = if function.is_export(library) {
+                "  export "
+            } else {
+                "  "
+            };
+
+            let name = get_identifier(function.get_name(library));
+
+            writer.write_fmt(format_args!("{}fn {}(", export, name))?;
+
+            for i in 0..function.get_num_args(library) {
+                if i > 0 {
+                    writer.write_fmt(format_args!(", "))?;
+                }
+
+                let arg = function.get_arg(library, i);
+
+                let arg_name = get_identifier(arg.get_name(library));
+                let ty_name = get_type_name(library, arg.get_type(library));
+
+                writer.write_fmt(format_args!("{} : {}", arg_name, ty_name))?;
+            }
+
+            let ret_ty_name = get_type_name(library, function.get_return_type(library));
+
+            writer.write_fmt(format_args!(") : {}", ret_ty_name))?;
+
+            let mut first = true;
+
+            for block in function.get_blocks(library) {
+                let block_id = block.get_unique_index();
+
+                if first {
+                    writer.write_fmt(format_args!(" {{\n"))?;
+                    first = false;
+                }
+
+                writer.write_fmt(format_args!("    b{}(", block_id))?;
+
+                let mut values = HashMap::new();
+
+                for i in 0..block.get_num_args(library) {
+                    if i > 0 {
+                        writer.write_fmt(format_args!(", "))?;
+                    }
+
+                    let arg = block.get_arg(library, i);
+
+                    let arg_name = "v".to_string() + &arg.get_unique_index().to_string();
+                    let ty_name = get_type_name(library, arg.get_type(library));
+
+                    writer.write_fmt(format_args!("{} : {}", arg_name, ty_name))?;
+
+                    values.insert(arg, arg_name);
+                }
+
+                writer.write_fmt(format_args!("):\n"))?;
+
+                for value in block.get_insts(library) {
+                    let inst = value.get_inst(library);
+
+                    let inst_name = "v".to_string() + &value.get_unique_index().to_string();
+
+                    values.insert(value, inst_name);
+
+                    match inst {
+                        Instruction::Return(loc) => writer
+                            .write_fmt(format_args!("      ret {}\n", get_loc(library, loc)))?,
+                        Instruction::ReturnValue(_, val, loc) => {
+                            writer.write_fmt(format_args!(
+                                "      ret {}{}\n",
+                                values.get(&val).expect("ICE: bad"),
+                                get_loc(library, loc)
+                            ))?
+                        }
+                        Instruction::Cmp(ty, cmp, a, b, loc) => writer.write_fmt(format_args!(
+                            "      {} = {} {} {} {}{}\n",
+                            values.get(&value).expect("ICE: bad"),
+                            cmp,
+                            get_type_name(library, *ty),
+                            values.get(&a).expect("ICE: bad"),
+                            values.get(&b).expect("ICE: bad"),
+                            get_loc(library, loc)
+                        ))?,
+                        Instruction::Unary(ty, unary, a, loc) => writer.write_fmt(format_args!(
+                            "      {} = {} {} {}{}\n",
+                            values.get(&value).expect("ICE: bad"),
+                            unary,
+                            get_type_name(library, *ty),
+                            values.get(&a).expect("ICE: bad"),
+                            get_loc(library, loc)
+                        ))?,
+                        Instruction::Binary(ty, binary, a, b, loc) => {
+                            writer.write_fmt(format_args!(
+                                "      {} = {} {} {} {}{}\n",
+                                values.get(&value).expect("ICE: bad"),
+                                binary,
+                                get_type_name(library, *ty),
+                                values.get(&a).expect("ICE: bad"),
+                                values.get(&b).expect("ICE: bad"),
+                                get_loc(library, loc)
+                            ))?
+                        }
+                        Instruction::Cast(ty, val, loc) => writer.write_fmt(format_args!(
+                            "      {} = {} cast {}{}\n",
+                            values.get(&value).expect("ICE: bad"),
+                            get_type_name(library, *ty),
+                            values.get(&val).expect("ICE: bad"),
+                            get_loc(library, loc)
+                        ))?,
+                        Instruction::BitCast(ty, val, loc) => writer.write_fmt(format_args!(
+                            "      {} = {} bitcast {}{}\n",
+                            values.get(&value).expect("ICE: bad"),
+                            get_type_name(library, *ty),
+                            values.get(&val).expect("ICE: bad"),
+                            get_loc(library, loc)
+                        ))?,
+                        Instruction::Load(ptr, loc) => writer.write_fmt(format_args!(
+                            "      {} = load {}{}\n",
+                            values.get(&value).expect("ICE: bad"),
+                            values.get(&ptr).expect("ICE: bad"),
+                            get_loc(library, loc)
+                        ))?,
+                        Instruction::Store(ptr, val, loc) => writer.write_fmt(format_args!(
+                            "      store {} {}{}\n",
+                            values.get(&ptr).expect("ICE: bad"),
+                            values.get(&val).expect("ICE: bad"),
+                            get_loc(library, loc)
+                        ))?,
+                        Instruction::Extract(agg, index, loc) => writer.write_fmt(format_args!(
+                            "      {} = extract {} from {}{}\n",
+                            values.get(&value).expect("ICE: bad"),
+                            values.get(&agg).expect("ICE: bad"),
+                            index,
+                            get_loc(library, loc)
+                        ))?,
+                        Instruction::Insert(agg, elem, index, loc) => {
+                            writer.write_fmt(format_args!(
+                                "      {} = insert {}, {}, {}{}\n",
+                                values.get(&value).expect("ICE: bad"),
+                                values.get(&agg).expect("ICE: bad"),
+                                values.get(&elem).expect("ICE: bad"),
+                                index,
+                                get_loc(library, loc)
+                            ))?
+                        }
+                        Instruction::StackAlloc(name, ty, loc) => {
+                            writer.write_fmt(format_args!(
+                                "      {} = alloc {} {}{}\n",
+                                values.get(&value).expect("ICE: bad"),
+                                get_identifier(name.get_name(library)),
+                                get_type_name(library, *ty),
+                                get_loc(library, loc)
+                            ))?
+                        }
+                        Instruction::Call(func, args, loc) => {
+                            writer.write_fmt(format_args!(
+                                "      {} = call {}",
+                                values.get(&value).expect("ICE: bad"),
+                                get_identifier(func.get_name(library)),
+                            ))?;
+
+                            for arg in args {
+                                writer.write_fmt(format_args!(
+                                    " {}",
+                                    values.get(&arg).expect("ICE: bad")
+                                ))?;
+                            }
+
+                            writer.write_fmt(format_args!("{}", get_loc(library, loc)))?
+                        }
+                        Instruction::Branch(block, args, loc) => {
+                            writer
+                                .write_fmt(format_args!("      br {}", block.get_unique_index()))?;
+
+                            for arg in args {
+                                writer.write_fmt(format_args!(
+                                    " {}",
+                                    values.get(&arg).expect("ICE: bad")
+                                ))?;
+                            }
+
+                            writer.write_fmt(format_args!("{}", get_loc(library, loc)))?
+                        }
+                        Instruction::ConditionalBranch(
+                            cond,
+                            true_block,
+                            false_block,
+                            args,
+                            loc,
+                        ) => {
+                            writer.write_fmt(format_args!(
+                                "      condbr {} {} {}",
+                                values.get(&cond).expect("ICE: bad"),
+                                true_block.get_unique_index(),
+                                false_block.get_unique_index()
+                            ))?;
+
+                            for arg in args {
+                                writer.write_fmt(format_args!(
+                                    " {}",
+                                    values.get(&arg).expect("ICE: bad")
+                                ))?;
+                            }
+
+                            writer.write_fmt(format_args!("{}", get_loc(library, loc)))?
+                        }
+                        Instruction::Select(_, cond, true_val, false_val, loc) => writer
+                            .write_fmt(format_args!(
+                                "      {} = select {} {} {}{}\n",
+                                values.get(&value).expect("ICE: bad"),
+                                values.get(&cond).expect("ICE: bad"),
+                                values.get(&true_val).expect("ICE: bad"),
+                                values.get(&false_val).expect("ICE: bad"),
+                                get_loc(library, loc)
+                            ))?,
+                        Instruction::GetElementPtr(ty, ptr, args, loc) => {
+                            writer.write_fmt(format_args!(
+                                "      {} = gep {}",
+                                values.get(&value).expect("ICE: bad"),
+                                values.get(&ptr).expect("ICE: bad"),
+                            ))?;
+
+                            for arg in args {
+                                writer.write_fmt(format_args!(
+                                    " {}",
+                                    values.get(&arg).expect("ICE: bad")
+                                ))?;
+                            }
+
+                            writer.write_fmt(format_args!("{}", get_loc(library, loc)))?
+                        }
+                    }
+                }
+            }
+
+            // If we found at least one block, the function had a body
+            if !first {
+                    writer.write_fmt(format_args!("  }}\n"))?;
+                }
+        }
+
+        writer.write_fmt(format_args!("}}\n"))?;
     }
 
     Ok(())

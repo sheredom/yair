@@ -79,6 +79,25 @@ impl Function {
         function.arguments[index]
     }
 
+    /// Get the number of arguments a function has.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # use yair::*;
+    /// # let mut library = Library::new();
+    /// # let module = library.create_module().build();
+    /// # let ty = library.get_int_ty(8);
+    /// # let function = module.create_function(&mut library).with_name("func").with_argument("arg", ty).build();
+    /// let num_args = function.get_num_args(&library);
+    /// # assert_eq!(1, num_args);
+    /// ```
+    pub fn get_num_args(&self, library: &Library) -> usize {
+        let function = &library.functions[self.0];
+
+        function.arguments.len()
+    }
+
     /// Create a new block in a function.
     ///
     /// # Examples
@@ -92,6 +111,43 @@ impl Function {
     /// ```
     pub fn create_block<'a>(&self, library: &'a mut Library) -> BlockBuilder<'a> {
         BlockBuilder::with_library_and_function(library, *self)
+    }
+
+    /// Return true if the function is exported.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # use yair::*;
+    /// # let mut library = Library::new();
+    /// # let module = library.create_module().with_name("module").build();
+    /// # let function = module.create_function(&mut library).with_name("func").with_export(true).build();;
+    /// let is_export = function.is_export(&library);
+    /// # assert!(is_export);
+    /// ```
+    pub fn is_export(&self, library: &Library) -> bool {
+        let function = &library.functions[self.0];
+
+        function.export
+    }
+
+    /// Get all the blocks in a function.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # use yair::*;
+    /// # let mut library = Library::new();
+    /// # let module = library.create_module().build();
+    /// # let function = module.create_function(&mut library).with_name("func").build();;
+    /// let block_a = function.create_block(&mut library).build();
+    /// let block_b = function.create_block(&mut library).build();
+    /// let blocks = function.get_blocks(&library);
+    /// assert_eq!(blocks.count(), 2);
+    /// ```
+    pub fn get_blocks(&self, library: &Library) -> BlockIterator {
+        let function = &library.functions[self.0];
+        BlockIterator::new(&function.blocks)
     }
 }
 
@@ -252,5 +308,33 @@ mod tests {
             .with_name("func")
             .build();
         let _ = function.get_arg(&library, 0);
+    }
+}
+
+pub struct BlockIterator {
+    vec: Vec<Block>,
+    next: usize,
+}
+
+impl BlockIterator {
+    fn new(iter: &[Block]) -> BlockIterator {
+        BlockIterator {
+            vec: iter.to_vec(),
+            next: 0,
+        }
+    }
+}
+
+impl Iterator for BlockIterator {
+    type Item = Block;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        if self.next < self.vec.len() {
+            let next = self.next;
+            self.next += 1;
+            Some(self.vec[next])
+        } else {
+            None
+        }
     }
 }
