@@ -20,6 +20,7 @@ struct Assembler<'a> {
     current_values: HashMap<&'a str, Value>,
     current_module: Option<Module>,
     current_function: Option<Function>,
+    builtin_types: HashMap<&'static str, Type>,
 }
 
 impl<'a> Assembler<'a> {
@@ -35,6 +36,7 @@ impl<'a> Assembler<'a> {
             current_values: HashMap::new(),
             current_module: None,
             current_function: None,
+            builtin_types: HashMap::new(),
         }
     }
 
@@ -469,6 +471,25 @@ impl<'a> Assembler<'a> {
         Ok(library.get_ptr_type(pointee_type, domain))
     }
 
+    fn parse_builtin_type(&mut self) -> Result<Type, Diagnostic> {
+        self.skip_comments_or_whitespace();
+
+        for ty in &[
+            "i8", "i16", "i32", "i64", "u8", "u16", "u32", "u64", "f16", "f32", "f64",
+        ] {
+            if self.get_current_str().starts_with(ty) {
+                self.bump_current_by(ty.len());
+
+                return Ok(*self.builtin_types.get(ty).unwrap());
+            }
+        }
+
+        Err(Diagnostic::new_error(
+            "Type is not a builtin type",
+            Label::new(self.file, self.single_char_span(), "unknown type"),
+        ))
+    }
+
     fn parse_type(&mut self, library: &mut Library) -> Result<Type, Diagnostic> {
         self.skip_comments_or_whitespace();
 
@@ -623,6 +644,217 @@ impl<'a> Assembler<'a> {
                     let index = self.parse_literal()?;
 
                     let value = builder.insert(aggregate, value, index, None);
+
+                    self.current_values.insert(identifier, value);
+                } else if self.pop_if_next_symbol("cmp")? {
+                    let cmp = if self.pop_if_next_symbol("eq")? {
+                        yair::Cmp::Eq
+                    } else if self.pop_if_next_symbol("ne")? {
+                        yair::Cmp::Ne
+                    } else if self.pop_if_next_symbol("lt")? {
+                        yair::Cmp::Lt
+                    } else if self.pop_if_next_symbol("le")? {
+                        yair::Cmp::Le
+                    } else if self.pop_if_next_symbol("gt")? {
+                        yair::Cmp::Gt
+                    } else if self.pop_if_next_symbol("ge")? {
+                        yair::Cmp::Ge
+                    } else {
+                        return Err(Diagnostic::new_error(
+                            "Could not parse the kind of the compare (should be one of eq, ne, lt, le, gt, ge)",
+                            Label::new(self.file, self.single_char_span(), "here"),
+                        ));
+                    };
+
+                    let lhs = self.parse_value()?;
+
+                    if !self.pop_if_next_symbol(",")? {
+                        return Err(Diagnostic::new_error(
+                            "Expected ',' between arguments to an instruction",
+                            Label::new(self.file, self.single_char_span(), "here"),
+                        ));
+                    }
+
+                    let rhs = self.parse_value()?;
+
+                    let value = builder.cmp(cmp, lhs, rhs, None);
+
+                    self.current_values.insert(identifier, value);
+                } else if self.pop_if_next_symbol("add")? {
+                    let lhs = self.parse_value()?;
+
+                    if !self.pop_if_next_symbol(",")? {
+                        return Err(Diagnostic::new_error(
+                            "Expected ',' between arguments to an instruction",
+                            Label::new(self.file, self.single_char_span(), "here"),
+                        ));
+                    }
+
+                    let rhs = self.parse_value()?;
+
+                    let value = builder.add(lhs, rhs, None);
+
+                    self.current_values.insert(identifier, value);
+                } else if self.pop_if_next_symbol("sub")? {
+                    let lhs = self.parse_value()?;
+
+                    if !self.pop_if_next_symbol(",")? {
+                        return Err(Diagnostic::new_error(
+                            "Expected ',' between arguments to an instruction",
+                            Label::new(self.file, self.single_char_span(), "here"),
+                        ));
+                    }
+
+                    let rhs = self.parse_value()?;
+
+                    let value = builder.sub(lhs, rhs, None);
+
+                    self.current_values.insert(identifier, value);
+                } else if self.pop_if_next_symbol("mul")? {
+                    let lhs = self.parse_value()?;
+
+                    if !self.pop_if_next_symbol(",")? {
+                        return Err(Diagnostic::new_error(
+                            "Expected ',' between arguments to an instruction",
+                            Label::new(self.file, self.single_char_span(), "here"),
+                        ));
+                    }
+
+                    let rhs = self.parse_value()?;
+
+                    let value = builder.mul(lhs, rhs, None);
+
+                    self.current_values.insert(identifier, value);
+                } else if self.pop_if_next_symbol("div")? {
+                    let lhs = self.parse_value()?;
+
+                    if !self.pop_if_next_symbol(",")? {
+                        return Err(Diagnostic::new_error(
+                            "Expected ',' between arguments to an instruction",
+                            Label::new(self.file, self.single_char_span(), "here"),
+                        ));
+                    }
+
+                    let rhs = self.parse_value()?;
+
+                    let value = builder.div(lhs, rhs, None);
+
+                    self.current_values.insert(identifier, value);
+                } else if self.pop_if_next_symbol("rem")? {
+                    let lhs = self.parse_value()?;
+
+                    if !self.pop_if_next_symbol(",")? {
+                        return Err(Diagnostic::new_error(
+                            "Expected ',' between arguments to an instruction",
+                            Label::new(self.file, self.single_char_span(), "here"),
+                        ));
+                    }
+
+                    let rhs = self.parse_value()?;
+
+                    let value = builder.rem(lhs, rhs, None);
+
+                    self.current_values.insert(identifier, value);
+                } else if self.pop_if_next_symbol("neg")? {
+                    let lhs = self.parse_value()?;
+
+                    let value = builder.neg(lhs, None);
+
+                    self.current_values.insert(identifier, value);
+                } else if self.pop_if_next_symbol("and")? {
+                    let lhs = self.parse_value()?;
+
+                    if !self.pop_if_next_symbol(",")? {
+                        return Err(Diagnostic::new_error(
+                            "Expected ',' between arguments to an instruction",
+                            Label::new(self.file, self.single_char_span(), "here"),
+                        ));
+                    }
+
+                    let rhs = self.parse_value()?;
+
+                    let value = builder.and(lhs, rhs, None);
+
+                    self.current_values.insert(identifier, value);
+                } else if self.pop_if_next_symbol("or")? {
+                    let lhs = self.parse_value()?;
+
+                    if !self.pop_if_next_symbol(",")? {
+                        return Err(Diagnostic::new_error(
+                            "Expected ',' between arguments to an instruction",
+                            Label::new(self.file, self.single_char_span(), "here"),
+                        ));
+                    }
+
+                    let rhs = self.parse_value()?;
+
+                    let value = builder.or(lhs, rhs, None);
+
+                    self.current_values.insert(identifier, value);
+                } else if self.pop_if_next_symbol("xor")? {
+                    let lhs = self.parse_value()?;
+
+                    if !self.pop_if_next_symbol(",")? {
+                        return Err(Diagnostic::new_error(
+                            "Expected ',' between arguments to an instruction",
+                            Label::new(self.file, self.single_char_span(), "here"),
+                        ));
+                    }
+
+                    let rhs = self.parse_value()?;
+
+                    let value = builder.xor(lhs, rhs, None);
+
+                    self.current_values.insert(identifier, value);
+                } else if self.pop_if_next_symbol("not")? {
+                    let lhs = self.parse_value()?;
+
+                    let value = builder.not(lhs, None);
+
+                    self.current_values.insert(identifier, value);
+                } else if self.pop_if_next_symbol("shl")? {
+                    let lhs = self.parse_value()?;
+
+                    if !self.pop_if_next_symbol(",")? {
+                        return Err(Diagnostic::new_error(
+                            "Expected ',' between arguments to an instruction",
+                            Label::new(self.file, self.single_char_span(), "here"),
+                        ));
+                    }
+
+                    let rhs = self.parse_value()?;
+
+                    let value = builder.shl(lhs, rhs, None);
+
+                    self.current_values.insert(identifier, value);
+                } else if self.pop_if_next_symbol("shr")? {
+                    let lhs = self.parse_value()?;
+
+                    if !self.pop_if_next_symbol(",")? {
+                        return Err(Diagnostic::new_error(
+                            "Expected ',' between arguments to an instruction",
+                            Label::new(self.file, self.single_char_span(), "here"),
+                        ));
+                    }
+
+                    let rhs = self.parse_value()?;
+
+                    let value = builder.shr(lhs, rhs, None);
+
+                    self.current_values.insert(identifier, value);
+                } else if self.pop_if_next_symbol("cast")? {
+                    let lhs = self.parse_value()?;
+
+                    if !self.pop_if_next_symbol("to")? {
+                        return Err(Diagnostic::new_error(
+                            "Expected 'to' between argument and type",
+                            Label::new(self.file, self.single_char_span(), "here"),
+                        ));
+                    }
+
+                    let ty = self.parse_builtin_type()?;
+
+                    let value = builder.cast(lhs, ty, None);
 
                     self.current_values.insert(identifier, value);
                 }
@@ -822,6 +1054,23 @@ impl<'a> Assembler<'a> {
     }
 
     fn parse_mod(&mut self, library: &mut Library) -> Result<(), Diagnostic> {
+        // Remove any previous remembered builtin types.
+        self.builtin_types.clear();
+
+        self.builtin_types.insert("i8", library.get_int_ty(8));
+        self.builtin_types.insert("i16", library.get_int_ty(16));
+        self.builtin_types.insert("i32", library.get_int_ty(32));
+        self.builtin_types.insert("i64", library.get_int_ty(64));
+
+        self.builtin_types.insert("u8", library.get_uint_ty(8));
+        self.builtin_types.insert("u16", library.get_uint_ty(16));
+        self.builtin_types.insert("u32", library.get_uint_ty(32));
+        self.builtin_types.insert("u64", library.get_uint_ty(64));
+
+        self.builtin_types.insert("f16", library.get_float_ty(16));
+        self.builtin_types.insert("f32", library.get_float_ty(32));
+        self.builtin_types.insert("f64", library.get_float_ty(64));
+
         // Skip the leading mod
         self.bump_current_by("mod".len());
 
@@ -944,7 +1193,7 @@ fn get_type_name(library: &Library, ty: Type) -> String {
             string.push_str(&get_type_name(library, ty.get_element(library, i)));
         }
 
-        string.push_str("}");
+        string.push('}');
 
         string
     } else if ty.is_int(library) {
@@ -1099,39 +1348,36 @@ pub fn disassemble(library: &Library, mut writer: impl std::io::Write) -> std::i
                             values.get(&val).expect("ICE: bad"),
                             get_loc(library, loc)
                         ))?,
-                        Instruction::Cmp(ty, cmp, a, b, loc) => writer.write_fmt(format_args!(
-                            "      {} = {} {} {} {}{}\n",
+                        Instruction::Cmp(_, cmp, a, b, loc) => writer.write_fmt(format_args!(
+                            "      {} = cmp {} {}, {}{}\n",
                             values.get(&value).expect("ICE: bad"),
                             cmp,
-                            get_type_name(library, *ty),
                             values.get(&a).expect("ICE: bad"),
                             values.get(&b).expect("ICE: bad"),
                             get_loc(library, loc)
                         ))?,
-                        Instruction::Unary(ty, unary, a, loc) => writer.write_fmt(format_args!(
-                            "      {} = {} {} {}{}\n",
+                        Instruction::Unary(_, unary, a, loc) => writer.write_fmt(format_args!(
+                            "      {} = {} {}{}\n",
                             values.get(&value).expect("ICE: bad"),
                             unary,
-                            get_type_name(library, *ty),
                             values.get(&a).expect("ICE: bad"),
                             get_loc(library, loc)
                         ))?,
-                        Instruction::Binary(ty, binary, a, b, loc) => {
+                        Instruction::Binary(_, binary, a, b, loc) => {
                             writer.write_fmt(format_args!(
-                                "      {} = {} {} {} {}{}\n",
+                                "      {} = {} {}, {}{}\n",
                                 values.get(&value).expect("ICE: bad"),
                                 binary,
-                                get_type_name(library, *ty),
                                 values.get(&a).expect("ICE: bad"),
                                 values.get(&b).expect("ICE: bad"),
                                 get_loc(library, loc)
                             ))?
                         }
                         Instruction::Cast(ty, val, loc) => writer.write_fmt(format_args!(
-                            "      {} = {} cast {}{}\n",
+                            "      {} = cast {} to {}{}\n",
                             values.get(&value).expect("ICE: bad"),
-                            get_type_name(library, *ty),
                             values.get(&val).expect("ICE: bad"),
+                            get_type_name(library, *ty),
                             get_loc(library, loc)
                         ))?,
                         Instruction::BitCast(ty, val, loc) => writer.write_fmt(format_args!(
@@ -1154,7 +1400,7 @@ pub fn disassemble(library: &Library, mut writer: impl std::io::Write) -> std::i
                             get_loc(library, loc)
                         ))?,
                         Instruction::Extract(agg, index, loc) => writer.write_fmt(format_args!(
-                            "      {} = extract {} from {}{}\n",
+                            "      {} = extract {}, {}{}\n",
                             values.get(&value).expect("ICE: bad"),
                             values.get(&agg).expect("ICE: bad"),
                             index,

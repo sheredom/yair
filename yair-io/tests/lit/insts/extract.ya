@@ -1,0 +1,14 @@
+// RUN: @yair_as @file | @yair_dis -
+
+// CHECK: mod "😀"
+mod "😀" {
+  // CHECK: fn foo(a : <u8, 2>) : u8 {
+  fn foo(a: <u8, 2>) : u8 {
+    // CHECK: b0([[a:\w+]] : <u8, 2>):
+    bar(a: <u8, 2>):
+      // CHECK: [[result:\w+]] = extract $$a, 1
+      b = extract a, 1
+      // CHECK: ret $$result
+      ret b
+  }
+}

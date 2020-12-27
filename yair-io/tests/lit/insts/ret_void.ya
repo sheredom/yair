@@ -1,0 +1,12 @@
+// RUN: @yair_as @file | @yair_dis -
+
+// CHECK: mod "😀"
+mod "😀" {
+  // CHECK: fn foo() : void {
+  fn foo() : void {
+    // CHECK: b0():
+    bar():
+      // CHECK: ret
+      ret
+  }
+}

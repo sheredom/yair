@@ -773,6 +773,32 @@ impl<'a> InstructionBuilder<'a> {
         self.make_value(Instruction::Insert(val, element, idx, location))
     }
 
+    /// Record a compare instruction in the block.
+    ///
+    /// Restrictions:
+    /// - `x` and `y` must have the same type, which matches the type of the newly returned value.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # use yair::*;
+    /// # let mut library = Library::new();
+    /// # let module = library.create_module().build();
+    /// # let u32_ty = library.get_uint_ty(32);
+    /// # let function = module.create_function(&mut library).with_name("func").with_return_type(u32_ty).with_argument("a", u32_ty).with_argument("b", u32_ty).build();
+    /// # let block = function.create_block(&mut library).build();
+    /// # let x = function.get_arg(&library, 0);
+    /// # let y = function.get_arg(&library, 1);
+    /// # let mut instruction_builder = block.create_instructions(&mut library);
+    /// # let location = None;
+    /// let cmp_eq = instruction_builder.cmp(Cmp::Eq, x, y, location);
+    /// ```
+    pub fn cmp(&mut self, cmp: Cmp, x: Value, y: Value, location: Option<Location>) -> Value {
+        assert_eq!(x.get_type(self.library), y.get_type(self.library));
+        let bool_ty = self.library.get_bool_ty();
+        self.make_value(Instruction::Cmp(bool_ty, cmp, x, y, location))
+    }
+
     /// Record a compare equal instruction in the block.
     ///
     /// Restrictions:

@@ -32,10 +32,7 @@ impl Value {
     /// # assert!(is_constant);
     /// ```
     pub fn is_constant(&self, library: &Library) -> bool {
-        match library.values[self.0] {
-            ValuePayload::Constant(_) => true,
-            _ => false,
-        }
+        matches!(library.values[self.0], ValuePayload::Constant(_))
     }
 
     /// If the value is a constant, get the constant, otherwise panic.
@@ -79,10 +76,7 @@ impl Value {
     /// # assert!(is_inst);
     /// ```
     pub fn is_inst(&self, library: &Library) -> bool {
-        match library.values[self.0] {
-            ValuePayload::Instruction(_) => true,
-            _ => false,
-        }
+        matches!(library.values[self.0], ValuePayload::Instruction(_))
     }
 
     /// If the value is an instruction, get the instruction, otherwise panic.

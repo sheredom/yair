@@ -1,0 +1,14 @@
+// RUN: @yair_as @file | @yair_dis -
+
+// CHECK: mod "😀"
+mod "😀" {
+  // CHECK: fn foo(a : f32, b : f32) : f32 {
+  fn foo(a : f32, b : f32) : f32 {
+    // CHECK: b0([[a:\w+]] : f32, [[b:\w+]] : f32):
+    bar(a : f32, b : f32):
+      // CHECK: [[result:\w+]] = mul $$a, $$b
+      r = mul a, b
+      // CHECK: ret $$result
+      ret r
+  }
+}

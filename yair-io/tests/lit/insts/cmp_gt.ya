@@ -1,0 +1,14 @@
+// RUN: @yair_as @file | @yair_dis -
+
+// CHECK: mod "😀"
+mod "😀" {
+  // CHECK: fn foo(a : f32, b : f32) : bool {
+  fn foo(a : f32, b : f32) : bool {
+    // CHECK: b0([[a:\w+]] : f32, [[b:\w+]] : f32):
+    bar(a : f32, b : f32):
+      // CHECK: [[result:\w+]] = cmp gt $$a, $$b
+      r = cmp gt a, b
+      // CHECK: ret $$result
+      ret r
+  }
+}

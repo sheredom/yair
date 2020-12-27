@@ -1,0 +1,14 @@
+// RUN: @yair_as @file | @yair_dis -
+
+// CHECK: mod "😀"
+mod "😀" {
+  // CHECK: fn foo(a : i64, b : i64) : i64 {
+  fn foo(a : i64, b : i64) : i64 {
+    // CHECK: b0([[a:\w+]] : i64, [[b:\w+]] : i64):
+    bar(a : i64, b : i64):
+      // CHECK: [[result:\w+]] = or $$a, $$b
+      r = or a, b
+      // CHECK: ret $$result
+      ret r
+  }
+}

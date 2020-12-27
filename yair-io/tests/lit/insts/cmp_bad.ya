@@ -1,0 +1,10 @@
+// RUN: @yair_as @file --color never 2>&1 || echo 0
+
+mod "😀" {
+  fn foo(a : f32, b : f32) : bool {
+    bar(a : f32, b : f32):
+        // Could not parse the kind of the compare (should be one of eq, ne, lt, le, gt, ge)
+      r = cmp bad a, b
+      ret r
+  }
+}

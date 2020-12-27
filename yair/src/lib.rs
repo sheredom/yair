@@ -211,10 +211,7 @@ impl Type {
     /// # assert!(is_array);
     /// ```
     pub fn is_array(&self, library: &Library) -> bool {
-        match library.types[self.0] {
-            TypePayload::Array(_, _) => true,
-            _ => false,
-        }
+        matches!(library.types[self.0], TypePayload::Array(_, _))
     }
 
     /// Checks whether a type is a struct type.
@@ -231,10 +228,7 @@ impl Type {
     /// # assert!(is_struct);
     /// ```
     pub fn is_struct(&self, library: &Library) -> bool {
-        match library.types[self.0] {
-            TypePayload::Struct(_) => true,
-            _ => false,
-        }
+        matches!(library.types[self.0], TypePayload::Struct(_))
     }
 
     /// Checks whether a type is a vector type.
@@ -251,10 +245,7 @@ impl Type {
     /// # assert!(is_vec);
     /// ```
     pub fn is_vector(&self, library: &Library) -> bool {
-        match library.types[self.0] {
-            TypePayload::Vector(_, _) => true,
-            _ => false,
-        }
+        matches!(library.types[self.0], TypePayload::Vector(_, _))
     }
 
     /// Checks whether a type is an int type.
@@ -269,10 +260,7 @@ impl Type {
     /// assert!(i32_ty.is_int(&library));
     /// ```
     pub fn is_int(&self, library: &Library) -> bool {
-        match library.types[self.0] {
-            TypePayload::Int(_) => true,
-            _ => false,
-        }
+        matches!(library.types[self.0], TypePayload::Int(_))
     }
 
     /// Checks whether a type is an uint type.
@@ -287,10 +275,7 @@ impl Type {
     /// assert!(u32_ty.is_uint(&library));
     /// ```
     pub fn is_uint(&self, library: &Library) -> bool {
-        match library.types[self.0] {
-            TypePayload::UInt(_) => true,
-            _ => false,
-        }
+        matches!(library.types[self.0], TypePayload::UInt(_))
     }
 
     /// Checks whether a type is a float type.
@@ -305,10 +290,7 @@ impl Type {
     /// assert!(f32_ty.is_float(&library));
     /// ```
     pub fn is_float(&self, library: &Library) -> bool {
-        match library.types[self.0] {
-            TypePayload::Float(_) => true,
-            _ => false,
-        }
+        matches!(library.types[self.0], TypePayload::Float(_))
     }
 
     /// Checks whether a type is an integral (signed or unsigned) type.
@@ -376,10 +358,7 @@ impl Type {
     /// # assert!(!vec_ty.is_boolean(&library));
     /// ```
     pub fn is_boolean(&self, library: &Library) -> bool {
-        match library.types[self.0] {
-            TypePayload::Bool => true,
-            _ => false,
-        }
+        matches!(library.types[self.0], TypePayload::Bool)
     }
 
     /// Checks whether a type is a void type.
@@ -397,10 +376,7 @@ impl Type {
     /// # assert!(!vec_ty.is_boolean(&library));
     /// ```
     pub fn is_void(&self, library: &Library) -> bool {
-        match library.types[self.0] {
-            TypePayload::Void => true,
-            _ => false,
-        }
+        matches!(library.types[self.0], TypePayload::Void)
     }
 
     /// Checks whether a type is a pointer type.
@@ -418,10 +394,7 @@ impl Type {
     /// # assert!(!bool_ty.is_ptr(&library));
     /// ```
     pub fn is_ptr(&self, library: &Library) -> bool {
-        match library.types[self.0] {
-            TypePayload::Pointer(_, _) => true,
-            _ => false,
-        }
+        matches!(library.types[self.0], TypePayload::Pointer(_, _))
     }
 
     /// Get the type at the index into the type.
