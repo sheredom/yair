@@ -1,0 +1,14 @@
+// RUN: @yair_as @file | @yair_dis -
+
+// CHECK: mod "😀"
+mod "😀" {
+  // CHECK: fn foo(a : *(any) i8) : i8 {
+  fn foo(a : *i8) : i8 {
+    // CHECK: b0([[a:\w+]] : *(any) i8):
+    bar(a : *i8):
+      // CHECK: [[result:\w+]] = load $$a
+      r = load a
+      // CHECK: ret $$result
+      ret r
+  }
+}

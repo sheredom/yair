@@ -275,7 +275,11 @@ impl Library {
 
         match self.vec_tys.get(&(element, width)) {
             Some(ty) => *ty,
-            None => Type(self.types.insert(TypePayload::Vector(element, width))),
+            None => {
+                let ty = Type(self.types.insert(TypePayload::Vector(element, width)));
+                self.vec_tys.insert((element, width), ty);
+                ty
+            }
         }
     }
 
@@ -289,6 +293,7 @@ impl Library {
     /// # let module = library.create_module().build();
     /// # let u32_ty = library.get_uint_ty(32);
     /// let ptr_ty = library.get_ptr_type(u32_ty, Domain::CPU);
+    /// # assert!(ptr_ty.is_ptr(&library));
     /// ```
     pub fn get_ptr_type(&mut self, pointee: Type, domain: Domain) -> Type {
         match self.ptr_tys.get(&(pointee, domain)) {

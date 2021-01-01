@@ -308,11 +308,7 @@ impl Type {
     /// # assert!(!vec_ty.is_integral(&library));
     /// ```
     pub fn is_integral(&self, library: &Library) -> bool {
-        match library.types[self.0] {
-            TypePayload::Int(_) => true,
-            TypePayload::UInt(_) => true,
-            _ => false,
-        }
+        matches!(library.types[self.0], TypePayload::Int(_) | TypePayload::UInt(_))
     }
 
     /// Checks whether a type is an integral (signed or unsigned) type, or a vector of integral.

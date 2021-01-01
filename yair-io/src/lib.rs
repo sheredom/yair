@@ -20,7 +20,6 @@ struct Assembler<'a> {
     current_values: HashMap<&'a str, Value>,
     current_module: Option<Module>,
     current_function: Option<Function>,
-    builtin_types: HashMap<&'static str, Type>,
 }
 
 impl<'a> Assembler<'a> {
@@ -36,7 +35,6 @@ impl<'a> Assembler<'a> {
             current_values: HashMap::new(),
             current_module: None,
             current_function: None,
-            builtin_types: HashMap::new(),
         }
     }
 
@@ -142,8 +140,8 @@ impl<'a> Assembler<'a> {
                 Some(c) => c,
                 None => {
                     return Err(Diagnostic::new_error(
-                        "Expected string identifier for module name",
-                        Label::new(self.file, self.single_char_span(), "missing identifier"),
+                        "Expected closing quote",
+                        Label::new(self.file, self.single_char_span(), "missing quote '\"'"),
                     ));
                 }
             };
@@ -471,25 +469,6 @@ impl<'a> Assembler<'a> {
         Ok(library.get_ptr_type(pointee_type, domain))
     }
 
-    fn parse_builtin_type(&mut self) -> Result<Type, Diagnostic> {
-        self.skip_comments_or_whitespace();
-
-        for ty in &[
-            "i8", "i16", "i32", "i64", "u8", "u16", "u32", "u64", "f16", "f32", "f64",
-        ] {
-            if self.get_current_str().starts_with(ty) {
-                self.bump_current_by(ty.len());
-
-                return Ok(*self.builtin_types.get(ty).unwrap());
-            }
-        }
-
-        Err(Diagnostic::new_error(
-            "Type is not a builtin type",
-            Label::new(self.file, self.single_char_span(), "unknown type"),
-        ))
-    }
-
     fn parse_type(&mut self, library: &mut Library) -> Result<Type, Diagnostic> {
         self.skip_comments_or_whitespace();
 
@@ -574,6 +553,34 @@ impl<'a> Assembler<'a> {
 
         let block = builder.build();
 
+        // If we are the first block, verify that the block shares the same arguments as the function.
+        if self.current_blocks.is_empty() {
+            let function_num_args = function.get_num_args(library);
+            let block_num_args = block.get_num_args(library);
+
+            if function_num_args != block_num_args {
+                return Err(Diagnostic::new_error(
+                    "The number of arguments of the function and its first basic block must match",
+                    Label::new(self.file, self.single_char_span(), "here"),
+                ));
+            }
+
+            for arg in 0..function_num_args {
+                let function_arg = function.get_arg(library, arg);
+                let block_arg = block.get_arg(library, arg);
+
+                let function_arg_type = function_arg.get_type(library);
+                let block_arg_type = block_arg.get_type(library);
+
+                if function_arg_type != block_arg_type {
+                    return Err(Diagnostic::new_error(
+                        "The arguments for the first block and its parent function did not match",
+                        Label::new(self.file, self.single_char_span(), "here"),
+                    ));
+                }
+            }
+        }
+
         self.current_blocks.insert(name, block);
 
         for (i, arg) in args.iter().enumerate().take(block.get_num_args(library)) {
@@ -596,6 +603,19 @@ impl<'a> Assembler<'a> {
                 }
 
                 break;
+            } else if self.pop_if_next_symbol("store")? {
+                let ptr = self.parse_value()?;
+
+                if !self.pop_if_next_symbol(",")? {
+                    return Err(Diagnostic::new_error(
+                        "Expected ',' between arguments to an instruction",
+                        Label::new(self.file, self.single_char_span(), "here"),
+                    ));
+                }
+
+                let value = self.parse_value()?;
+
+                builder.store(ptr, value, None);
             } else {
                 // Everything below here assigns into an SSA variable.
                 let identifier = self.parse_identifier()?;
@@ -852,9 +872,98 @@ impl<'a> Assembler<'a> {
                         ));
                     }
 
-                    let ty = self.parse_builtin_type()?;
+                    let block = builder.build();
+                    let ty = self.parse_type(library)?;
+                    builder = block.create_instructions(library);
 
                     let value = builder.cast(lhs, ty, None);
+
+                    self.current_values.insert(identifier, value);
+                } else if self.pop_if_next_symbol("bitcast")? {
+                    let lhs = self.parse_value()?;
+
+                    if !self.pop_if_next_symbol("to")? {
+                        return Err(Diagnostic::new_error(
+                            "Expected 'to' between argument and type",
+                            Label::new(self.file, self.single_char_span(), "here"),
+                        ));
+                    }
+
+                    let block = builder.build();
+                    let ty = self.parse_type(library)?;
+                    builder = block.create_instructions(library);
+
+                    let value = builder.bitcast(lhs, ty, None);
+
+                    self.current_values.insert(identifier, value);
+                } else if self.pop_if_next_symbol("load")? {
+                    let ptr = self.parse_value()?;
+
+                    let value = builder.load(ptr, None);
+
+                    self.current_values.insert(identifier, value);
+                } else if self.pop_if_next_symbol("stackalloc")? {
+                    self.skip_comments_or_whitespace();
+
+                    let name = self.parse_identifier()?;
+
+                    if !self.pop_if_next_symbol(",")? {
+                        return Err(Diagnostic::new_error(
+                            "Expected ',' between arguments to an instruction",
+                            Label::new(self.file, self.single_char_span(), "here"),
+                        ));
+                    }
+
+                    let block = builder.build();
+                    let ty = self.parse_type(library)?;
+                    builder = block.create_instructions(library);
+
+                    let value = builder.stack_alloc(name, ty, None);
+
+                    self.current_values.insert(identifier, value);
+                } else if self.pop_if_next_symbol("call")? {
+                    let name = self.parse_identifier()?;
+
+                    let key = (name, self.current_module.unwrap());
+
+                    if !self.functions.contains_key(&key) {
+                        return Err(Diagnostic::new_error(
+                            "Unknown function called",
+                            Label::new(self.file, self.single_char_span(), "here"),
+                        ));
+                    }
+
+                    let function = *self.functions.get(&key).unwrap();
+
+                    if !self.pop_if_next_symbol("(")? {
+                        return Err(Diagnostic::new_error(
+                            "Expected ',' between arguments to a function call",
+                            Label::new(self.file, self.single_char_span(), "here"),
+                        ));
+                    }
+
+                    let mut args = Vec::new();
+
+                    loop {
+                        self.skip_comments_or_whitespace();
+
+                        if self.peek_if_next_symbol(")") {
+                            self.bump_current();
+                            break;
+                        }
+
+                        let value = self.parse_value()?;
+                        args.push(value);
+
+                        self.skip_comments_or_whitespace();
+
+                        if self.peek_if_next_symbol(",") {
+                            self.bump_current();
+                            continue;
+                        }
+                    }
+
+                    let value = builder.call(function, &args, None);
 
                     self.current_values.insert(identifier, value);
                 }
@@ -1054,23 +1163,6 @@ impl<'a> Assembler<'a> {
     }
 
     fn parse_mod(&mut self, library: &mut Library) -> Result<(), Diagnostic> {
-        // Remove any previous remembered builtin types.
-        self.builtin_types.clear();
-
-        self.builtin_types.insert("i8", library.get_int_ty(8));
-        self.builtin_types.insert("i16", library.get_int_ty(16));
-        self.builtin_types.insert("i32", library.get_int_ty(32));
-        self.builtin_types.insert("i64", library.get_int_ty(64));
-
-        self.builtin_types.insert("u8", library.get_uint_ty(8));
-        self.builtin_types.insert("u16", library.get_uint_ty(16));
-        self.builtin_types.insert("u32", library.get_uint_ty(32));
-        self.builtin_types.insert("u64", library.get_uint_ty(64));
-
-        self.builtin_types.insert("f16", library.get_float_ty(16));
-        self.builtin_types.insert("f32", library.get_float_ty(32));
-        self.builtin_types.insert("f64", library.get_float_ty(64));
-
         // Skip the leading mod
         self.bump_current_by("mod".len());
 
@@ -1381,10 +1473,10 @@ pub fn disassemble(library: &Library, mut writer: impl std::io::Write) -> std::i
                             get_loc(library, loc)
                         ))?,
                         Instruction::BitCast(ty, val, loc) => writer.write_fmt(format_args!(
-                            "      {} = {} bitcast {}{}\n",
+                            "      {} = bitcast {} to {}{}\n",
                             values.get(&value).expect("ICE: bad"),
-                            get_type_name(library, *ty),
                             values.get(&val).expect("ICE: bad"),
+                            get_type_name(library, *ty),
                             get_loc(library, loc)
                         ))?,
                         Instruction::Load(ptr, loc) => writer.write_fmt(format_args!(
@@ -1394,7 +1486,7 @@ pub fn disassemble(library: &Library, mut writer: impl std::io::Write) -> std::i
                             get_loc(library, loc)
                         ))?,
                         Instruction::Store(ptr, val, loc) => writer.write_fmt(format_args!(
-                            "      store {} {}{}\n",
+                            "      store {}, {}{}\n",
                             values.get(&ptr).expect("ICE: bad"),
                             values.get(&val).expect("ICE: bad"),
                             get_loc(library, loc)
@@ -1418,28 +1510,35 @@ pub fn disassemble(library: &Library, mut writer: impl std::io::Write) -> std::i
                         }
                         Instruction::StackAlloc(name, ty, loc) => {
                             writer.write_fmt(format_args!(
-                                "      {} = alloc {} {}{}\n",
+                                "      {} = stackalloc {}, {}{}\n",
                                 values.get(&value).expect("ICE: bad"),
                                 get_identifier(name.get_name(library)),
-                                get_type_name(library, *ty),
+                                get_type_name(library, ty.get_pointee(library)),
                                 get_loc(library, loc)
                             ))?
                         }
                         Instruction::Call(func, args, loc) => {
                             writer.write_fmt(format_args!(
-                                "      {} = call {}",
+                                "      {} = call {}(",
                                 values.get(&value).expect("ICE: bad"),
                                 get_identifier(func.get_name(library)),
                             ))?;
 
-                            for arg in args {
+                            for arg in args.iter().take(1) {
                                 writer.write_fmt(format_args!(
-                                    " {}",
+                                    "{}",
                                     values.get(&arg).expect("ICE: bad")
                                 ))?;
                             }
 
-                            writer.write_fmt(format_args!("{}", get_loc(library, loc)))?
+                            for arg in args.iter().skip(1) {
+                                writer.write_fmt(format_args!(
+                                    ", {}",
+                                    values.get(&arg).expect("ICE: bad")
+                                ))?;
+                            }
+
+                            writer.write_fmt(format_args!(") {}\n", get_loc(library, loc)))?
                         }
                         Instruction::Branch(block, args, loc) => {
                             writer

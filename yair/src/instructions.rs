@@ -187,6 +187,13 @@ impl<'a> InstructionBuilder<'a> {
         Value(index)
     }
 
+    /// Builds the block as it currently stands, in an unfinished state.
+    ///
+    /// This is useful when you need to create types during instruction building, so need to pause building.
+    pub fn build(self) -> Block {
+        self.block
+    }
+
     /// Record a return from the function which closes the block.
     ///
     /// # Examples
