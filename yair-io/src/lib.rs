@@ -545,16 +545,33 @@ impl<'a> Assembler<'a> {
             ));
         }
 
-        let mut builder = function.create_block(library);
+        let block = if let Some(block) = self.current_blocks.get(name) {
+            for i in 0..block.get_num_args(library) {
+                if block.get_arg(library, i).get_type(library) != args[i].1 {
+                    return Err(Diagnostic::new_error(
+                        "Previous branch to block had different argument types than block!",
+                        Label::new(self.file, self.single_char_span(), "here"),
+                    ));
+                }
+            }
 
-        for (_, ty) in &args {
-            builder = builder.with_argument(*ty);
-        }
+            *block
+        } else {
+            let mut builder = function.create_block(library);
 
-        let block = builder.build();
+            for (_, ty) in &args {
+                builder = builder.with_argument(*ty);
+            }
+
+            let block = builder.build();
+
+            self.current_blocks.insert(name, block);
+
+            block
+        };
 
         // If we are the first block, verify that the block shares the same arguments as the function.
-        if self.current_blocks.is_empty() {
+        if self.current_blocks.len() == 1 {
             let function_num_args = function.get_num_args(library);
             let block_num_args = block.get_num_args(library);
 
@@ -580,8 +597,6 @@ impl<'a> Assembler<'a> {
                 }
             }
         }
-
-        self.current_blocks.insert(name, block);
 
         for (i, arg) in args.iter().enumerate().take(block.get_num_args(library)) {
             self.current_values.insert(arg.0, block.get_arg(library, i));
@@ -616,6 +631,62 @@ impl<'a> Assembler<'a> {
                 let value = self.parse_value()?;
 
                 builder.store(ptr, value, None);
+            } else if self.pop_if_next_symbol("br")? {
+                let name = self.parse_identifier()?;
+
+                if !self.pop_if_next_symbol("(")? {
+                    return Err(Diagnostic::new_error(
+                        "Expected ',' between arguments to a function call",
+                        Label::new(self.file, self.single_char_span(), "here"),
+                    ));
+                }
+
+                let mut args = Vec::new();
+
+                loop {
+                    self.skip_comments_or_whitespace();
+
+                    if self.peek_if_next_symbol(")") {
+                        self.bump_current();
+                        break;
+                    }
+
+                    let value = self.parse_value()?;
+                    args.push(value);
+
+                    self.skip_comments_or_whitespace();
+
+                    if self.peek_if_next_symbol(",") {
+                        self.bump_current();
+                        continue;
+                    }
+                }
+
+                let block = if let Some(block) = self.current_blocks.get(name) {
+                    *block
+                } else {
+                    let current_block = builder.pause_building();
+
+                    let tys: Vec<_> = args.iter().map(|arg| arg.get_type(library)).collect();
+
+                    let mut block_builder = self.current_function.unwrap().create_block(library);
+
+                    for ty in tys {
+                        block_builder = block_builder.with_argument(ty);
+                    }
+
+                    let block = block_builder.build();
+
+                    self.current_blocks.insert(name, block);
+
+                    builder = current_block.create_instructions(library);
+
+                    block
+                };
+
+                builder.branch(block, &args, None);
+
+                break;
             } else {
                 // Everything below here assigns into an SSA variable.
                 let identifier = self.parse_identifier()?;
@@ -872,7 +943,7 @@ impl<'a> Assembler<'a> {
                         ));
                     }
 
-                    let block = builder.build();
+                    let block = builder.pause_building();
                     let ty = self.parse_type(library)?;
                     builder = block.create_instructions(library);
 
@@ -889,7 +960,7 @@ impl<'a> Assembler<'a> {
                         ));
                     }
 
-                    let block = builder.build();
+                    let block = builder.pause_building();
                     let ty = self.parse_type(library)?;
                     builder = block.create_instructions(library);
 
@@ -914,7 +985,7 @@ impl<'a> Assembler<'a> {
                         ));
                     }
 
-                    let block = builder.build();
+                    let block = builder.pause_building();
                     let ty = self.parse_type(library)?;
                     builder = block.create_instructions(library);
 
@@ -1541,17 +1612,26 @@ pub fn disassemble(library: &Library, mut writer: impl std::io::Write) -> std::i
                             writer.write_fmt(format_args!(") {}\n", get_loc(library, loc)))?
                         }
                         Instruction::Branch(block, args, loc) => {
-                            writer
-                                .write_fmt(format_args!("      br {}", block.get_unique_index()))?;
+                            writer.write_fmt(format_args!(
+                                "      br b{}(",
+                                block.get_unique_index()
+                            ))?;
 
-                            for arg in args {
+                            for arg in args.iter().take(1) {
                                 writer.write_fmt(format_args!(
-                                    " {}",
+                                    "{}",
                                     values.get(&arg).expect("ICE: bad")
                                 ))?;
                             }
 
-                            writer.write_fmt(format_args!("{}", get_loc(library, loc)))?
+                            for arg in args.iter().skip(1) {
+                                writer.write_fmt(format_args!(
+                                    ", {}",
+                                    values.get(&arg).expect("ICE: bad")
+                                ))?;
+                            }
+
+                            writer.write_fmt(format_args!(") {}\n", get_loc(library, loc)))?
                         }
                         Instruction::ConditionalBranch(
                             cond,
@@ -1608,6 +1688,8 @@ pub fn disassemble(library: &Library, mut writer: impl std::io::Write) -> std::i
             // If we found at least one block, the function had a body
             if !first {
                 writer.write_fmt(format_args!("  }}\n"))?;
+            } else {
+                writer.write_fmt(format_args!("\n"))?;
             }
         }
 

@@ -1,0 +1,16 @@
+// RUN: @yair_as @file | @yair_dis -
+
+// CHECK: mod "😀"
+mod "😀" {
+  // CHECK: fn foo(a : i32) : i32 {
+  fn foo(a : i32) : i32 {
+    // CHECK: b0([[bara:\w+]] : i32):
+    bar(a : i32):
+      // CHECK: br [[haz:\w+]]($$bara)
+      br haz(a)
+    // CHECK: $$haz([[haza:\w+]] : i32):
+    haz(a : i32):
+      // CHECK: ret $$haza
+      ret a
+  }
+}
