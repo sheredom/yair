@@ -1,0 +1,20 @@
+// RUN: @yair_as @file | @yair_dis -
+
+// CHECK: mod "😀"
+mod "😀" {
+  // CHECK: fn foo(cond : bool, a : i32) : i32 {
+  fn foo(cond : bool, a : i32) : i32 {
+    // CHECK: b0([[cond:\w+]] : bool, [[bara:\w+]] : i32):
+    bar(cond : bool, a : i32):
+      // CHECK: cbr $$cond, [[haz:\w+]]($$bara), [[baz:\w+]]($$bara)
+      cbr cond, haz(a), baz(a)
+    // CHECK: $$haz([[haza:\w+]] : i32):
+    haz(a : i32):
+      // CHECK: ret $$haza
+      ret a
+    // CHECK: $$baz([[baza:\w+]] : i32):
+    baz(a : i32):
+      // CHECK: ret $$baza
+      ret a
+  }
+}

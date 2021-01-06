@@ -86,7 +86,14 @@ pub enum Instruction {
     StackAlloc(Name, Type, Option<Location>),
     Call(Function, Vec<Value>, Option<Location>),
     Branch(Block, Vec<Value>, Option<Location>),
-    ConditionalBranch(Value, Block, Block, Vec<Value>, Option<Location>),
+    ConditionalBranch(
+        Value,
+        Block,
+        Block,
+        Vec<Value>,
+        Vec<Value>,
+        Option<Location>,
+    ),
     Select(Type, Value, Value, Value, Option<Location>),
     GetElementPtr(Type, Value, Vec<Value>, Option<Location>),
 }
@@ -129,7 +136,7 @@ impl Typed for Instruction {
             Instruction::StackAlloc(_, ty, _) => *ty,
             Instruction::Call(function, _, _) => function.get_return_type(library),
             Instruction::Branch(_, _, _) => panic!("Cannot get the type of a branch"),
-            Instruction::ConditionalBranch(_, _, _, _, _) => {
+            Instruction::ConditionalBranch(_, _, _, _, _, _) => {
                 panic!("Cannot get the type of a conditional branch")
             }
             Instruction::Select(ty, _, _, _, _) => *ty,
@@ -1055,14 +1062,15 @@ impl<'a> InstructionBuilder<'a> {
     /// # let mut instruction_builder = block.create_instructions(&mut library);
     /// # let location = None;
     /// # let condition = instruction_builder.cmp_ge(x, y, location);
-    /// instruction_builder.conditional_branch(condition, true_block, false_block, &[ x, y ], location);
+    /// instruction_builder.conditional_branch(condition, true_block, false_block, &[ x, y ], &[ x, y ], location);
     /// ```
     pub fn conditional_branch(
         mut self,
         condition: Value,
         true_block: Block,
         false_block: Block,
-        args: &[Value],
+        true_args: &[Value],
+        false_args: &[Value],
         location: Option<Location>,
     ) {
         assert!(condition.get_type(self.library).is_boolean(self.library));
@@ -1070,7 +1078,8 @@ impl<'a> InstructionBuilder<'a> {
             condition,
             true_block,
             false_block,
-            args.to_vec(),
+            true_args.to_vec(),
+            false_args.to_vec(),
             location,
         ));
     }

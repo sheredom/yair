@@ -546,8 +546,8 @@ impl<'a> Assembler<'a> {
         }
 
         let block = if let Some(block) = self.current_blocks.get(name) {
-            for i in 0..block.get_num_args(library) {
-                if block.get_arg(library, i).get_type(library) != args[i].1 {
+            for (i, arg) in args.iter().enumerate().take(block.get_num_args(library)) {
+                if block.get_arg(library, i).get_type(library) != arg.1 {
                     return Err(Diagnostic::new_error(
                         "Previous branch to block had different argument types than block!",
                         Label::new(self.file, self.single_char_span(), "here"),
@@ -685,6 +685,137 @@ impl<'a> Assembler<'a> {
                 };
 
                 builder.branch(block, &args, None);
+
+                break;
+            } else if self.pop_if_next_symbol("cbr")? {
+                let cond = self.parse_value()?;
+
+                if !self.pop_if_next_symbol(",")? {
+                    return Err(Diagnostic::new_error(
+                        "Expected ',' between parts of a conditional branch",
+                        Label::new(self.file, self.single_char_span(), "here"),
+                    ));
+                }
+
+                let true_br = self.parse_identifier()?;
+
+                if !self.pop_if_next_symbol("(")? {
+                    return Err(Diagnostic::new_error(
+                        "Expected '(' to open arguments to a conditional branch",
+                        Label::new(self.file, self.single_char_span(), "here"),
+                    ));
+                }
+
+                let mut true_args = Vec::new();
+
+                loop {
+                    self.skip_comments_or_whitespace();
+
+                    if self.peek_if_next_symbol(")") {
+                        self.bump_current();
+                        break;
+                    }
+
+                    let value = self.parse_value()?;
+                    true_args.push(value);
+
+                    self.skip_comments_or_whitespace();
+
+                    if self.peek_if_next_symbol(",") {
+                        self.bump_current();
+                        continue;
+                    }
+                }
+
+                let true_block = if let Some(block) = self.current_blocks.get(true_br) {
+                    *block
+                } else {
+                    let current_block = builder.pause_building();
+
+                    let tys: Vec<_> = true_args.iter().map(|arg| arg.get_type(library)).collect();
+
+                    let mut block_builder = self.current_function.unwrap().create_block(library);
+
+                    for ty in tys {
+                        block_builder = block_builder.with_argument(ty);
+                    }
+
+                    let block = block_builder.build();
+
+                    self.current_blocks.insert(true_br, block);
+
+                    builder = current_block.create_instructions(library);
+
+                    block
+                };
+
+                if !self.pop_if_next_symbol(",")? {
+                    return Err(Diagnostic::new_error(
+                        "Expected ',' between parts of a conditional branch",
+                        Label::new(self.file, self.single_char_span(), "here"),
+                    ));
+                }
+
+                let false_br = self.parse_identifier()?;
+
+                if !self.pop_if_next_symbol("(")? {
+                    return Err(Diagnostic::new_error(
+                        "Expected '(' to open arguments to a conditional branch",
+                        Label::new(self.file, self.single_char_span(), "here"),
+                    ));
+                }
+
+                let mut false_args = Vec::new();
+
+                loop {
+                    self.skip_comments_or_whitespace();
+
+                    if self.peek_if_next_symbol(")") {
+                        self.bump_current();
+                        break;
+                    }
+
+                    let value = self.parse_value()?;
+                    false_args.push(value);
+
+                    self.skip_comments_or_whitespace();
+
+                    if self.peek_if_next_symbol(",") {
+                        self.bump_current();
+                        continue;
+                    }
+                }
+
+                let false_block = if let Some(block) = self.current_blocks.get(false_br) {
+                    *block
+                } else {
+                    let current_block = builder.pause_building();
+
+                    let tys: Vec<_> = false_args.iter().map(|arg| arg.get_type(library)).collect();
+
+                    let mut block_builder = self.current_function.unwrap().create_block(library);
+
+                    for ty in tys {
+                        block_builder = block_builder.with_argument(ty);
+                    }
+
+                    let block = block_builder.build();
+
+                    self.current_blocks.insert(false_br, block);
+
+                    builder = current_block.create_instructions(library);
+
+                    block
+                };
+
+                builder.conditional_branch(
+                    cond,
+                    true_block,
+                    false_block,
+                    &true_args,
+                    &false_args,
+                    None,
+                );
 
                 break;
             } else {
@@ -1637,24 +1768,50 @@ pub fn disassemble(library: &Library, mut writer: impl std::io::Write) -> std::i
                             cond,
                             true_block,
                             false_block,
-                            args,
+                            true_args,
+                            false_args,
                             loc,
                         ) => {
                             writer.write_fmt(format_args!(
-                                "      condbr {} {} {}",
+                                "      cbr {}, b{}(",
                                 values.get(&cond).expect("ICE: bad"),
-                                true_block.get_unique_index(),
-                                false_block.get_unique_index()
+                                true_block.get_unique_index()
                             ))?;
 
-                            for arg in args {
+                            for arg in true_args.iter().take(1) {
                                 writer.write_fmt(format_args!(
-                                    " {}",
+                                    "{}",
                                     values.get(&arg).expect("ICE: bad")
                                 ))?;
                             }
 
-                            writer.write_fmt(format_args!("{}", get_loc(library, loc)))?
+                            for arg in true_args.iter().skip(1) {
+                                writer.write_fmt(format_args!(
+                                    ", {}",
+                                    values.get(&arg).expect("ICE: bad")
+                                ))?;
+                            }
+
+                            writer.write_fmt(format_args!(
+                                "), b{}(",
+                                false_block.get_unique_index()
+                            ))?;
+
+                            for arg in false_args.iter().take(1) {
+                                writer.write_fmt(format_args!(
+                                    "{}",
+                                    values.get(&arg).expect("ICE: bad")
+                                ))?;
+                            }
+
+                            for arg in false_args.iter().skip(1) {
+                                writer.write_fmt(format_args!(
+                                    ", {}",
+                                    values.get(&arg).expect("ICE: bad")
+                                ))?;
+                            }
+
+                            writer.write_fmt(format_args!(") {}\n", get_loc(library, loc)))?
                         }
                         Instruction::Select(_, cond, true_val, false_val, loc) => writer
                             .write_fmt(format_args!(
