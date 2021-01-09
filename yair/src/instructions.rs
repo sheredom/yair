@@ -95,7 +95,7 @@ pub enum Instruction {
         Option<Location>,
     ),
     Select(Type, Value, Value, Value, Option<Location>),
-    GetElementPtr(Type, Value, Vec<Value>, Option<Location>),
+    IndexInto(Type, Value, Vec<Value>, Option<Location>),
 }
 
 impl Typed for Instruction {
@@ -140,7 +140,7 @@ impl Typed for Instruction {
                 panic!("Cannot get the type of a conditional branch")
             }
             Instruction::Select(ty, _, _, _, _) => *ty,
-            Instruction::GetElementPtr(ty, _, _, _) => *ty,
+            Instruction::IndexInto(ty, _, _, _) => *ty,
         }
     }
 }
@@ -1150,10 +1150,10 @@ impl<'a> InstructionBuilder<'a> {
     /// # let i2 = i0;
     /// # let mut instruction_builder = block.create_instructions(&mut library);
     /// # let location = None;
-    /// let get_element_ptr = instruction_builder.get_element_ptr(ptr, &[ i0, i1, i2 ], location);
-    /// # assert_eq!(get_element_ptr.get_type(&library), u32_ptr_ty);
+    /// let index_into = instruction_builder.index_into(ptr, &[ i0, i1, i2 ], location);
+    /// # assert_eq!(index_into.get_type(&library), u32_ptr_ty);
     /// ```
-    pub fn get_element_ptr(
+    pub fn index_into(
         &mut self,
         ptr: Value,
         indices: &[Value],
@@ -1176,11 +1176,6 @@ impl<'a> InstructionBuilder<'a> {
             .library
             .get_ptr_type(ty, ptr_ty.get_domain(self.library));
 
-        self.make_value(Instruction::GetElementPtr(
-            ty,
-            ptr,
-            indices.to_vec(),
-            location,
-        ))
+        self.make_value(Instruction::IndexInto(ty, ptr, indices.to_vec(), location))
     }
 }

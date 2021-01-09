@@ -1168,6 +1168,53 @@ impl<'a> Assembler<'a> {
                     let value = builder.call(function, &args, None);
 
                     self.current_values.insert(identifier, value);
+                } else if self.pop_if_next_symbol("select")? {
+                    let cond = self.parse_value()?;
+
+                    if !self.pop_if_next_symbol(",")? {
+                        return Err(Diagnostic::new_error(
+                            "Expected ',' between arguments to an instruction",
+                            Label::new(self.file, self.single_char_span(), "here"),
+                        ));
+                    }
+
+                    let lhs = self.parse_value()?;
+
+                    if !self.pop_if_next_symbol(",")? {
+                        return Err(Diagnostic::new_error(
+                            "Expected ',' between arguments to an instruction",
+                            Label::new(self.file, self.single_char_span(), "here"),
+                        ));
+                    }
+
+                    let rhs = self.parse_value()?;
+
+                    let value = builder.select(cond, lhs, rhs, None);
+
+                    self.current_values.insert(identifier, value);
+                } else if self.pop_if_next_symbol("indexinto")? {
+                    let ptr = self.parse_value()?;
+
+                    if !self.pop_if_next_symbol(",")? {
+                        return Err(Diagnostic::new_error(
+                            "Expected ',' between arguments to an instruction",
+                            Label::new(self.file, self.single_char_span(), "here"),
+                        ));
+                    }
+
+                    let mut indices = Vec::new();
+
+                    loop {
+                        indices.push(self.parse_value()?);
+
+                        if !self.pop_if_next_symbol(",")? {
+                            break;
+                        }
+                    }
+
+                    let value = builder.index_into(ptr, &indices, None);
+
+                    self.current_values.insert(identifier, value);
                 }
             }
         }
@@ -1815,28 +1862,35 @@ pub fn disassemble(library: &Library, mut writer: impl std::io::Write) -> std::i
                         }
                         Instruction::Select(_, cond, true_val, false_val, loc) => writer
                             .write_fmt(format_args!(
-                                "      {} = select {} {} {}{}\n",
+                                "      {} = select {}, {}, {}{}\n",
                                 values.get(&value).expect("ICE: bad"),
                                 values.get(&cond).expect("ICE: bad"),
                                 values.get(&true_val).expect("ICE: bad"),
                                 values.get(&false_val).expect("ICE: bad"),
                                 get_loc(library, loc)
                             ))?,
-                        Instruction::GetElementPtr(_, ptr, args, loc) => {
+                        Instruction::IndexInto(_, ptr, args, loc) => {
                             writer.write_fmt(format_args!(
-                                "      {} = gep {}",
+                                "      {} = indexinto {}, ",
                                 values.get(&value).expect("ICE: bad"),
                                 values.get(&ptr).expect("ICE: bad"),
                             ))?;
 
-                            for arg in args {
+                            for arg in args.iter().take(1) {
                                 writer.write_fmt(format_args!(
-                                    " {}",
+                                    "{}",
                                     values.get(&arg).expect("ICE: bad")
                                 ))?;
                             }
 
-                            writer.write_fmt(format_args!("{}", get_loc(library, loc)))?
+                            for arg in args.iter().skip(1) {
+                                writer.write_fmt(format_args!(
+                                    ", {}",
+                                    values.get(&arg).expect("ICE: bad")
+                                ))?;
+                            }
+
+                            writer.write_fmt(format_args!("{}\n", get_loc(library, loc)))?
                         }
                     }
                 }

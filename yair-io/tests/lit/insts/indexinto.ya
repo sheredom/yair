@@ -1,0 +1,14 @@
+// RUN: @yair_as @file | @yair_dis -
+
+// CHECK: mod "😀"
+mod "😀" {
+  // CHECK: fn foo(ptr : *(any) i32, index : i32) : *(any) i32 {
+  fn foo(ptr : *i32, index : i32) : *i32 {
+    // CHECK: b0([[ptr:\w+]] : *(any) i32, [[index:\w+]] : i32):
+    bar(ptr : *i32, index : i32):
+      // CHECK: [[r:\w+]] = indexinto $$ptr, $$index
+      r = indexinto ptr, index
+      // CHECK: ret $$r
+      ret r
+  }
+}
