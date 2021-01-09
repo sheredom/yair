@@ -35,7 +35,7 @@ mod tests {
 
     #[test]
     fn lit() {
-        lit::run::tests(|config| {
+        lit::run::tests(lit::event_handler::Default::default(), |config| {
             config.add_search_path("tests/lit");
             config.add_extension("ya");
 
