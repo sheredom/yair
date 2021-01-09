@@ -1,0 +1,10 @@
+name: test-lit-shell
+version: "0.0.1"
+author: Neil Henning <sheredom@gmail.com>
+about: Assemble a YAIR text file (.ya) to a YAIR binary file (.yair).
+args:
+    - command:
+        short: c
+        value_name: command
+        help: The command to run.
+        takes_value: true

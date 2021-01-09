@@ -33,6 +33,14 @@ mod tests {
             .to_string()
     }
 
+    fn lit_shell_exe() -> String {
+        bin_dir()
+            .join(format!("test-lit-shell{}", env::consts::EXE_SUFFIX))
+            .to_str()
+            .unwrap()
+            .to_string()
+    }
+
     #[test]
     fn lit() {
         lit::run::tests(lit::event_handler::Default::default(), |config| {
@@ -49,6 +57,8 @@ mod tests {
             config
                 .constants
                 .insert("os".to_owned(), consts::OS.to_owned());
+
+            config.shell = lit_shell_exe();
         })
         .expect("Lit tests failed");
     }
