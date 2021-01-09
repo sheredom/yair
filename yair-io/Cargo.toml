@@ -9,7 +9,7 @@ clap = { version = "2.33.0", features = ["yaml"] }
 codespan = "0.7.0"
 codespan-reporting = "0.7.0"
 duct = "0.13.4"
-rmp-serde = "0.14.3"
+rmp-serde = "0.15.1"
 serde = { version = "1.0.104", features = ["derive"] }
 yair = { path = "../yair", version = "0.0.1" }
 
