@@ -37,6 +37,14 @@ jobs:
           command: clippy
           args: --lib --tests -- -D warnings
 
+      # make sure cargo deny does not result in any errors
+      - run: cargo install cargo-deny
+      - name: cargo deny
+        uses: actions-rs/cargo@v1
+        with:
+          command: deny
+          args: check
+
   test:
     strategy:
       matrix:
