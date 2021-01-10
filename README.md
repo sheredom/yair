@@ -12,4 +12,6 @@
 
 ## References
 
-### References 1  [https://llvm.org/devmtg/2015-10/#talk7](Swift's High-Level IR: A Case Study of Complementing LLVM IR with Language-Specific Optimization).
+### References 1 
+
+[https://llvm.org/devmtg/2015-10/#talk7](Swift's High-Level IR: A Case Study of Complementing LLVM IR with Language-Specific Optimization).
