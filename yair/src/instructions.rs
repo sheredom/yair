@@ -173,6 +173,16 @@ impl Named for Instruction {
     }
 }
 
+pub struct PausedInstructionBuilder {
+    block: Block,
+}
+
+impl PausedInstructionBuilder {
+    pub fn get_block(&self) -> Block {
+        self.block
+    }
+}
+
 pub struct InstructionBuilder<'a> {
     library: &'a mut Library,
     block: Block,
@@ -194,11 +204,19 @@ impl<'a> InstructionBuilder<'a> {
         Value(index)
     }
 
-    /// Pause building
+    /// Pause building an instruction builder (used when you need to use the library during building).
     ///
     /// This is useful when you need to create types during instruction building, so need to pause building.
-    pub fn pause_building(self) -> Block {
-        self.block
+    pub fn pause_building(self) -> PausedInstructionBuilder {
+        PausedInstructionBuilder { block: self.block }
+    }
+
+    /// Resume building an instruction builder.
+    pub fn resume_building(library: &'a mut Library, paused: PausedInstructionBuilder) -> Self {
+        InstructionBuilder {
+            library,
+            block: paused.block,
+        }
     }
 
     /// Record a return from the function which closes the block.

@@ -665,7 +665,7 @@ impl<'a> Assembler<'a> {
                 let block = if let Some(block) = self.current_blocks.get(name) {
                     *block
                 } else {
-                    let current_block = builder.pause_building();
+                    let paused_builder = builder.pause_building();
 
                     let tys: Vec<_> = args.iter().map(|arg| arg.get_type(library)).collect();
 
@@ -679,7 +679,7 @@ impl<'a> Assembler<'a> {
 
                     self.current_blocks.insert(name, block);
 
-                    builder = current_block.create_instructions(library);
+                    builder = InstructionBuilder::resume_building(library, paused_builder);
 
                     block
                 };
@@ -730,7 +730,7 @@ impl<'a> Assembler<'a> {
                 let true_block = if let Some(block) = self.current_blocks.get(true_br) {
                     *block
                 } else {
-                    let current_block = builder.pause_building();
+                    let paused_builder = builder.pause_building();
 
                     let tys: Vec<_> = true_args.iter().map(|arg| arg.get_type(library)).collect();
 
@@ -744,7 +744,7 @@ impl<'a> Assembler<'a> {
 
                     self.current_blocks.insert(true_br, block);
 
-                    builder = current_block.create_instructions(library);
+                    builder = InstructionBuilder::resume_building(library, paused_builder);
 
                     block
                 };
@@ -789,7 +789,7 @@ impl<'a> Assembler<'a> {
                 let false_block = if let Some(block) = self.current_blocks.get(false_br) {
                     *block
                 } else {
-                    let current_block = builder.pause_building();
+                    let paused_builder = builder.pause_building();
 
                     let tys: Vec<_> = false_args.iter().map(|arg| arg.get_type(library)).collect();
 
@@ -803,7 +803,7 @@ impl<'a> Assembler<'a> {
 
                     self.current_blocks.insert(false_br, block);
 
-                    builder = current_block.create_instructions(library);
+                    builder = InstructionBuilder::resume_building(library, paused_builder);
 
                     block
                 };
@@ -1074,9 +1074,9 @@ impl<'a> Assembler<'a> {
                         ));
                     }
 
-                    let block = builder.pause_building();
+                    let paused_builder = builder.pause_building();
                     let ty = self.parse_type(library)?;
-                    builder = block.create_instructions(library);
+                    builder = InstructionBuilder::resume_building(library, paused_builder);
 
                     let value = builder.cast(lhs, ty, None);
 
@@ -1091,9 +1091,9 @@ impl<'a> Assembler<'a> {
                         ));
                     }
 
-                    let block = builder.pause_building();
+                    let paused_builder = builder.pause_building();
                     let ty = self.parse_type(library)?;
-                    builder = block.create_instructions(library);
+                    builder = InstructionBuilder::resume_building(library, paused_builder);
 
                     let value = builder.bitcast(lhs, ty, None);
 
@@ -1116,9 +1116,9 @@ impl<'a> Assembler<'a> {
                         ));
                     }
 
-                    let block = builder.pause_building();
+                    let paused_builder = builder.pause_building();
                     let ty = self.parse_type(library)?;
-                    builder = block.create_instructions(library);
+                    builder = InstructionBuilder::resume_building(library, paused_builder);
 
                     let value = builder.stack_alloc(name, ty, None);
 
