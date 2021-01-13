@@ -7,7 +7,7 @@ extern crate yair;
 use clap::App;
 use std::fs::File;
 use std::io::{self};
-use yair::*;
+use yair::Library;
 use yair_io::disassemble;
 
 fn main() {

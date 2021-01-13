@@ -3,7 +3,6 @@ extern crate clap;
 extern crate codespan;
 extern crate rmp_serde;
 extern crate serde;
-extern crate yair;
 
 use clap::App;
 use codespan::Files;

@@ -8,7 +8,12 @@
 - Target agnostic representation for de-coupling of components.
 - Strong seperation between library components (you don't need to build, link, or use components you don't need).
 
+## TODOs
 
+- Add constants to the .ya files.
+- Add a verifier.
+- Add a cranelift code generation library.
+- Add an optimizer!
 
 ## References
 
