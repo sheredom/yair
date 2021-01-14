@@ -29,7 +29,9 @@ impl Hash for Constant {
                 ty.hash(state);
             }
             Constant::Float(val, ty) => {
-                bytemuck::cast::<f64, u64>(*val).hash(state);
+                unsafe {
+                    std::mem::transmute::<f64, u64>(*val)
+                }.hash(state);
                 ty.hash(state);
             }
             Constant::Composite(vec, ty) => {

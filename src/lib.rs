@@ -1,4 +1,3 @@
-extern crate bytemuck;
 extern crate generational_arena;
 extern crate radix_trie;
 extern crate serde;

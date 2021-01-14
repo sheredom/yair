@@ -4,7 +4,7 @@
 
 **Y**et **A**nother **I**ntermediate **R**epresentation (pronounced Ya! IR) is a compiler intermediate representation written entirely in Rust. Key design decisions make the representation unique:
 
-- No Φ (phi) nodes, basic blocks take arguments instead[\[1\]](#References-1).
+- No Φ (phi) nodes, basic blocks take arguments instead [\[1\]](#References-1).
 - Target agnostic representation for de-coupling of components.
 - Strong seperation between library components (you don't need to build, link, or use components you don't need).
 
