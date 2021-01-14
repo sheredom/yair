@@ -14,7 +14,7 @@ use std::fs::File;
 use std::io::{self, Read};
 use std::process::exit;
 use std::str::FromStr;
-use yair_io::assemble;
+use yair::io::assemble;
 
 fn main() {
     let yaml = load_yaml!("yair-as.yml");

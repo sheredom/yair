@@ -1,13 +1,12 @@
 extern crate codespan;
 extern crate rmp_serde;
 extern crate serde;
-extern crate yair;
 
+use crate::*;
 use codespan::{FileId, Span};
 use codespan_reporting::diagnostic::{Diagnostic, Label};
 use std::collections::HashMap;
 use std::str::FromStr;
-use yair::*;
 
 struct Assembler<'a> {
     data: &'a str,
@@ -870,17 +869,17 @@ impl<'a> Assembler<'a> {
                     self.current_values.insert(identifier, value);
                 } else if self.pop_if_next_symbol("cmp")? {
                     let cmp = if self.pop_if_next_symbol("eq")? {
-                        yair::Cmp::Eq
+                        Cmp::Eq
                     } else if self.pop_if_next_symbol("ne")? {
-                        yair::Cmp::Ne
+                        Cmp::Ne
                     } else if self.pop_if_next_symbol("lt")? {
-                        yair::Cmp::Lt
+                        Cmp::Lt
                     } else if self.pop_if_next_symbol("le")? {
-                        yair::Cmp::Le
+                        Cmp::Le
                     } else if self.pop_if_next_symbol("gt")? {
-                        yair::Cmp::Gt
+                        Cmp::Gt
                     } else if self.pop_if_next_symbol("ge")? {
-                        yair::Cmp::Ge
+                        Cmp::Ge
                     } else {
                         return Err(Diagnostic::new_error(
                             "Could not parse the kind of the compare (should be one of eq, ne, lt, le, gt, ge)",

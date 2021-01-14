@@ -1,5 +1,6 @@
 extern crate lit;
 
+#[cfg(feature = "io")]
 #[cfg(test)]
 mod tests {
     use std::env;

@@ -14,6 +14,9 @@ mod location;
 mod module;
 mod value;
 
+#[cfg(feature = "io")]
+pub mod io;
+
 pub use argument::*;
 pub use block::*;
 pub use constant::*;

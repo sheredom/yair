@@ -1,4 +1,4 @@
-use crate::*;
+use crate::{Deserialize, Library, Name, Named, Serialize, Type, Typed};
 
 #[derive(Debug, Eq, PartialEq, Serialize, Deserialize)]
 pub struct Argument {

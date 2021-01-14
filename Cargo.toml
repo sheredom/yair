@@ -1,5 +1,40 @@
-[workspace]
-members = [
-  "yair",
-  "yair-io"
-]
+[package]
+name = "yair"
+license = "CC0-1.0"
+version = "0.0.1"
+authors = ["Neil Henning <sheredom@gmail.com>"]
+edition = "2018"
+
+[dependencies]
+bytemuck = "1.2.0"
+generational-arena = { version = "0.2.7", features = ["serde"] }
+radix_trie = { version = "0.2.1", features = ["serde"] }
+serde = { version = "1.0.104", features = ["derive"] }
+
+clap = { version = "2.33.3", features = ["yaml"], optional = true }
+codespan = { version = "0.7.0", optional = true }
+codespan-reporting = { version = "0.7.0", optional = true }
+duct = { version = "0.13.4", optional = true }
+rmp-serde = { version = "0.15.1", optional = true }
+
+[dev-dependencies]
+lit = { git = "https://github.com/sheredom/lit.git" }
+
+[features]
+io = ["clap", "codespan", "codespan-reporting", "duct", "rmp-serde"]
+default = ["io"]
+
+[[bin]]
+name = "yair-as"
+path = "src/io/yair-as.rs"
+required-features = ["io"]
+
+[[bin]]
+name = "yair-dis"
+path = "src/io/yair-dis.rs"
+required-features = ["io"]
+
+[[bin]]
+name = "test-lit-shell"
+path = "src/io/test-lit-shell.rs"
+required-features = ["io"]

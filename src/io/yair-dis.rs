@@ -7,8 +7,8 @@ extern crate yair;
 use clap::App;
 use std::fs::File;
 use std::io::{self};
+use yair::io::disassemble;
 use yair::Library;
-use yair_io::disassemble;
 
 fn main() {
     let yaml = load_yaml!("yair-dis.yml");
