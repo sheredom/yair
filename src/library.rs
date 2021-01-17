@@ -479,6 +479,28 @@ impl Library {
             None => Value(self.values.insert(ValuePayload::Constant(constant))),
         }
     }
+
+    /// Get a composite constant (array, vector, or struct typed).
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # use yair::*;
+    /// # let mut library = Library::new();
+    /// # let module = library.create_module().build();
+    /// # let a = library.get_uint_constant(32, 13);
+    /// # let b = library.get_uint_constant(32, 42);
+    /// # let u32_ty = library.get_uint_ty(32);
+    /// # let ty = library.get_array_ty(u32_ty, 2);
+    /// let constant = library.get_composite_constant(ty, &[a, b]);
+    /// ```
+    pub fn get_composite_constant(&mut self, ty: Type, elems: &[Value]) -> Value {
+        let constant = Constant::Composite(elems.to_vec(), ty);
+        match self.constants.get(&constant) {
+            Some(value) => *value,
+            None => Value(self.values.insert(ValuePayload::Constant(constant))),
+        }
+    }
 }
 
 impl Default for Library {

@@ -1,0 +1,18 @@
+// RUN: @yair_as @file | @yair_dis -
+
+// CHECK: mod "😀"
+mod "😀" {
+  // CHECK: fn foo() : i16 {
+  fn foo() : i16 {
+    // CHECK: b0():
+    bar():
+      // CHECK: [[constant:\w+]] = const {<i16, 2>, bool} {<-4, 3>, true}
+      c = const {<i16, 2>, bool} {<-4, 3>, true}
+      // CHECK: [[vector:\w+]] = extract $$constant, 0
+      v = extract c, 0
+      // CHECK: [[result:\w+]] = extract $$vector, 1
+      r = extract v, 1
+      // CHECK: ret $$result
+      ret r
+  }
+}

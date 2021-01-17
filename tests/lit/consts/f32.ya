@@ -1,0 +1,14 @@
+// RUN: @yair_as @file | @yair_dis -
+
+// CHECK: mod "😀"
+mod "😀" {
+  // CHECK: fn foo() : f32 {
+  fn foo() : f32 {
+    // CHECK: b0():
+    bar():
+      // CHECK: [[result:\w+]] = const f32 4.213e101
+      r = const f32 42.13e100
+      // CHECK: ret $$result
+      ret r
+  }
+}

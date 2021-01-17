@@ -168,7 +168,7 @@ impl Type {
         }
     }
 
-    /// Get the element from a vector or a struct type.
+    /// Get the element from an array, vector or struct type.
     ///
     /// # Examples
     ///
@@ -195,7 +195,7 @@ impl Type {
                 assert!(index < *size, "Index is beyond the end of the array");
                 *ty
             }
-            _ => panic!("Cannot get the element from type"),
+            tp => panic!("Cannot get the element from type {:?}", tp),
         }
     }
 

@@ -1,6 +1,8 @@
 # 🦉 yair
 
 [![Actions Status](https://github.com/sheredom/yair/workflows/Rust/badge.svg)](https://github.com/sheredom/yair/actions)
+[![Crates.io](https://img.shields.io/crates/v/yair.svg)](https://crates.io/crates/yair)
+[![API Docs](https://docs.rs/mio/badge.svg)](https://docs.rs/yair)
 
 **Y**et **A**nother **I**ntermediate **R**epresentation (pronounced Ya! IR) is a compiler intermediate representation written entirely in Rust. Key design decisions make the representation unique:
 
@@ -10,7 +12,6 @@
 
 ## TODOs
 
-- Add constants to the .ya files.
 - Add a verifier.
 - Add a cranelift code generation library.
 - Add an optimizer!

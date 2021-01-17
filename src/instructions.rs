@@ -750,7 +750,7 @@ impl<'a> InstructionBuilder<'a> {
         self.make_value(Instruction::Store(ptr, val, location))
     }
 
-    /// Extract an element from a vector or struct type.
+    /// Extract an element from an array, vector, or struct type.
     ///
     /// # Examples
     ///
@@ -768,8 +768,6 @@ impl<'a> InstructionBuilder<'a> {
     /// let extract = instruction_builder.extract(val, 0, location);
     /// ```
     pub fn extract(&mut self, val: Value, idx: usize, location: Option<Location>) -> Value {
-        let ty = val.get_type(self.library);
-        assert!(ty.is_vector(self.library));
         self.make_value(Instruction::Extract(val, idx, location))
     }
 

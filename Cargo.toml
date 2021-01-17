@@ -1,9 +1,11 @@
 [package]
 name = "yair"
 license = "CC0-1.0"
-version = "0.0.1"
+version = "0.1.0"
 authors = ["Neil Henning <sheredom@gmail.com>"]
 edition = "2018"
+repository = "https://github.com/sheredom/yair"
+description = "A compiler framework written entirely in Rust"
 
 [dependencies]
 generational-arena = { version = "0.2.7", features = ["serde"] }
