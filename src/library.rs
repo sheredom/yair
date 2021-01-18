@@ -480,6 +480,26 @@ impl Library {
         }
     }
 
+    /// Get a null pointer constant.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # use yair::*;
+    /// # let mut library = Library::new();
+    /// # let module = library.create_module().build();
+    /// # let void_ty = library.get_void_ty();
+    /// # let ty = library.get_ptr_type(void_ty, Domain::CPU);
+    /// let constant = library.get_pointer_constant_null(ty);
+    /// ```
+    pub fn get_pointer_constant_null(&mut self, ty: Type) -> Value {
+        let constant = Constant::Pointer(ty);
+        match self.constants.get(&constant) {
+            Some(value) => *value,
+            None => Value(self.values.insert(ValuePayload::Constant(constant))),
+        }
+    }
+
     /// Get a composite constant (array, vector, or struct typed).
     ///
     /// # Examples

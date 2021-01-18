@@ -230,7 +230,7 @@ impl<'a> Assembler<'a> {
             'i' => Some(library.get_int_ty(bits)),
             'u' => Some(library.get_uint_ty(bits)),
             'f' => Some(library.get_float_ty(bits)),
-            _ => panic!("Unhandled integer prefix"),
+            _ => None,
         }
     }
 
@@ -364,6 +364,15 @@ impl<'a> Assembler<'a> {
                     Label::new(self.file, self.single_char_span(), "here"),
                 ))
             }
+        } else if ty.is_ptr(library) {
+            if self.pop_if_next_symbol("null")? {
+                Ok(library.get_pointer_constant_null(ty))
+            } else {
+                Err(Diagnostic::new_error(
+                    "Expected 'true' or 'false' for boolean constant",
+                    Label::new(self.file, self.single_char_span(), "here"),
+                ))
+            }
         } else if ty.is_float(library) {
             let cnst = self.parse_literal()?;
             Ok(library.get_float_constant(ty.get_bits(library) as u8, cnst))
@@ -473,7 +482,7 @@ impl<'a> Assembler<'a> {
 
             Ok(library.get_composite_constant(ty, &constants))
         } else {
-            panic!("SHIT")
+            std::unreachable!();
         }
     }
 
@@ -1693,7 +1702,7 @@ fn get_type_name(library: &Library, ty: Type) -> String {
             get_type_name(library, ty.get_pointee(library))
         )
     } else {
-        panic!("Unknown type");
+        std::unreachable!();
     }
 }
 
@@ -1729,6 +1738,7 @@ fn get_constant_literal(library: &Library, val: &Value) -> String {
         Constant::Int(i, _) => i.to_string(),
         Constant::UInt(u, _) => u.to_string(),
         Constant::Float(f, _) => format!("{:e}", f),
+        Constant::Pointer(_) => "null".to_string(),
         Constant::Composite(c, ty) => {
             let (open, close) = if ty.is_array(library) {
                 ('[', ']')
@@ -1737,7 +1747,7 @@ fn get_constant_literal(library: &Library, val: &Value) -> String {
             } else if ty.is_struct(library) {
                 ('{', '}')
             } else {
-                panic!("Unknown composite type")
+                std::unreachable!();
             };
 
             let mut literal = open.to_string();

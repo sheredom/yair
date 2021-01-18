@@ -8,6 +8,7 @@ pub enum Constant {
     Int(i64, Type),
     UInt(u64, Type),
     Float(f64, Type),
+    Pointer(Type),
     Composite(Vec<Value>, Type),
 }
 
@@ -32,6 +33,9 @@ impl Hash for Constant {
                 (*val).to_bits().hash(state);
                 ty.hash(state);
             }
+            Constant::Pointer(ty) => {
+                ty.hash(state);
+            }
             Constant::Composite(vec, ty) => {
                 for val in vec {
                     val.hash(state);
@@ -45,24 +49,28 @@ impl Hash for Constant {
 impl PartialEq for Constant {
     fn eq(&self, other: &Self) -> bool {
         match self {
-            Constant::Bool(a, _) => match other {
-                Constant::Bool(b, _) => a == b,
+            Constant::Bool(a, a_ty) => match other {
+                Constant::Bool(b, b_ty) => a == b && a_ty == b_ty,
                 _ => false,
             },
-            Constant::Int(a, _) => match other {
-                Constant::Int(b, _) => a == b,
+            Constant::Int(a, a_ty) => match other {
+                Constant::Int(b, b_ty) => a == b && a_ty == b_ty,
                 _ => false,
             },
-            Constant::UInt(a, _) => match other {
-                Constant::UInt(b, _) => a == b,
+            Constant::UInt(a, a_ty) => match other {
+                Constant::UInt(b, b_ty) => a == b && a_ty == b_ty,
                 _ => false,
             },
-            Constant::Float(a, _) => match other {
-                Constant::Float(b, _) => a == b,
+            Constant::Float(a, a_ty) => match other {
+                Constant::Float(b, b_ty) => a == b && a_ty == b_ty,
                 _ => false,
             },
-            Constant::Composite(a, _) => match other {
-                Constant::Composite(b, _) => a == b,
+            Constant::Pointer(a_ty) => match other {
+                Constant::Pointer(b_ty) => a_ty == b_ty,
+                _ => false,
+            },
+            Constant::Composite(a, a_ty) => match other {
+                Constant::Composite(b, b_ty) => a == b && a_ty == b_ty,
                 _ => false,
             },
         }
@@ -86,6 +94,7 @@ impl Typed for Constant {
             Constant::Int(_, ty) => *ty,
             Constant::UInt(_, ty) => *ty,
             Constant::Float(_, ty) => *ty,
+            Constant::Pointer(ty) => *ty,
             Constant::Composite(_, ty) => *ty,
         }
     }
