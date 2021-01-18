@@ -25,7 +25,7 @@ impl Block {
     /// # let mut library = Library::new();
     /// # let module = library.create_module().build();
     /// # let function = module.create_function(&mut library).with_name("func").build();
-    /// # let ty = library.get_uint_ty(32);
+    /// # let ty = library.get_uint_type(32);
     /// # let _ = function.create_block(&mut library).build();
     /// let block = function.create_block(&mut library).with_argument(ty).build();
     /// let arg = block.get_arg(&library, 0);
@@ -53,7 +53,7 @@ impl Block {
     /// # let mut library = Library::new();
     /// # let module = library.create_module().build();
     /// # let function = module.create_function(&mut library).with_name("func").build();
-    /// # let ty = library.get_uint_ty(32);
+    /// # let ty = library.get_uint_type(32);
     /// # let _ = function.create_block(&mut library).build();
     /// let block = function.create_block(&mut library).with_argument(ty).build();
     /// let num_args = block.get_num_args(&library);
@@ -89,7 +89,7 @@ impl Block {
     /// # use yair::*;
     /// # let mut library = Library::new();
     /// # let module = library.create_module().build();
-    /// # let u32_ty = library.get_uint_ty(32);
+    /// # let u32_ty = library.get_uint_type(32);
     /// # let function = module.create_function(&mut library).with_name("func").build();
     /// # let _ = function.create_block(&mut library).build();
     /// # let block = function.create_block(&mut library).build();
@@ -132,8 +132,8 @@ impl<'a> BlockBuilder<'a> {
     /// # let mut library = Library::new();
     /// # let module = library.create_module().build();
     /// # let function = module.create_function(&mut library).with_name("func").build();
-    /// # let i8_ty = library.get_int_ty(8);
-    /// # let u32_ty = library.get_uint_ty(32);
+    /// # let i8_ty = library.get_int_type(8);
+    /// # let u32_ty = library.get_uint_type(32);
     /// # let block_builder = function.create_block(&mut library);
     /// block_builder.with_argument(i8_ty).with_argument(u32_ty);
     /// ```
@@ -201,7 +201,7 @@ mod tests {
     fn first_had_args() {
         let mut library = Library::new();
         let module = library.create_module().build();
-        let u32_ty = library.get_uint_ty(32);
+        let u32_ty = library.get_uint_type(32);
         let function = module
             .create_function(&mut library)
             .with_argument("a", u32_ty)

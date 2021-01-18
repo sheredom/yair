@@ -2,30 +2,30 @@
 
 // CHECK: mod "😀"
 mod "😀" {
-  // CHECK: var bool : <bool, 2>
-  var bool : <bool, 2>
-  // CHECK: var i8 : <i8, 3>
-  var i8 : <i8, 3>
-  // CHECK: var i16 : <i16, 4>
-  var i16 : <i16, 4>
-  // CHECK: var i32 : <i32, 8>
-  var i32 : <i32, 8>
-  // CHECK: var i64 : <i64, 16>
-  var i64 : <i64, 16>
-  // CHECK: var u8 : <u8, 32>
-  var u8 : <u8, 32>
-  // CHECK: var u16 : <u16, 64>
-  var u16 : <u16, 64>
-  // CHECK: var u32 : <u32, 128>
-  var u32 : <u32, 128>
-  // CHECK: var u64 : <u64, 4>
-  var u64 : <u64, 4>
-  // CHECK: var f16 : <f16, 4>
-  var f16 : <f16, 4>
-  // CHECK: var f32 : <f32, 4>
-  var f32 : <f32, 4>
-  // CHECK: var f64 : <f64, 4>
-  var f64 : <f64, 4>
-  // CHECK: var void_ptr : <*(any) void, 4>
-  var void_ptr : <*void, 4>
+  // CHECK: var bool : gpu, <bool, 2>
+  var bool : gpu, <bool, 2>
+  // CHECK: var i8 : gpu, <i8, 3>
+  var i8 : gpu, <i8, 3>
+  // CHECK: var i16 : gpu, <i16, 4>
+  var i16 : gpu, <i16, 4>
+  // CHECK: var i32 : gpu, <i32, 8>
+  var i32 : gpu, <i32, 8>
+  // CHECK: var i64 : gpu, <i64, 16>
+  var i64 : gpu, <i64, 16>
+  // CHECK: var u8 : gpu, <u8, 32>
+  var u8 : gpu, <u8, 32>
+  // CHECK: var u16 : gpu, <u16, 64>
+  var u16 : gpu, <u16, 64>
+  // CHECK: var u32 : gpu, <u32, 128>
+  var u32 : gpu, <u32, 128>
+  // CHECK: var u64 : gpu, <u64, 4>
+  var u64 : gpu, <u64, 4>
+  // CHECK: var f16 : gpu, <f16, 4>
+  var f16 : gpu, <f16, 4>
+  // CHECK: var f32 : gpu, <f32, 4>
+  var f32 : gpu, <f32, 4>
+  // CHECK: var f64 : gpu, <f64, 4>
+  var f64 : gpu, <f64, 4>
+  // CHECK: var void_ptr : gpu, <*any, 4>
+  var void_ptr : gpu, <*any, 4>
 }

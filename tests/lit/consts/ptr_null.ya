@@ -2,12 +2,12 @@
 
 // CHECK: mod "😀"
 mod "😀" {
-  // CHECK: fn foo() : *(any) void {
-  fn foo() : *void {
+  // CHECK: fn foo() : *any {
+  fn foo() : *any {
     // CHECK: b0():
     bar():
-      // CHECK: [[result:\w+]] = const *(any) void null
-      r = const *void null
+      // CHECK: [[result:\w+]] = const *any null
+      r = const *any null
       // CHECK: ret $$result
       ret r
   }

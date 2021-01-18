@@ -3,7 +3,8 @@ use crate::*;
 #[derive(Clone, Debug, Hash, Eq, PartialEq, Serialize, Deserialize)]
 pub(crate) struct Global {
     name: Name,
-    ty: Type,
+    pub(crate) ty: Type,
+    pub(crate) ptr_ty: Type,
     pub(crate) export: bool,
 }
 
@@ -18,8 +19,8 @@ impl Named for Global {
     /// # let module = library.create_module().build();
     /// # let global = module.create_global(&mut library).with_name("var").build();
     /// let ty = global.get_type(&library);
-    /// # let void_ty = library.get_void_ty();
-    /// # assert_eq!(ty, library.get_ptr_type(void_ty, Domain::CrossDevice));
+    /// # let void_ty = library.get_void_type();
+    /// # assert_eq!(ty, library.get_pointer_type(Domain::CrossDevice));
     /// ```
     fn get_name<'a>(&self, library: &'a Library) -> &'a str {
         &library.names[self.name.0]
@@ -37,11 +38,11 @@ impl Typed for Global {
     /// # let module = library.create_module().build();
     /// # let global = module.create_global(&mut library).with_name("var").build();
     /// let ty = global.get_type(&library);
-    /// # let void_ty = library.get_void_ty();
-    /// # assert_eq!(ty, library.get_ptr_type(void_ty, Domain::CrossDevice));
+    /// # let void_ty = library.get_void_type();
+    /// # assert_eq!(ty, library.get_pointer_type(Domain::CrossDevice));
     /// ```
     fn get_type(&self, _: &Library) -> Type {
-        self.ty
+        self.ptr_ty
     }
 }
 
@@ -56,7 +57,7 @@ pub struct GlobalBuilder<'a> {
 
 impl<'a> GlobalBuilder<'a> {
     pub(crate) fn with_library_and_module(library: &'a mut Library, module: Module) -> Self {
-        let void_ty = library.get_void_ty();
+        let void_ty = library.get_void_type();
         GlobalBuilder {
             library,
             module,
@@ -85,15 +86,13 @@ impl<'a> GlobalBuilder<'a> {
 
     /// Add a type for the global.
     ///
-    /// The default type is void if none is specified.
-    ///
     /// # Examples
     ///
     /// ```
     /// # use yair::*;
     /// # let mut library = Library::new();
     /// # let module = library.create_module().build();
-    /// # let u32_ty = library.get_uint_ty(32);
+    /// # let u32_ty = library.get_uint_type(32);
     /// # let builder = module.create_global(&mut library);
     /// builder.with_type(u32_ty);
     /// ```
@@ -152,11 +151,12 @@ impl<'a> GlobalBuilder<'a> {
     pub fn build(self) -> Value {
         debug_assert!(!self.name.is_empty(), "name must be non-0 in length");
 
-        let global_type = self.library.get_ptr_type(self.ty, self.domain);
+        let global_type = self.library.get_pointer_type(self.domain);
 
         let global = Global {
             name: self.library.get_name(self.name),
-            ty: global_type,
+            ty: self.ty,
+            ptr_ty: global_type,
             export: self.export,
         };
 

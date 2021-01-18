@@ -15,7 +15,7 @@ impl Named for Argument {
     /// # use yair::*;
     /// # let mut library = Library::new();
     /// # let module = library.create_module().build();
-    /// # let int_ty = library.get_int_ty(8);
+    /// # let int_ty = library.get_int_type(8);
     /// # let function = module.create_function(&mut library).with_name("func").with_argument("😀", int_ty).build();
     /// # let arg = function.get_arg(&library, 0);
     /// let name = arg.get_name(&library);
@@ -35,7 +35,7 @@ impl Typed for Argument {
     /// # use yair::*;
     /// # let mut library = Library::new();
     /// # let module = library.create_module().build();
-    /// # let int_ty = library.get_int_ty(8);
+    /// # let int_ty = library.get_int_type(8);
     /// # let function = module.create_function(&mut library).with_name("func").with_argument("😀", int_ty).build();
     /// # let arg = function.get_arg(&library, 0);
     /// let ty = arg.get_type(&library);

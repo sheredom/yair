@@ -2,34 +2,34 @@
 
 // CHECK: mod "😀"
 mod "😀" {
-  // CHECK: var bool : bool
-  var bool : bool
-  // CHECK: var i8 : i8
-  var i8 : i8
-  // CHECK: var i16 : i16
-  var i16 : i16
-  // CHECK: var i32 : i32
-  var i32 : i32
-  // CHECK: var i64 : i64
-  var i64 : i64
-  // CHECK: var u8 : u8
-  var u8 : u8
-  // CHECK: var u16 : u16
-  var u16 : u16
-  // CHECK: var u32 : u32
-  var u32 : u32
-  // CHECK: var u64 : u64
-  var u64 : u64
-  // CHECK: var f16 : f16
-  var f16 : f16
-  // CHECK: var f32 : f32
-  var f32 : f32
-  // CHECK: var f64 : f64
-  var f64 : f64
-  // CHECK: var void_ptr : *(any) void
-  var void_ptr : *void
-  // CHECK: var gpu_ptr : *(gpu) void
-  var gpu_ptr : *(gpu) void
-  // CHECK: var "🎄" : i32
-  var "🎄" : i32
+  // CHECK: var bool : cpu, bool
+  var bool : cpu, bool
+  // CHECK: var i8 : cpu, i8
+  var i8 : cpu, i8
+  // CHECK: var i16 : cpu, i16
+  var i16 : cpu, i16
+  // CHECK: var i32 : cpu, i32
+  var i32 : cpu, i32
+  // CHECK: var i64 : cpu, i64
+  var i64 : cpu, i64
+  // CHECK: var u8 : cpu, u8
+  var u8 : cpu, u8
+  // CHECK: var u16 : cpu, u16
+  var u16 : cpu, u16
+  // CHECK: var u32 : cpu, u32
+  var u32 : cpu, u32
+  // CHECK: var u64 : cpu, u64
+  var u64 : cpu, u64
+  // CHECK: var f16 : cpu, f16
+  var f16 : cpu, f16
+  // CHECK: var f32 : cpu, f32
+  var f32 : cpu, f32
+  // CHECK: var f64 : cpu, f64
+  var f64 : cpu, f64
+  // CHECK: var void_ptr : cpu, *any
+  var void_ptr : cpu, *any
+  // CHECK: var gpu_ptr : cpu, *gpu
+  var gpu_ptr : cpu, *gpu
+  // CHECK: var "🎄" : cpu, i32
+  var "🎄" : cpu, i32
 }

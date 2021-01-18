@@ -65,7 +65,7 @@ impl Value {
     /// # use yair::*;
     /// # let mut library = Library::new();
     /// # let module = library.create_module().build();
-    /// # let u32_ty = library.get_uint_ty(32);
+    /// # let u32_ty = library.get_uint_type(32);
     /// # let function = module.create_function(&mut library).with_name("func").with_return_type(u32_ty).build();
     /// # let _ = function.create_block(&mut library).build();
     /// # let block = function.create_block(&mut library).build();
@@ -87,7 +87,7 @@ impl Value {
     /// # use yair::*;
     /// # let mut library = Library::new();
     /// # let module = library.create_module().build();
-    /// # let u32_ty = library.get_uint_ty(32);
+    /// # let u32_ty = library.get_uint_type(32);
     /// # let function = module.create_function(&mut library).with_name("func").with_return_type(u32_ty).build();
     /// # let _ = function.create_block(&mut library).build();
     /// # let block = function.create_block(&mut library).build();
@@ -111,8 +111,8 @@ impl Value {
     /// # use yair::*;
     /// # let mut library = Library::new();
     /// # let module = library.create_module().with_name("module").build();
-    /// # let u32_ty = library.get_uint_ty(32);
-    /// let global = module.create_global(&mut library).with_export(true).with_name("global").with_type(u32_ty).build();
+    /// # let u32_ty = library.get_uint_type(32);
+    /// # let global = module.create_global(&mut library).with_export(true).with_name("global").with_type(u32_ty).build();
     /// let is_export = global.is_export(&library);
     /// # assert!(is_export);
     /// ```
@@ -120,6 +120,46 @@ impl Value {
         match &library.values[self.0] {
             ValuePayload::Global(g) => g.export,
             _ => false,
+        }
+    }
+
+    /// Get the domain of the global value.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # use yair::*;
+    /// # let mut library = Library::new();
+    /// # let module = library.create_module().with_name("module").build();
+    /// # let u32_ty = library.get_uint_type(32);
+    /// # let global = module.create_global(&mut library).with_domain(Domain::CPU).with_name("global").with_type(u32_ty).build();
+    /// let domain = global.get_global_domain(&library);
+    /// # assert_eq!(domain, Domain::CPU);
+    /// ```
+    pub fn get_global_domain(&self, library: &Library) -> Domain {
+        match &library.values[self.0] {
+            ValuePayload::Global(g) => g.ptr_ty.get_domain(library),
+            _ => std::unreachable!(),
+        }
+    }
+
+    /// Get the type that backs the global value.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # use yair::*;
+    /// # let mut library = Library::new();
+    /// # let module = library.create_module().with_name("module").build();
+    /// # let u32_ty = library.get_uint_type(32);
+    /// # let global = module.create_global(&mut library).with_domain(Domain::CPU).with_name("global").with_type(u32_ty).build();
+    /// let ty = global.get_global_backing_type(&library);
+    /// # assert_eq!(ty, u32_ty);
+    /// ```
+    pub fn get_global_backing_type(&self, library: &Library) -> Type {
+        match &library.values[self.0] {
+            ValuePayload::Global(g) => g.ty,
+            _ => std::unreachable!(),
         }
     }
 }

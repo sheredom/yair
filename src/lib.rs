@@ -47,7 +47,7 @@ enum TypePayload {
     UInt(u8),
     Float(u8),
     Vector(Type, u8),
-    Pointer(Type, Domain),
+    Pointer(Domain),
     Struct(Vec<Type>),
     Function(Type, Vec<Type>),
     Array(Type, usize),
@@ -92,7 +92,7 @@ impl Type {
     /// # use yair::*;
     /// # let mut library = Library::new();
     /// # let module = library.create_module().build();
-    /// # let u32_ty = library.get_uint_ty(32);
+    /// # let u32_ty = library.get_uint_type(32);
     /// let bits = u32_ty.get_bits(&library);
     /// # assert_eq!(bits, 32);
     /// ```
@@ -115,8 +115,8 @@ impl Type {
     /// # use yair::*;
     /// # let mut library = Library::new();
     /// # let module = library.create_module().build();
-    /// # let u32_ty = library.get_uint_ty(32);
-    /// let vec_ty = library.get_vec_type(u32_ty, 4);
+    /// # let u32_ty = library.get_uint_type(32);
+    /// let vec_ty = library.get_vector_type(u32_ty, 4);
     /// assert_eq!(vec_ty.get_len(&library), 4);
     /// ```
     pub fn get_len(&self, library: &Library) -> usize {
@@ -128,26 +128,6 @@ impl Type {
         }
     }
 
-    /// Get the pointed-to type from a pointer (the pointee type).
-    ///
-    /// # Examples
-    ///
-    /// ```
-    /// # use yair::*;
-    /// # let mut library = Library::new();
-    /// # let module = library.create_module().build();
-    /// # let u32_ty = library.get_uint_ty(32);
-    /// # let u32_ptr_ty = library.get_ptr_type(u32_ty, Domain::CPU);
-    /// let pointee = u32_ptr_ty.get_pointee(&library);
-    /// # assert_eq!(pointee, u32_ty);
-    /// ```
-    pub fn get_pointee(&self, library: &Library) -> Type {
-        match library.types[self.0] {
-            TypePayload::Pointer(ty, _) => ty,
-            _ => panic!("Cannot get the pointee from a non pointer type"),
-        }
-    }
-
     /// Get the domain from a pointer.
     ///
     /// # Examples
@@ -156,14 +136,14 @@ impl Type {
     /// # use yair::*;
     /// # let mut library = Library::new();
     /// # let module = library.create_module().build();
-    /// # let u32_ty = library.get_uint_ty(32);
-    /// # let u32_ptr_ty = library.get_ptr_type(u32_ty, Domain::CPU);
+    /// # let u32_ty = library.get_uint_type(32);
+    /// # let u32_ptr_ty = library.get_pointer_type(Domain::CPU);
     /// let domain = u32_ptr_ty.get_domain(&library);
     /// # assert_eq!(domain, Domain::CPU);
     /// ```
     pub fn get_domain(&self, library: &Library) -> Domain {
         match library.types[self.0] {
-            TypePayload::Pointer(_, domain) => domain,
+            TypePayload::Pointer(domain) => domain,
             _ => panic!("Cannot get the domain from a non pointer type"),
         }
     }
@@ -176,8 +156,8 @@ impl Type {
     /// # use yair::*;
     /// # let mut library = Library::new();
     /// # let module = library.create_module().build();
-    /// # let u32_ty = library.get_uint_ty(32);
-    /// # let vec_ty = library.get_vec_type(u32_ty, 4);
+    /// # let u32_ty = library.get_uint_type(32);
+    /// # let vec_ty = library.get_vector_type(u32_ty, 4);
     /// let element = vec_ty.get_element(&library, 3);
     /// # assert_eq!(element, u32_ty);
     /// ```
@@ -207,8 +187,8 @@ impl Type {
     /// # use yair::*;
     /// # let mut library = Library::new();
     /// # let module = library.create_module().build();
-    /// # let u32_ty = library.get_uint_ty(32);
-    /// # let array_ty = library.get_array_ty(u32_ty, 4);
+    /// # let u32_ty = library.get_uint_type(32);
+    /// # let array_ty = library.get_array_type(u32_ty, 4);
     /// let is_array = array_ty.is_array(&library);
     /// # assert!(is_array);
     /// ```
@@ -224,8 +204,8 @@ impl Type {
     /// # use yair::*;
     /// # let mut library = Library::new();
     /// # let module = library.create_module().build();
-    /// # let u32_ty = library.get_uint_ty(32);
-    /// # let struct_ty = library.get_struct_ty(&[ u32_ty ]);
+    /// # let u32_ty = library.get_uint_type(32);
+    /// # let struct_ty = library.get_struct_type(&[ u32_ty ]);
     /// let is_struct = struct_ty.is_struct(&library);
     /// # assert!(is_struct);
     /// ```
@@ -241,8 +221,8 @@ impl Type {
     /// # use yair::*;
     /// # let mut library = Library::new();
     /// # let module = library.create_module().build();
-    /// # let u32_ty = library.get_uint_ty(32);
-    /// # let vec_ty = library.get_vec_type(u32_ty, 4);
+    /// # let u32_ty = library.get_uint_type(32);
+    /// # let vec_ty = library.get_vector_type(u32_ty, 4);
     /// let is_vec = vec_ty.is_vector(&library);
     /// # assert!(is_vec);
     /// ```
@@ -258,7 +238,7 @@ impl Type {
     /// # use yair::*;
     /// # let mut library = Library::new();
     /// # let module = library.create_module().build();
-    /// # let i32_ty = library.get_int_ty(32);
+    /// # let i32_ty = library.get_int_type(32);
     /// assert!(i32_ty.is_int(&library));
     /// ```
     pub fn is_int(&self, library: &Library) -> bool {
@@ -273,7 +253,7 @@ impl Type {
     /// # use yair::*;
     /// # let mut library = Library::new();
     /// # let module = library.create_module().build();
-    /// # let u32_ty = library.get_uint_ty(32);
+    /// # let u32_ty = library.get_uint_type(32);
     /// assert!(u32_ty.is_uint(&library));
     /// ```
     pub fn is_uint(&self, library: &Library) -> bool {
@@ -288,7 +268,7 @@ impl Type {
     /// # use yair::*;
     /// # let mut library = Library::new();
     /// # let module = library.create_module().build();
-    /// # let f32_ty = library.get_float_ty(32);
+    /// # let f32_ty = library.get_float_type(32);
     /// assert!(f32_ty.is_float(&library));
     /// ```
     pub fn is_float(&self, library: &Library) -> bool {
@@ -303,8 +283,8 @@ impl Type {
     /// # use yair::*;
     /// # let mut library = Library::new();
     /// # let module = library.create_module().build();
-    /// # let u32_ty = library.get_uint_ty(32);
-    /// # let vec_ty = library.get_vec_type(u32_ty, 4);
+    /// # let u32_ty = library.get_uint_type(32);
+    /// # let vec_ty = library.get_vector_type(u32_ty, 4);
     /// let is_integral = u32_ty.is_integral(&library);
     /// # assert!(is_integral);
     /// # assert!(!vec_ty.is_integral(&library));
@@ -321,9 +301,9 @@ impl Type {
     /// # use yair::*;
     /// # let mut library = Library::new();
     /// # let module = library.create_module().build();
-    /// # let u32_ty = library.get_uint_ty(32);
-    /// # let vec_ty = library.get_vec_type(u32_ty, 4);
-    /// # let bool_ty = library.get_bool_ty();
+    /// # let u32_ty = library.get_uint_type(32);
+    /// # let vec_ty = library.get_vector_type(u32_ty, 4);
+    /// # let bool_ty = library.get_bool_type();
     /// let is_integral = u32_ty.is_integral_or_integral_vector(&library);
     /// let is_vector_integral = vec_ty.is_integral_or_integral_vector(&library);
     /// # assert!(is_integral);
@@ -348,9 +328,9 @@ impl Type {
     /// # use yair::*;
     /// # let mut library = Library::new();
     /// # let module = library.create_module().build();
-    /// # let u32_ty = library.get_uint_ty(32);
-    /// # let vec_ty = library.get_vec_type(u32_ty, 4);
-    /// # let bool_ty = library.get_bool_ty();
+    /// # let u32_ty = library.get_uint_type(32);
+    /// # let vec_ty = library.get_vector_type(u32_ty, 4);
+    /// # let bool_ty = library.get_bool_type();
     /// let is_boolean = bool_ty.is_boolean(&library);
     /// # assert!(is_boolean);
     /// # assert!(!vec_ty.is_boolean(&library));
@@ -367,9 +347,9 @@ impl Type {
     /// # use yair::*;
     /// # let mut library = Library::new();
     /// # let module = library.create_module().build();
-    /// # let u32_ty = library.get_uint_ty(32);
-    /// # let vec_ty = library.get_vec_type(u32_ty, 4);
-    /// # let void_ty = library.get_void_ty();
+    /// # let u32_ty = library.get_uint_type(32);
+    /// # let vec_ty = library.get_vector_type(u32_ty, 4);
+    /// # let void_ty = library.get_void_type();
     /// assert!(void_ty.is_void(&library));
     /// # assert!(!vec_ty.is_boolean(&library));
     /// ```
@@ -385,14 +365,14 @@ impl Type {
     /// # use yair::*;
     /// # let mut library = Library::new();
     /// # let module = library.create_module().build();
-    /// # let bool_ty = library.get_bool_ty();
-    /// # let ptr_ty = library.get_ptr_type(bool_ty, Domain::CPU);
-    /// let is_ptr = ptr_ty.is_ptr(&library);
-    /// # assert!(is_ptr);
-    /// # assert!(!bool_ty.is_ptr(&library));
+    /// # let bool_ty = library.get_bool_type();
+    /// # let ptr_ty = library.get_pointer_type(Domain::CPU);
+    /// let is_pointer = ptr_ty.is_pointer(&library);
+    /// # assert!(is_pointer);
+    /// # assert!(!bool_ty.is_pointer(&library));
     /// ```
-    pub fn is_ptr(&self, library: &Library) -> bool {
-        matches!(library.types[self.0], TypePayload::Pointer(_, _))
+    pub fn is_pointer(&self, library: &Library) -> bool {
+        matches!(library.types[self.0], TypePayload::Pointer(_))
     }
 
     /// Get the type at the index into the type.
@@ -403,8 +383,8 @@ impl Type {
     /// # use yair::*;
     /// # let mut library = Library::new();
     /// # let module = library.create_module().build();
-    /// # let u32_ty = library.get_uint_ty(32);
-    /// # let ty = library.get_array_ty(u32_ty, 42);
+    /// # let u32_ty = library.get_uint_type(32);
+    /// # let ty = library.get_array_type(u32_ty, 42);
     /// # let index = library.get_int_constant(8, 0);
     /// let indexed_type = ty.get_indexed(&library, index);
     /// # assert_eq!(indexed_type, u32_ty);
@@ -437,55 +417,46 @@ mod tests {
     #[should_panic]
     fn bad_int_ty() {
         let mut library = Library::new();
-        let _ = library.get_int_ty(31);
+        let _ = library.get_int_type(31);
     }
 
     #[test]
     #[should_panic]
     fn bad_uint_ty() {
         let mut library = Library::new();
-        let _ = library.get_uint_ty(13);
+        let _ = library.get_uint_type(13);
     }
 
     #[test]
     #[should_panic]
     fn bad_vec_ty_element() {
         let mut library = Library::new();
-        let void_ty = library.get_void_ty();
-        let _ = library.get_vec_type(void_ty, 4);
+        let void_ty = library.get_void_type();
+        let _ = library.get_vector_type(void_ty, 4);
     }
 
     #[test]
     #[should_panic]
     fn bad_vec_ty_width() {
         let mut library = Library::new();
-        let u32_ty = library.get_uint_ty(32);
-        let _ = library.get_vec_type(u32_ty, 1);
+        let u32_ty = library.get_uint_type(32);
+        let _ = library.get_vector_type(u32_ty, 1);
     }
 
     #[test]
     #[should_panic]
     fn bad_get_bits() {
         let mut library = Library::new();
-        let u32_ty = library.get_uint_ty(32);
-        let u32_ptr_ty = library.get_ptr_type(u32_ty, Domain::CPU);
-        let _ = u32_ptr_ty.get_bits(&library);
-    }
-
-    #[test]
-    #[should_panic]
-    fn bad_get_pointee() {
-        let mut library = Library::new();
-        let u32_ty = library.get_uint_ty(32);
-        let _ = u32_ty.get_pointee(&library);
+        let ptr_ty = library.get_pointer_type(Domain::CPU);
+        let _ = ptr_ty.get_bits(&library);
     }
 
     #[test]
     #[should_panic]
     fn bad_get_element_index() {
         let mut library = Library::new();
-        let u32_ty = library.get_uint_ty(32);
-        let vec_ty = library.get_vec_type(u32_ty, 4);
+        let u32_ty = library.get_uint_type(32);
+        let vec_ty = library.get_vector_type(u32_ty, 4);
         vec_ty.get_element(&library, 5);
     }
 
@@ -493,7 +464,7 @@ mod tests {
     #[should_panic]
     fn bad_get_element_type() {
         let mut library = Library::new();
-        let u32_ty = library.get_uint_ty(32);
+        let u32_ty = library.get_uint_type(32);
         u32_ty.get_element(&library, 0);
     }
 }

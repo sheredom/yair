@@ -39,7 +39,7 @@ impl Function {
     /// # use yair::*;
     /// # let mut library = Library::new();
     /// # let module = library.create_module().build();
-    /// # let void_ty = library.get_void_ty();
+    /// # let void_ty = library.get_void_type();
     /// # let function = module.create_function(&mut library).with_name("foo").build();
     /// let return_type = function.get_return_type(&library);
     /// # assert_eq!(return_type, void_ty);
@@ -61,7 +61,7 @@ impl Function {
     /// # use yair::*;
     /// # let mut library = Library::new();
     /// # let module = library.create_module().build();
-    /// # let ty = library.get_int_ty(8);
+    /// # let ty = library.get_int_type(8);
     /// # let function = module.create_function(&mut library).with_name("func").with_argument("arg", ty).build();
     /// let arg = function.get_arg(&library, 0);
     /// # assert_eq!(arg.get_type(&library), ty);
@@ -87,7 +87,7 @@ impl Function {
     /// # use yair::*;
     /// # let mut library = Library::new();
     /// # let module = library.create_module().build();
-    /// # let ty = library.get_int_ty(8);
+    /// # let ty = library.get_int_type(8);
     /// # let function = module.create_function(&mut library).with_name("func").with_argument("arg", ty).build();
     /// let num_args = function.get_num_args(&library);
     /// # assert_eq!(1, num_args);
@@ -163,7 +163,7 @@ pub struct FunctionBuilder<'a> {
 
 impl<'a> FunctionBuilder<'a> {
     pub(crate) fn with_library_and_module(library: &'a mut Library, module: Module) -> Self {
-        let void_ty = library.get_void_ty();
+        let void_ty = library.get_void_type();
 
         FunctionBuilder {
             library,
@@ -202,7 +202,7 @@ impl<'a> FunctionBuilder<'a> {
     /// # use yair::*;
     /// # let mut library = Library::new();
     /// # let module = library.create_module().build();
-    /// # let u32_ty = library.get_uint_ty(32);
+    /// # let u32_ty = library.get_uint_type(32);
     /// # let function_builder = module.create_function(&mut library);
     /// function_builder.with_return_type(u32_ty);
     /// ```
@@ -221,8 +221,8 @@ impl<'a> FunctionBuilder<'a> {
     /// # use yair::*;
     /// # let mut library = Library::new();
     /// # let module = library.create_module().build();
-    /// # let i8_ty = library.get_int_ty(8);
-    /// # let u32_ty = library.get_uint_ty(32);
+    /// # let i8_ty = library.get_int_type(8);
+    /// # let u32_ty = library.get_uint_type(32);
     /// # let function_builder = module.create_function(&mut library);
     /// function_builder.with_argument("a", i8_ty).with_argument("b", u32_ty);
     /// ```
@@ -266,7 +266,7 @@ impl<'a> FunctionBuilder<'a> {
 
         let function_type = self
             .library
-            .get_fn_type(self.return_type, &self.argument_types);
+            .get_function_type(self.return_type, &self.argument_types);
 
         let mut function = FunctionPayload {
             name: self.name.to_string(),

@@ -227,9 +227,9 @@ impl<'a> Assembler<'a> {
         self.bump_current_by(str.len());
 
         match c {
-            'i' => Some(library.get_int_ty(bits)),
-            'u' => Some(library.get_uint_ty(bits)),
-            'f' => Some(library.get_float_ty(bits)),
+            'i' => Some(library.get_int_type(bits)),
+            'u' => Some(library.get_uint_type(bits)),
+            'f' => Some(library.get_float_type(bits)),
             _ => None,
         }
     }
@@ -301,7 +301,7 @@ impl<'a> Assembler<'a> {
             self.bump_current();
         }
 
-        Ok(library.get_struct_ty(&element_types))
+        Ok(library.get_struct_type(&element_types))
     }
 
     fn parse_literal<T: FromStr>(&mut self) -> Result<T, Diagnostic> {
@@ -364,7 +364,7 @@ impl<'a> Assembler<'a> {
                     Label::new(self.file, self.single_char_span(), "here"),
                 ))
             }
-        } else if ty.is_ptr(library) {
+        } else if ty.is_pointer(library) {
             if self.pop_if_next_symbol("null")? {
                 Ok(library.get_pointer_constant_null(ty))
             } else {
@@ -518,7 +518,7 @@ impl<'a> Assembler<'a> {
         // Skip the '>'
         self.bump_current();
 
-        Ok(library.get_vec_type(element_type, width))
+        Ok(library.get_vector_type(element_type, width))
     }
 
     fn parse_array_type(&mut self, library: &mut Library) -> Result<Type, Diagnostic> {
@@ -553,7 +553,28 @@ impl<'a> Assembler<'a> {
         // Skip the ']'
         self.bump_current();
 
-        Ok(library.get_array_ty(element_type, len))
+        Ok(library.get_array_type(element_type, len))
+    }
+
+    fn parse_domain(&mut self) -> Result<Domain, Diagnostic> {
+        if self.get_current_str().starts_with("any") {
+            self.bump_current_by("any".len());
+            Ok(Domain::CrossDevice)
+        } else if self.get_current_str().starts_with("cpu") {
+            self.bump_current_by("cpu".len());
+            Ok(Domain::CPU)
+        } else if self.get_current_str().starts_with("gpu") {
+            self.bump_current_by("gpu".len());
+            Ok(Domain::GPU)
+        } else if self.get_current_str().starts_with("stack") {
+            self.bump_current_by("stack".len());
+            Ok(Domain::STACK)
+        } else {
+            Err(Diagnostic::new_error(
+                "Invalid pointer domain - expected any, cpu, gpu, or stack",
+                Label::new(self.file, self.single_char_span(), "unknown domain"),
+            ))
+        }
     }
 
     fn parse_pointer_type(&mut self, library: &mut Library) -> Result<Type, Diagnostic> {
@@ -562,54 +583,9 @@ impl<'a> Assembler<'a> {
 
         self.skip_comments_or_whitespace();
 
-        // If we have the optional domain.
-        let domain = if self.get_current_str().starts_with('(') {
-            // Skip the '('
-            self.bump_current();
+        let domain = self.parse_domain()?;
 
-            self.skip_comments_or_whitespace();
-
-            let detected_domain = if self.get_current_str().starts_with("any") {
-                self.bump_current_by("any".len());
-                Domain::CrossDevice
-            } else if self.get_current_str().starts_with("cpu") {
-                self.bump_current_by("cpu".len());
-                Domain::CPU
-            } else if self.get_current_str().starts_with("gpu") {
-                self.bump_current_by("gpu".len());
-                Domain::GPU
-            } else if self.get_current_str().starts_with("stack") {
-                self.bump_current_by("stack".len());
-                Domain::STACK
-            } else {
-                return Err(Diagnostic::new_error(
-                    "Invalid pointer domain - expected any, cpu, gpu, or stack",
-                    Label::new(self.file, self.single_char_span(), "unknown domain"),
-                ));
-            };
-
-            self.skip_comments_or_whitespace();
-
-            if !self.get_current_str().starts_with(')') {
-                return Err(Diagnostic::new_error(
-                    "Invalid pointer domain",
-                    Label::new(self.file, self.single_char_span(), "expected ')'"),
-                ));
-            }
-
-            // Skip ')'
-            self.bump_current();
-
-            self.skip_comments_or_whitespace();
-
-            detected_domain
-        } else {
-            Domain::CrossDevice
-        };
-
-        let pointee_type = self.parse_type(library)?;
-
-        Ok(library.get_ptr_type(pointee_type, domain))
+        Ok(library.get_pointer_type(domain))
     }
 
     fn parse_type(&mut self, library: &mut Library) -> Result<Type, Diagnostic> {
@@ -629,10 +605,10 @@ impl<'a> Assembler<'a> {
 
         if self.get_current_str().starts_with("void") {
             self.bump_current_by("void".len());
-            Ok(library.get_void_ty())
+            Ok(library.get_void_type())
         } else if self.get_current_str().starts_with("bool") {
             self.bump_current_by("bool".len());
-            Ok(library.get_bool_ty())
+            Ok(library.get_bool_type())
         } else if self.get_current_str().starts_with('<') {
             self.parse_vector_type(library)
         } else if self.get_current_str().starts_with('{') {
@@ -762,6 +738,17 @@ impl<'a> Assembler<'a> {
 
                 break;
             } else if self.pop_if_next_symbol("store")? {
+                let paused_builder = builder.pause_building();
+                let ty = self.parse_type(library)?;
+                builder = InstructionBuilder::resume_building(library, paused_builder);
+
+                if !self.pop_if_next_symbol(",")? {
+                    return Err(Diagnostic::new_error(
+                        "Expected ',' between arguments to an instruction",
+                        Label::new(self.file, self.single_char_span(), "here"),
+                    ));
+                }
+
                 let ptr = self.parse_value()?;
 
                 if !self.pop_if_next_symbol(",")? {
@@ -773,7 +760,7 @@ impl<'a> Assembler<'a> {
 
                 let value = self.parse_value()?;
 
-                builder.store(ptr, value, None);
+                builder.store(ty, ptr, value, None);
             } else if self.pop_if_next_symbol("br")? {
                 let name = self.parse_identifier()?;
 
@@ -1242,9 +1229,20 @@ impl<'a> Assembler<'a> {
 
                     self.current_values.insert(identifier, value);
                 } else if self.pop_if_next_symbol("load")? {
+                    let paused_builder = builder.pause_building();
+                    let ty = self.parse_type(library)?;
+                    builder = InstructionBuilder::resume_building(library, paused_builder);
+
+                    if !self.pop_if_next_symbol(",")? {
+                        return Err(Diagnostic::new_error(
+                            "Expected ',' between arguments to an instruction",
+                            Label::new(self.file, self.single_char_span(), "here"),
+                        ));
+                    }
+
                     let ptr = self.parse_value()?;
 
-                    let value = builder.load(ptr, None);
+                    let value = builder.load(ty, ptr, None);
 
                     self.current_values.insert(identifier, value);
                 } else if self.pop_if_next_symbol("stackalloc")? {
@@ -1336,6 +1334,17 @@ impl<'a> Assembler<'a> {
 
                     self.current_values.insert(identifier, value);
                 } else if self.pop_if_next_symbol("indexinto")? {
+                    let paused_builder = builder.pause_building();
+                    let ty = self.parse_type(library)?;
+                    builder = InstructionBuilder::resume_building(library, paused_builder);
+
+                    if !self.pop_if_next_symbol(",")? {
+                        return Err(Diagnostic::new_error(
+                            "Expected ',' between arguments to an instruction",
+                            Label::new(self.file, self.single_char_span(), "here"),
+                        ));
+                    }
+
                     let ptr = self.parse_value()?;
 
                     if !self.pop_if_next_symbol(",")? {
@@ -1355,7 +1364,7 @@ impl<'a> Assembler<'a> {
                         }
                     }
 
-                    let value = builder.index_into(ptr, &indices, None);
+                    let value = builder.index_into(ty, ptr, &indices, None);
 
                     self.current_values.insert(identifier, value);
                 } else if self.pop_if_next_symbol("const")? {
@@ -1521,6 +1530,18 @@ impl<'a> Assembler<'a> {
 
         self.skip_comments_or_whitespace();
 
+        let domain = self.parse_domain()?;
+
+        if !self.get_current_str().starts_with(',') {
+            return Err(Diagnostic::new_error(
+                "Expected ',' between domain and type of a global",
+                Label::new(self.file, self.single_char_span(), "here"),
+            ));
+        }
+
+        // Skip the ','
+        self.bump_current();
+
         let ty = self.parse_type(library)?;
 
         let module = self.current_module.unwrap();
@@ -1530,6 +1551,7 @@ impl<'a> Assembler<'a> {
             .with_export(is_export)
             .with_name(identifier)
             .with_type(ty)
+            .with_domain(domain)
             .build();
 
         self.variables.insert((identifier, module), var);
@@ -1695,12 +1717,8 @@ fn get_type_name(library: &Library, ty: Type) -> String {
         format!("u{}", ty.get_bits(library))
     } else if ty.is_float(library) {
         format!("f{}", ty.get_bits(library))
-    } else if ty.is_ptr(library) {
-        format!(
-            "*({}) {}",
-            get_domain(ty.get_domain(library)),
-            get_type_name(library, ty.get_pointee(library))
-        )
+    } else if ty.is_pointer(library) {
+        format!("*{}", get_domain(ty.get_domain(library)))
     } else {
         std::unreachable!();
     }
@@ -1823,10 +1841,14 @@ pub fn disassemble(library: &Library, mut writer: impl std::io::Write) -> std::i
                 "  "
             };
             let name = get_identifier(global.get_name(library));
-            let ty = global.get_type(library).get_pointee(library);
+            let domain = get_domain(global.get_global_domain(library));
+            let ty = global.get_global_backing_type(library);
             let ty_name = get_type_name(library, ty);
 
-            writer.write_fmt(format_args!("{}var {} : {}\n", export, name, ty_name))?;
+            writer.write_fmt(format_args!(
+                "{}var {} : {}, {}\n",
+                export, name, domain, ty_name
+            ))?;
         }
 
         for function in module.get_functions(library) {
@@ -1976,23 +1998,25 @@ pub fn disassemble(library: &Library, mut writer: impl std::io::Write) -> std::i
                                 get_loc(library, loc)
                             ))?;
                         }
-                        Instruction::Load(ptr, loc) => {
+                        Instruction::Load(ty, ptr, loc) => {
                             let value = get_val(library, &value, &mut values, &mut writer)?;
                             let ptr = get_val(library, &ptr, &mut values, &mut writer)?;
 
                             writer.write_fmt(format_args!(
-                                "      {} = load {}{}\n",
+                                "      {} = load {}, {}{}\n",
                                 value,
+                                get_type_name(library, *ty),
                                 ptr,
                                 get_loc(library, loc)
                             ))?;
                         }
-                        Instruction::Store(ptr, val, loc) => {
+                        Instruction::Store(ty, ptr, val, loc) => {
                             let ptr = get_val(library, &ptr, &mut values, &mut writer)?;
                             let val = get_val(library, &val, &mut values, &mut writer)?;
 
                             writer.write_fmt(format_args!(
-                                "      store {}, {}{}\n",
+                                "      store {}, {}, {}{}\n",
+                                get_type_name(library, *ty),
                                 ptr,
                                 val,
                                 get_loc(library, loc)
@@ -2024,13 +2048,13 @@ pub fn disassemble(library: &Library, mut writer: impl std::io::Write) -> std::i
                                 get_loc(library, loc)
                             ))?
                         }
-                        Instruction::StackAlloc(name, ty, loc) => {
+                        Instruction::StackAlloc(name, ty, _, loc) => {
                             let value = get_val(library, &value, &mut values, &mut writer)?;
                             writer.write_fmt(format_args!(
                                 "      {} = stackalloc {}, {}{}\n",
                                 value,
                                 get_identifier(name.get_name(library)),
-                                get_type_name(library, ty.get_pointee(library)),
+                                get_type_name(library, *ty),
                                 get_loc(library, loc)
                             ))?
                         }
@@ -2129,14 +2153,16 @@ pub fn disassemble(library: &Library, mut writer: impl std::io::Write) -> std::i
                                 get_loc(library, loc)
                             ))?;
                         }
-                        Instruction::IndexInto(_, ptr, args, loc) => {
+                        Instruction::IndexInto(ty, ptr, args, loc) => {
                             let value = get_val(library, &value, &mut values, &mut writer)?;
                             let ptr = get_val(library, &ptr, &mut values, &mut writer)?;
 
-                            writer
-                                .write_fmt(
-                                    format_args!("      {} = indexinto {}, ", value, ptr,),
-                                )?;
+                            writer.write_fmt(format_args!(
+                                "      {} = indexinto {}, {}, ",
+                                value,
+                                get_type_name(library, *ty),
+                                ptr,
+                            ))?;
 
                             for arg in args.iter().take(1) {
                                 let arg = get_val(library, &arg, &mut values, &mut writer)?;

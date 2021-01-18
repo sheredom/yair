@@ -62,7 +62,7 @@ impl Module {
     /// # use yair::*;
     /// # let mut library = Library::new();
     /// # let module = library.create_module().with_name("module").build();
-    /// # let u32_ty = library.get_uint_ty(32);
+    /// # let u32_ty = library.get_uint_type(32);
     /// let global_a = module.create_global(&mut library).with_name("a").with_type(u32_ty).build();
     /// let global_b = module.create_global(&mut library).with_name("b").with_type(u32_ty).build();
     /// let mut globals = module.get_globals(&library);
