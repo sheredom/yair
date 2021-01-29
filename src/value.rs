@@ -162,6 +162,48 @@ impl Value {
             _ => std::unreachable!(),
         }
     }
+
+    /// Get the location of a value.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # use yair::*;
+    /// # let mut library = Library::new();
+    /// # let module = library.create_module().build();
+    /// # let global = module.create_global(&mut library).with_name("var").build();
+    /// let location = global.get_location(&library);
+    /// # assert_eq!(None, location);
+    /// # let location = library.get_location("foo.ya", 0, 13);
+    /// # let global = module.create_global(&mut library).with_name("var").with_location(location).build();
+    /// # let location = global.get_location(&library);
+    /// # assert!(location.is_some());
+    /// ```
+    pub fn get_location(&self, library: &Library) -> Option<Location> {
+        match &library.values[self.0] {
+            ValuePayload::Instruction(i) => match i {
+                Instruction::Return(location) => *location,
+                Instruction::ReturnValue(_, _, location) => *location,
+                Instruction::Cmp(_, _, _, _, location) => *location,
+                Instruction::Unary(_, _, _, location) => *location,
+                Instruction::Binary(_, _, _, _, location) => *location,
+                Instruction::Cast(_, _, location) => *location,
+                Instruction::BitCast(_, _, location) => *location,
+                Instruction::Load(_, _, location) => *location,
+                Instruction::Store(_, _, _, location) => *location,
+                Instruction::Extract(_, _, location) => *location,
+                Instruction::Insert(_, _, _, location) => *location,
+                Instruction::StackAlloc(_, _, _, location) => *location,
+                Instruction::Call(_, _, location) => *location,
+                Instruction::Branch(_, _, location) => *location,
+                Instruction::ConditionalBranch(_, _, _, _, _, location) => *location,
+                Instruction::Select(_, _, _, _, location) => *location,
+                Instruction::IndexInto(_, _, _, location) => *location,
+            },
+            ValuePayload::Global(g) => g.location,
+            _ => None,
+        }
+    }
 }
 
 impl Named for Value {

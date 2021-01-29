@@ -6,6 +6,7 @@ pub(crate) struct Global {
     pub(crate) ty: Type,
     pub(crate) ptr_ty: Type,
     pub(crate) export: bool,
+    pub(crate) location: Option<Location>,
 }
 
 impl Named for Global {
@@ -53,6 +54,7 @@ pub struct GlobalBuilder<'a> {
     ty: Type,
     domain: Domain,
     export: bool,
+    location: Option<Location>,
 }
 
 impl<'a> GlobalBuilder<'a> {
@@ -65,6 +67,7 @@ impl<'a> GlobalBuilder<'a> {
             ty: void_ty,
             domain: Domain::CrossDevice,
             export: false,
+            location: None,
         }
     }
 
@@ -137,6 +140,25 @@ impl<'a> GlobalBuilder<'a> {
         self
     }
 
+    /// Sets the location of the variable.
+    ///
+    /// By default variables have no location.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # use yair::*;
+    /// # let mut library = Library::new();
+    /// # let location = library.get_location("foo.ya", 0, 13);
+    /// # let module = library.create_module().build();
+    /// # let builder = module.create_global(&mut library);
+    /// builder.with_location(location);
+    /// ```
+    pub fn with_location(mut self, loc: Location) -> Self {
+        self.location = Some(loc);
+        self
+    }
+
     /// Finalize and build the global.
     ///
     /// # Examples
@@ -158,6 +180,7 @@ impl<'a> GlobalBuilder<'a> {
             ty: self.ty,
             ptr_ty: global_type,
             export: self.export,
+            location: self.location,
         };
 
         let index = Value(self.library.values.insert(ValuePayload::Global(global)));

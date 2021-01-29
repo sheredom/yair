@@ -19,7 +19,7 @@ duct = { version = "0.13.4", optional = true }
 rmp-serde = { version = "0.15.1", optional = true }
 
 [dev-dependencies]
-lit = { git = "https://github.com/sheredom/lit.git" }
+lit = "1.0.3"
 
 [features]
 io = ["clap", "codespan", "codespan-reporting", "duct", "rmp-serde"]

@@ -1,0 +1,7 @@
+// RUN: @yair_as @file | @yair_dis -
+
+// CHECK: mod "😀"
+mod "😀" {
+  // CHECK: var bool : gpu, [<bool, 2>, 42] !"some.file":0:2
+  var bool : gpu, [<bool, 2>, 42] !"some.file":0:2
+}

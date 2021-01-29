@@ -1,7 +1,7 @@
 // RUN: @yair_as @file -o "@first_tempfile"
 
 mod "😀" {
-  fn foo(heja: <u8, 2>) : u8 {
+  fn foo(heja: <u8, 2>) : u8 !"some.file":5 {
     bar(a: <u8, 2>):
       b = extract a, 0
       ret b

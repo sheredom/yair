@@ -1,19 +1,19 @@
 use crate::*;
 
-#[derive(Clone, Copy, Debug, Serialize, Deserialize)]
+#[derive(Clone, Copy, Debug, Hash, Eq, PartialEq, Serialize, Deserialize)]
 pub struct Location {
     pub(crate) filename: Name,
-    pub(crate) start: (usize, usize),
-    pub(crate) end: (usize, usize),
+    pub(crate) line: usize,
+    pub(crate) column: usize,
 }
 
 impl Location {
-    pub fn get_start(&self) -> (usize, usize) {
-        self.start
+    pub fn get_line(&self) -> usize {
+        self.line
     }
 
-    pub fn get_end(&self) -> (usize, usize) {
-        self.end
+    pub fn get_column(&self) -> usize {
+        self.column
     }
 }
 

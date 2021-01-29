@@ -383,8 +383,8 @@ impl Library {
         })
     }
 
-    /// Get a location. A location consists of a filename, the start position
-    /// (line, column), and the end position (line, column).
+    /// Get a location. A location consists of a filename, the line
+    /// number, and the column number.
     ///
     /// # Examples
     ///
@@ -392,18 +392,13 @@ impl Library {
     /// # use yair::*;
     /// # let mut library = Library::new();
     /// # let module = library.create_module().build();
-    /// let location = library.get_location("foo.ya", (0, 0), (0, 13));
+    /// let location = library.get_location("foo.ya", 0, 13);
     /// ```
-    pub fn get_location(
-        &mut self,
-        filename: &str,
-        start: (usize, usize),
-        end: (usize, usize),
-    ) -> Location {
+    pub fn get_location(&mut self, filename: &str, line: usize, column: usize) -> Location {
         Location {
             filename: self.get_name(filename),
-            start,
-            end,
+            line,
+            column,
         }
     }
 

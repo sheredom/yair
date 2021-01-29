@@ -731,9 +731,17 @@ impl<'a> Assembler<'a> {
         loop {
             if self.pop_if_next_symbol("ret")? {
                 if func_ret_is_void {
-                    builder.ret(None);
+                    let paused = builder.pause_building();
+                    let loc = self.parse_loc(library)?;
+                    builder = InstructionBuilder::resume_building(library, paused);
+
+                    builder.ret(loc);
                 } else {
-                    builder.ret_val(self.parse_value()?, None);
+                    let paused = builder.pause_building();
+                    let loc = self.parse_loc(library)?;
+                    builder = InstructionBuilder::resume_building(library, paused);
+
+                    builder.ret_val(self.parse_value()?, loc);
                 }
 
                 break;
@@ -760,7 +768,11 @@ impl<'a> Assembler<'a> {
 
                 let value = self.parse_value()?;
 
-                builder.store(ty, ptr, value, None);
+                let paused = builder.pause_building();
+                let loc = self.parse_loc(library)?;
+                builder = InstructionBuilder::resume_building(library, paused);
+
+                builder.store(ty, ptr, value, loc);
             } else if self.pop_if_next_symbol("br")? {
                 let name = self.parse_identifier()?;
 
@@ -814,7 +826,11 @@ impl<'a> Assembler<'a> {
                     block
                 };
 
-                builder.branch(block, &args, None);
+                let paused = builder.pause_building();
+                let loc = self.parse_loc(library)?;
+                builder = InstructionBuilder::resume_building(library, paused);
+
+                builder.branch(block, &args, loc);
 
                 break;
             } else if self.pop_if_next_symbol("cbr")? {
@@ -938,13 +954,17 @@ impl<'a> Assembler<'a> {
                     block
                 };
 
+                let paused = builder.pause_building();
+                let loc = self.parse_loc(library)?;
+                builder = InstructionBuilder::resume_building(library, paused);
+
                 builder.conditional_branch(
                     cond,
                     true_block,
                     false_block,
                     &true_args,
                     &false_args,
-                    None,
+                    loc,
                 );
 
                 break;
@@ -971,7 +991,11 @@ impl<'a> Assembler<'a> {
 
                     let index = self.parse_literal()?;
 
-                    let value = builder.extract(aggregate, index, None);
+                    let paused = builder.pause_building();
+                    let loc = self.parse_loc(library)?;
+                    builder = InstructionBuilder::resume_building(library, paused);
+
+                    let value = builder.extract(aggregate, index, loc);
 
                     self.current_values.insert(identifier, value);
                 } else if self.pop_if_next_symbol("insert")? {
@@ -995,7 +1019,11 @@ impl<'a> Assembler<'a> {
 
                     let index = self.parse_literal()?;
 
-                    let value = builder.insert(aggregate, value, index, None);
+                    let paused = builder.pause_building();
+                    let loc = self.parse_loc(library)?;
+                    builder = InstructionBuilder::resume_building(library, paused);
+
+                    let value = builder.insert(aggregate, value, index, loc);
 
                     self.current_values.insert(identifier, value);
                 } else if self.pop_if_next_symbol("cmp")? {
@@ -1029,7 +1057,11 @@ impl<'a> Assembler<'a> {
 
                     let rhs = self.parse_value()?;
 
-                    let value = builder.cmp(cmp, lhs, rhs, None);
+                    let paused = builder.pause_building();
+                    let loc = self.parse_loc(library)?;
+                    builder = InstructionBuilder::resume_building(library, paused);
+
+                    let value = builder.cmp(cmp, lhs, rhs, loc);
 
                     self.current_values.insert(identifier, value);
                 } else if self.pop_if_next_symbol("add")? {
@@ -1044,7 +1076,11 @@ impl<'a> Assembler<'a> {
 
                     let rhs = self.parse_value()?;
 
-                    let value = builder.add(lhs, rhs, None);
+                    let paused = builder.pause_building();
+                    let loc = self.parse_loc(library)?;
+                    builder = InstructionBuilder::resume_building(library, paused);
+
+                    let value = builder.add(lhs, rhs, loc);
 
                     self.current_values.insert(identifier, value);
                 } else if self.pop_if_next_symbol("sub")? {
@@ -1059,7 +1095,11 @@ impl<'a> Assembler<'a> {
 
                     let rhs = self.parse_value()?;
 
-                    let value = builder.sub(lhs, rhs, None);
+                    let paused = builder.pause_building();
+                    let loc = self.parse_loc(library)?;
+                    builder = InstructionBuilder::resume_building(library, paused);
+
+                    let value = builder.sub(lhs, rhs, loc);
 
                     self.current_values.insert(identifier, value);
                 } else if self.pop_if_next_symbol("mul")? {
@@ -1074,7 +1114,11 @@ impl<'a> Assembler<'a> {
 
                     let rhs = self.parse_value()?;
 
-                    let value = builder.mul(lhs, rhs, None);
+                    let paused = builder.pause_building();
+                    let loc = self.parse_loc(library)?;
+                    builder = InstructionBuilder::resume_building(library, paused);
+
+                    let value = builder.mul(lhs, rhs, loc);
 
                     self.current_values.insert(identifier, value);
                 } else if self.pop_if_next_symbol("div")? {
@@ -1089,7 +1133,11 @@ impl<'a> Assembler<'a> {
 
                     let rhs = self.parse_value()?;
 
-                    let value = builder.div(lhs, rhs, None);
+                    let paused = builder.pause_building();
+                    let loc = self.parse_loc(library)?;
+                    builder = InstructionBuilder::resume_building(library, paused);
+
+                    let value = builder.div(lhs, rhs, loc);
 
                     self.current_values.insert(identifier, value);
                 } else if self.pop_if_next_symbol("rem")? {
@@ -1104,13 +1152,21 @@ impl<'a> Assembler<'a> {
 
                     let rhs = self.parse_value()?;
 
-                    let value = builder.rem(lhs, rhs, None);
+                    let paused = builder.pause_building();
+                    let loc = self.parse_loc(library)?;
+                    builder = InstructionBuilder::resume_building(library, paused);
+
+                    let value = builder.rem(lhs, rhs, loc);
 
                     self.current_values.insert(identifier, value);
                 } else if self.pop_if_next_symbol("neg")? {
                     let lhs = self.parse_value()?;
 
-                    let value = builder.neg(lhs, None);
+                    let paused = builder.pause_building();
+                    let loc = self.parse_loc(library)?;
+                    builder = InstructionBuilder::resume_building(library, paused);
+
+                    let value = builder.neg(lhs, loc);
 
                     self.current_values.insert(identifier, value);
                 } else if self.pop_if_next_symbol("and")? {
@@ -1125,7 +1181,11 @@ impl<'a> Assembler<'a> {
 
                     let rhs = self.parse_value()?;
 
-                    let value = builder.and(lhs, rhs, None);
+                    let paused = builder.pause_building();
+                    let loc = self.parse_loc(library)?;
+                    builder = InstructionBuilder::resume_building(library, paused);
+
+                    let value = builder.and(lhs, rhs, loc);
 
                     self.current_values.insert(identifier, value);
                 } else if self.pop_if_next_symbol("or")? {
@@ -1140,7 +1200,11 @@ impl<'a> Assembler<'a> {
 
                     let rhs = self.parse_value()?;
 
-                    let value = builder.or(lhs, rhs, None);
+                    let paused = builder.pause_building();
+                    let loc = self.parse_loc(library)?;
+                    builder = InstructionBuilder::resume_building(library, paused);
+
+                    let value = builder.or(lhs, rhs, loc);
 
                     self.current_values.insert(identifier, value);
                 } else if self.pop_if_next_symbol("xor")? {
@@ -1155,13 +1219,21 @@ impl<'a> Assembler<'a> {
 
                     let rhs = self.parse_value()?;
 
-                    let value = builder.xor(lhs, rhs, None);
+                    let paused = builder.pause_building();
+                    let loc = self.parse_loc(library)?;
+                    builder = InstructionBuilder::resume_building(library, paused);
+
+                    let value = builder.xor(lhs, rhs, loc);
 
                     self.current_values.insert(identifier, value);
                 } else if self.pop_if_next_symbol("not")? {
                     let lhs = self.parse_value()?;
 
-                    let value = builder.not(lhs, None);
+                    let paused = builder.pause_building();
+                    let loc = self.parse_loc(library)?;
+                    builder = InstructionBuilder::resume_building(library, paused);
+
+                    let value = builder.not(lhs, loc);
 
                     self.current_values.insert(identifier, value);
                 } else if self.pop_if_next_symbol("shl")? {
@@ -1176,7 +1248,11 @@ impl<'a> Assembler<'a> {
 
                     let rhs = self.parse_value()?;
 
-                    let value = builder.shl(lhs, rhs, None);
+                    let paused = builder.pause_building();
+                    let loc = self.parse_loc(library)?;
+                    builder = InstructionBuilder::resume_building(library, paused);
+
+                    let value = builder.shl(lhs, rhs, loc);
 
                     self.current_values.insert(identifier, value);
                 } else if self.pop_if_next_symbol("shr")? {
@@ -1191,7 +1267,11 @@ impl<'a> Assembler<'a> {
 
                     let rhs = self.parse_value()?;
 
-                    let value = builder.shr(lhs, rhs, None);
+                    let paused = builder.pause_building();
+                    let loc = self.parse_loc(library)?;
+                    builder = InstructionBuilder::resume_building(library, paused);
+
+                    let value = builder.shr(lhs, rhs, loc);
 
                     self.current_values.insert(identifier, value);
                 } else if self.pop_if_next_symbol("cast")? {
@@ -1208,7 +1288,11 @@ impl<'a> Assembler<'a> {
                     let ty = self.parse_type(library)?;
                     builder = InstructionBuilder::resume_building(library, paused_builder);
 
-                    let value = builder.cast(lhs, ty, None);
+                    let paused = builder.pause_building();
+                    let loc = self.parse_loc(library)?;
+                    builder = InstructionBuilder::resume_building(library, paused);
+
+                    let value = builder.cast(lhs, ty, loc);
 
                     self.current_values.insert(identifier, value);
                 } else if self.pop_if_next_symbol("bitcast")? {
@@ -1225,7 +1309,11 @@ impl<'a> Assembler<'a> {
                     let ty = self.parse_type(library)?;
                     builder = InstructionBuilder::resume_building(library, paused_builder);
 
-                    let value = builder.bitcast(lhs, ty, None);
+                    let paused = builder.pause_building();
+                    let loc = self.parse_loc(library)?;
+                    builder = InstructionBuilder::resume_building(library, paused);
+
+                    let value = builder.bitcast(lhs, ty, loc);
 
                     self.current_values.insert(identifier, value);
                 } else if self.pop_if_next_symbol("load")? {
@@ -1242,7 +1330,11 @@ impl<'a> Assembler<'a> {
 
                     let ptr = self.parse_value()?;
 
-                    let value = builder.load(ty, ptr, None);
+                    let paused = builder.pause_building();
+                    let loc = self.parse_loc(library)?;
+                    builder = InstructionBuilder::resume_building(library, paused);
+
+                    let value = builder.load(ty, ptr, loc);
 
                     self.current_values.insert(identifier, value);
                 } else if self.pop_if_next_symbol("stackalloc")? {
@@ -1259,9 +1351,10 @@ impl<'a> Assembler<'a> {
 
                     let paused_builder = builder.pause_building();
                     let ty = self.parse_type(library)?;
+                    let loc = self.parse_loc(library)?;
                     builder = InstructionBuilder::resume_building(library, paused_builder);
 
-                    let value = builder.stack_alloc(name, ty, None);
+                    let value = builder.stack_alloc(name, ty, loc);
 
                     self.current_values.insert(identifier, value);
                 } else if self.pop_if_next_symbol("call")? {
@@ -1306,7 +1399,11 @@ impl<'a> Assembler<'a> {
                         }
                     }
 
-                    let value = builder.call(function, &args, None);
+                    let paused = builder.pause_building();
+                    let loc = self.parse_loc(library)?;
+                    builder = InstructionBuilder::resume_building(library, paused);
+
+                    let value = builder.call(function, &args, loc);
 
                     self.current_values.insert(identifier, value);
                 } else if self.pop_if_next_symbol("select")? {
@@ -1330,7 +1427,11 @@ impl<'a> Assembler<'a> {
 
                     let rhs = self.parse_value()?;
 
-                    let value = builder.select(cond, lhs, rhs, None);
+                    let paused = builder.pause_building();
+                    let loc = self.parse_loc(library)?;
+                    builder = InstructionBuilder::resume_building(library, paused);
+
+                    let value = builder.select(cond, lhs, rhs, loc);
 
                     self.current_values.insert(identifier, value);
                 } else if self.pop_if_next_symbol("indexinto")? {
@@ -1364,7 +1465,11 @@ impl<'a> Assembler<'a> {
                         }
                     }
 
-                    let value = builder.index_into(ty, ptr, &indices, None);
+                    let paused = builder.pause_building();
+                    let loc = self.parse_loc(library)?;
+                    builder = InstructionBuilder::resume_building(library, paused);
+
+                    let value = builder.index_into(ty, ptr, &indices, loc);
 
                     self.current_values.insert(identifier, value);
                 } else if self.pop_if_next_symbol("const")? {
@@ -1431,6 +1536,37 @@ impl<'a> Assembler<'a> {
         Ok((name, ty))
     }
 
+    fn parse_loc(&mut self, library: &mut Library) -> Result<Option<Location>, Diagnostic> {
+        self.skip_comments_or_whitespace();
+
+        // If we don't have the '!' that starts a location, bail!
+        if !self.pop_if_next_symbol("!")? {
+            return Ok(None);
+        }
+
+        let loc = self.parse_quoted_identifier()?;
+
+        if !self.pop_if_next_symbol(":")? {
+            return Err(Diagnostic::new_error(
+                "Expected ':' between file and line of location",
+                Label::new(self.file, self.single_char_span(), "should be ':'"),
+            ));
+        }
+
+        let line = self.parse_literal()?;
+
+        if !self.pop_if_next_symbol(":")? {
+            return Err(Diagnostic::new_error(
+                "Expected ':' between line and column of location",
+                Label::new(self.file, self.single_char_span(), "should be ':'"),
+            ));
+        }
+
+        let column = self.parse_literal()?;
+
+        Ok(Some(library.get_location(loc, line, column)))
+    }
+
     fn parse_fn(&mut self, library: &mut Library, is_export: bool) -> Result<(), Diagnostic> {
         assert!(self.get_current_str().starts_with("fn"));
 
@@ -1480,11 +1616,17 @@ impl<'a> Assembler<'a> {
 
         let module = self.current_module.unwrap();
 
+        let location = self.parse_loc(library)?;
+
         let mut builder = module
             .create_function(library)
             .with_name(name)
             .with_export(is_export)
             .with_return_type(return_type);
+
+        if let Some(location) = location {
+            builder = builder.with_location(location);
+        }
 
         for (name, ty) in args {
             builder = builder.with_argument(name, ty);
@@ -1546,13 +1688,21 @@ impl<'a> Assembler<'a> {
 
         let module = self.current_module.unwrap();
 
-        let var = module
+        let location = self.parse_loc(library)?;
+
+        let builder = module
             .create_global(library)
             .with_export(is_export)
             .with_name(identifier)
             .with_type(ty)
-            .with_domain(domain)
-            .build();
+            .with_domain(domain);
+
+        let var = if let Some(location) = location {
+            builder.with_location(location)
+        } else {
+            builder
+        }
+        .build();
 
         self.variables.insert((identifier, module), var);
 
@@ -1743,8 +1893,8 @@ fn get_loc(library: &Library, loc: &Option<Location>) -> String {
     format!(
         " !\"{}\":{:?}:{:?}",
         loc.unwrap().get_name(library),
-        loc.unwrap().get_start(),
-        loc.unwrap().get_end()
+        loc.unwrap().get_line(),
+        loc.unwrap().get_column(),
     )
 }
 
@@ -1844,10 +1994,15 @@ pub fn disassemble(library: &Library, mut writer: impl std::io::Write) -> std::i
             let domain = get_domain(global.get_global_domain(library));
             let ty = global.get_global_backing_type(library);
             let ty_name = get_type_name(library, ty);
+            let location = global.get_location(library);
 
             writer.write_fmt(format_args!(
-                "{}var {} : {}, {}\n",
-                export, name, domain, ty_name
+                "{}var {} : {}, {}{}\n",
+                export,
+                name,
+                domain,
+                ty_name,
+                get_loc(library, &location)
             ))?;
         }
 
@@ -1881,8 +2036,13 @@ pub fn disassemble(library: &Library, mut writer: impl std::io::Write) -> std::i
             }
 
             let ret_ty_name = get_type_name(library, function.get_return_type(library));
+            let location = function.get_location(library);
 
-            writer.write_fmt(format_args!(") : {}", ret_ty_name))?;
+            writer.write_fmt(format_args!(
+                ") : {}{}",
+                ret_ty_name,
+                get_loc(library, &location)
+            ))?;
 
             let mut first = true;
 

@@ -7,6 +7,7 @@ pub struct FunctionPayload {
     pub(crate) arguments: Vec<Value>,
     pub(crate) blocks: Vec<Block>,
     pub(crate) export: bool,
+    pub(crate) location: Option<Location>,
 }
 
 #[derive(Clone, Copy, Debug, Serialize, Deserialize)]
@@ -149,6 +150,27 @@ impl Function {
         let function = &library.functions[self.0];
         BlockIterator::new(&function.blocks)
     }
+
+    /// Get the location of a function.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # use yair::*;
+    /// # let mut library = Library::new();
+    /// # let module = library.create_module().build();
+    /// # let function = module.create_function(&mut library).with_name("func").build();;
+    /// let location = function.get_location(&library);
+    /// # assert_eq!(None, location);
+    /// # let location = library.get_location("foo.ya", 0, 13);
+    /// # let function = module.create_function(&mut library).with_name("func").with_location(location).build();;
+    /// # let location = function.get_location(&library);
+    /// # assert!(location.is_some());
+    /// ```
+    pub fn get_location(&self, library: &Library) -> Option<Location> {
+        let function = &library.functions[self.0];
+        function.location
+    }
 }
 
 pub struct FunctionBuilder<'a> {
@@ -159,6 +181,7 @@ pub struct FunctionBuilder<'a> {
     argument_names: Vec<&'a str>,
     argument_types: Vec<Type>,
     export: bool,
+    location: Option<Location>,
 }
 
 impl<'a> FunctionBuilder<'a> {
@@ -173,6 +196,7 @@ impl<'a> FunctionBuilder<'a> {
             argument_names: Vec::new(),
             argument_types: Vec::new(),
             export: false,
+            location: None,
         }
     }
 
@@ -250,6 +274,25 @@ impl<'a> FunctionBuilder<'a> {
         self
     }
 
+    /// Sets the location of the function.
+    ///
+    /// By default functions have no location.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # use yair::*;
+    /// # let mut library = Library::new();
+    /// # let location = library.get_location("foo.ya", 0, 13);
+    /// # let module = library.create_module().build();
+    /// # let builder = module.create_function(&mut library);
+    /// builder.with_location(location);
+    /// ```
+    pub fn with_location(mut self, loc: Location) -> Self {
+        self.location = Some(loc);
+        self
+    }
+
     /// Finalize and build the function.
     ///
     /// # Examples
@@ -274,6 +317,7 @@ impl<'a> FunctionBuilder<'a> {
             arguments: Vec::new(),
             blocks: Vec::new(),
             export: self.export,
+            location: self.location,
         };
 
         for (argument_name, argument_type) in self.argument_names.iter().zip(self.argument_types) {
