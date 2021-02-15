@@ -38,7 +38,7 @@ jobs:
           args: --lib --tests -- -D warnings
 
       # make sure cargo deny does not result in any errors
-      - run: cargo install cargo-deny
+      - run: cargo install cargo-deny --locked
       - name: cargo deny
         uses: actions-rs/cargo@v1
         with:
