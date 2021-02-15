@@ -1,6 +1,7 @@
 use crate::*;
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug)]
+#[cfg_attr(feature = "io", derive(Serialize, Deserialize))]
 pub(crate) enum ValuePayload {
     Undef(Type),
     Argument(Argument),
@@ -9,7 +10,8 @@ pub(crate) enum ValuePayload {
     Global(Global),
 }
 
-#[derive(Clone, Copy, Debug, Eq, Hash, PartialEq, Serialize, Deserialize)]
+#[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
+#[cfg_attr(feature = "io", derive(Serialize, Deserialize))]
 pub struct Value(pub(crate) generational_arena::Index);
 
 impl UniqueIndex for Value {
@@ -19,6 +21,23 @@ impl UniqueIndex for Value {
 }
 
 impl Value {
+    /// Return true if a value is an undef.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # use yair::*;
+    /// # let mut library = Library::new();
+    /// # let module = library.create_module().build();
+    /// # let u32_ty = library.get_uint_type(32);
+    /// # let value = library.get_undef(u32_ty);
+    /// let is_undef = value.is_undef(&library);
+    /// # assert!(is_undef);
+    /// ```
+    pub fn is_undef(&self, library: &Library) -> bool {
+        matches!(library.values[self.0], ValuePayload::Undef(_))
+    }
+
     /// Return true if a value is a constant.
     ///
     /// # Examples

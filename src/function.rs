@@ -1,6 +1,6 @@
 use crate::*;
 
-#[derive(Serialize, Deserialize)]
+#[cfg_attr(feature = "io", derive(Serialize, Deserialize))]
 pub struct FunctionPayload {
     pub(crate) name: String,
     pub(crate) function_type: Type,
@@ -10,7 +10,8 @@ pub struct FunctionPayload {
     pub(crate) location: Option<Location>,
 }
 
-#[derive(Clone, Copy, Debug, Serialize, Deserialize)]
+#[derive(Clone, Copy, Debug)]
+#[cfg_attr(feature = "io", derive(Serialize, Deserialize))]
 pub struct Function(pub(crate) generational_arena::Index);
 
 impl Function {

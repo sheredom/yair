@@ -1,6 +1,7 @@
 use crate::*;
 
-#[derive(Clone, Copy, Debug, Hash, Eq, PartialEq, Serialize, Deserialize)]
+#[derive(Clone, Copy, Debug, Hash, Eq, PartialEq)]
+#[cfg_attr(feature = "io", derive(Serialize, Deserialize))]
 pub struct Location {
     pub(crate) filename: Name,
     pub(crate) line: usize,

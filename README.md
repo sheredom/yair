@@ -14,7 +14,6 @@
 
 ## TODOs
 
-- Add a verifier.
 - Add a cranelift code generation library.
 - Add an optimizer!
 

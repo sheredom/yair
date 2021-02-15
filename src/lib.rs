@@ -1,6 +1,5 @@
 extern crate generational_arena;
 extern crate radix_trie;
-extern crate serde;
 
 mod argument;
 mod block;
@@ -27,11 +26,13 @@ pub use location::*;
 pub use module::*;
 pub use value::*;
 
+#[cfg(feature = "io")]
 use serde::{Deserialize, Serialize};
 
 /// The domain that a memory location inhabits. Used by cross-function variables
 /// and pointer types to encode where the memory resides.
-#[derive(Clone, Copy, Debug, Eq, Hash, PartialEq, Serialize, Deserialize)]
+#[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
+#[cfg_attr(feature = "io", derive(Serialize, Deserialize))]
 pub enum Domain {
     CrossDevice,
     CPU,
@@ -39,7 +40,8 @@ pub enum Domain {
     STACK,
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug)]
+#[cfg_attr(feature = "io", derive(Serialize, Deserialize))]
 enum TypePayload {
     Void,
     Bool,
@@ -63,7 +65,8 @@ pub trait Named {
     fn get_name<'a>(&self, library: &'a Library) -> &'a str;
 }
 
-#[derive(Clone, Copy, Debug, Eq, Hash, PartialEq, Serialize, Deserialize)]
+#[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
+#[cfg_attr(feature = "io", derive(Serialize, Deserialize))]
 pub struct Name(pub(crate) generational_arena::Index);
 
 impl Named for Name {
@@ -80,7 +83,8 @@ pub trait UniqueIndex {
     fn get_unique_index(&self) -> usize;
 }
 
-#[derive(Clone, Copy, Debug, Eq, Hash, PartialEq, Serialize, Deserialize)]
+#[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
+#[cfg_attr(feature = "io", derive(Serialize, Deserialize))]
 pub struct Type(pub(crate) generational_arena::Index);
 
 impl Type {
@@ -290,7 +294,10 @@ impl Type {
     /// # assert!(!vec_ty.is_integral(&library));
     /// ```
     pub fn is_integral(&self, library: &Library) -> bool {
-        matches!(library.types[self.0], TypePayload::Int(_) | TypePayload::UInt(_))
+        matches!(
+            library.types[self.0],
+            TypePayload::Int(_) | TypePayload::UInt(_)
+        )
     }
 
     /// Checks whether a type is an integral (signed or unsigned) type, or a vector of integral.

@@ -1,6 +1,7 @@
-use crate::{Deserialize, Library, Name, Named, Serialize, Type, Typed};
+use crate::*;
 
-#[derive(Debug, Eq, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Eq, PartialEq)]
+#[cfg_attr(feature = "io", derive(Serialize, Deserialize))]
 pub struct Argument {
     pub(crate) name: Name,
     pub(crate) ty: Type,

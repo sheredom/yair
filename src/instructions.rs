@@ -1,7 +1,8 @@
 use crate::*;
 use std::fmt;
 
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug)]
+#[cfg_attr(feature = "io", derive(Serialize, Deserialize))]
 pub enum Cmp {
     Eq,
     Ne,
@@ -24,7 +25,8 @@ impl fmt::Display for Cmp {
     }
 }
 
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug)]
+#[cfg_attr(feature = "io", derive(Serialize, Deserialize))]
 pub enum Unary {
     Neg,
     Not,
@@ -39,7 +41,8 @@ impl fmt::Display for Unary {
     }
 }
 
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug)]
+#[cfg_attr(feature = "io", derive(Serialize, Deserialize))]
 pub enum Binary {
     Add,
     Sub,
@@ -70,7 +73,8 @@ impl fmt::Display for Binary {
     }
 }
 
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug)]
+#[cfg_attr(feature = "io", derive(Serialize, Deserialize))]
 pub enum Instruction {
     Return(Option<Location>),
     ReturnValue(Type, Value, Option<Location>),

@@ -1,13 +1,14 @@
 use crate::*;
 
-#[derive(Serialize, Deserialize)]
+#[cfg_attr(feature = "io", derive(Serialize, Deserialize))]
 pub(crate) struct ModulePayload {
     pub(crate) name: String,
     pub(crate) functions: Vec<Function>,
     pub(crate) globals: Vec<Value>,
 }
 
-#[derive(Clone, Copy, Debug, Eq, PartialEq, Hash, Serialize, Deserialize)]
+#[derive(Clone, Copy, Debug, Eq, PartialEq, Hash)]
+#[cfg_attr(feature = "io", derive(Serialize, Deserialize))]
 pub struct Module(pub(crate) generational_arena::Index);
 
 impl Module {

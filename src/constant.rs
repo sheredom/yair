@@ -2,7 +2,8 @@ use crate::*;
 use std::hash::Hash;
 use std::hash::Hasher;
 
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug)]
+#[cfg_attr(feature = "io", derive(Serialize, Deserialize))]
 pub enum Constant {
     Bool(bool, Type),
     Int(i64, Type),

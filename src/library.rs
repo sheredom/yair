@@ -4,7 +4,7 @@ use generational_arena::Index;
 use radix_trie::Trie;
 use std::collections::HashMap;
 
-#[derive(Serialize, Deserialize)]
+#[cfg_attr(feature = "io", derive(Serialize, Deserialize))]
 pub struct Library {
     pub(crate) modules: Arena<ModulePayload>,
     pub(crate) types: Arena<TypePayload>,
@@ -30,8 +30,8 @@ pub struct Library {
     vec_tys: HashMap<(Type, u8), Type>,
     array_tys: HashMap<(Type, usize), Type>,
     struct_tys: HashMap<Vec<Type>, Type>,
-    named_struct_tys: HashMap<(Module, String), Type>,
     constants: HashMap<Constant, Value>,
+    undefs: HashMap<Type, Value>,
 }
 
 impl Library {
@@ -69,8 +69,8 @@ impl Library {
             vec_tys: HashMap::new(),
             array_tys: HashMap::new(),
             struct_tys: HashMap::new(),
-            named_struct_tys: HashMap::new(),
             constants: HashMap::new(),
+            undefs: HashMap::new(),
         }
     }
 
@@ -399,6 +399,24 @@ impl Library {
             filename: self.get_name(filename),
             line,
             column,
+        }
+    }
+
+    /// Get an undef.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # use yair::*;
+    /// # let mut library = Library::new();
+    /// # let module = library.create_module().build();
+    /// # let u32_ty = library.get_uint_type(32);
+    /// let undef = library.get_undef(u32_ty);
+    /// ```
+    pub fn get_undef(&mut self, ty: Type) -> Value {
+        match self.undefs.get(&ty) {
+            Some(value) => *value,
+            None => Value(self.values.insert(ValuePayload::Undef(ty))),
         }
     }
 

@@ -1,6 +1,7 @@
 use crate::*;
 
-#[derive(Clone, Debug, Hash, Eq, PartialEq, Serialize, Deserialize)]
+#[derive(Clone, Debug, Hash, Eq, PartialEq)]
+#[cfg_attr(feature = "io", derive(Serialize, Deserialize))]
 pub(crate) struct Global {
     name: Name,
     pub(crate) ty: Type,

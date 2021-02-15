@@ -1,12 +1,13 @@
 use crate::*;
 
-#[derive(Serialize, Deserialize)]
+#[cfg_attr(feature = "io", derive(Serialize, Deserialize))]
 pub struct BlockPayload {
     pub(crate) arguments: Vec<Value>,
     pub(crate) instructions: Vec<Value>,
 }
 
-#[derive(Clone, Copy, Debug, Serialize, Deserialize)]
+#[derive(Clone, Copy, Debug)]
+#[cfg_attr(feature = "io", derive(Serialize, Deserialize))]
 pub struct Block(pub(crate) generational_arena::Index);
 
 impl UniqueIndex for Block {
