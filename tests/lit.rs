@@ -34,6 +34,14 @@ mod tests {
             .to_string()
     }
 
+    fn yair_verify_exe() -> String {
+        bin_dir()
+            .join(format!("yair-verify{}", env::consts::EXE_SUFFIX))
+            .to_str()
+            .unwrap()
+            .to_string()
+    }
+
     fn lit_shell_exe() -> String {
         bin_dir()
             .join(format!("test-lit-shell{}", env::consts::EXE_SUFFIX))
@@ -52,6 +60,9 @@ mod tests {
             config
                 .constants
                 .insert("yair_dis".to_owned(), yair_dis_exe());
+            config
+                .constants
+                .insert("yair_verify".to_owned(), yair_verify_exe());
             config
                 .constants
                 .insert("arch".to_owned(), consts::ARCH.to_owned());

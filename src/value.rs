@@ -14,6 +14,19 @@ pub(crate) enum ValuePayload {
 #[cfg_attr(feature = "io", derive(Serialize, Deserialize))]
 pub struct Value(pub(crate) generational_arena::Index);
 
+pub struct ValueDisplayer {
+    pub(crate) value: Value,
+}
+
+impl<'a> std::fmt::Display for ValueDisplayer {
+    fn fmt(
+        &self,
+        writer: &mut std::fmt::Formatter<'_>,
+    ) -> std::result::Result<(), std::fmt::Error> {
+        write!(writer, "v{}", self.value.get_unique_index())
+    }
+}
+
 impl UniqueIndex for Value {
     fn get_unique_index(&self) -> usize {
         self.0.into_raw_parts().0
@@ -223,6 +236,10 @@ impl Value {
             _ => None,
         }
     }
+
+    pub fn get_displayer(&self, _: &Library) -> ValueDisplayer {
+        ValueDisplayer { value: *self }
+    }
 }
 
 impl Named for Value {
@@ -247,6 +264,34 @@ impl Typed for Value {
             ValuePayload::Instruction(inst) => inst.get_type(library),
             ValuePayload::Constant(cnst) => cnst.get_type(library),
             ValuePayload::Global(glbl) => glbl.get_type(library),
+        }
+    }
+}
+
+pub struct ValueIterator {
+    vec: Vec<Value>,
+    next: usize,
+}
+
+impl ValueIterator {
+    pub(crate) fn new(iter: &[Value]) -> ValueIterator {
+        ValueIterator {
+            vec: iter.to_vec(),
+            next: 0,
+        }
+    }
+}
+
+impl Iterator for ValueIterator {
+    type Item = Value;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        if self.next < self.vec.len() {
+            let next = self.next;
+            self.next += 1;
+            Some(self.vec[next])
+        } else {
+            None
         }
     }
 }

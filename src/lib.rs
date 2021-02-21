@@ -11,6 +11,7 @@ mod library;
 mod location;
 mod module;
 mod value;
+mod verify;
 
 #[cfg(feature = "io")]
 pub mod io;
@@ -25,6 +26,7 @@ pub use library::*;
 pub use location::*;
 pub use module::*;
 pub use value::*;
+pub use verify::*;
 
 #[cfg(feature = "io")]
 use serde::{Deserialize, Serialize};
@@ -38,6 +40,20 @@ pub enum Domain {
     CPU,
     GPU,
     STACK,
+}
+
+impl std::fmt::Display for Domain {
+    fn fmt(
+        &self,
+        writer: &mut std::fmt::Formatter<'_>,
+    ) -> std::result::Result<(), std::fmt::Error> {
+        match self {
+            Domain::CrossDevice => write!(writer, "any"),
+            Domain::CPU => write!(writer, "cpu"),
+            Domain::GPU => write!(writer, "gpu"),
+            Domain::STACK => write!(writer, "stack"),
+        }
+    }
 }
 
 #[derive(Debug)]
@@ -86,6 +102,70 @@ pub trait UniqueIndex {
 #[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
 #[cfg_attr(feature = "io", derive(Serialize, Deserialize))]
 pub struct Type(pub(crate) generational_arena::Index);
+
+pub struct TypeDisplayer<'a> {
+    pub(crate) ty: Type,
+    pub(crate) library: &'a Library,
+}
+
+impl<'a> std::fmt::Display for TypeDisplayer<'a> {
+    fn fmt(
+        &self,
+        writer: &mut std::fmt::Formatter<'_>,
+    ) -> std::result::Result<(), std::fmt::Error> {
+        if self.ty.is_void(self.library) {
+            write!(writer, "void")
+        } else if self.ty.is_boolean(self.library) {
+            write!(writer, "bool")
+        } else if self.ty.is_vector(self.library) {
+            write!(
+                writer,
+                "<{}, {}>",
+                self.ty
+                    .get_element(self.library, 0)
+                    .get_displayer(self.library),
+                self.ty.get_len(self.library)
+            )
+        } else if self.ty.is_array(self.library) {
+            write!(
+                writer,
+                "[{}, {}]",
+                self.ty
+                    .get_element(self.library, 0)
+                    .get_displayer(self.library),
+                self.ty.get_len(self.library)
+            )
+        } else if self.ty.is_struct(self.library) {
+            write!(writer, "{{")?;
+
+            for i in 0..self.ty.get_len(self.library) {
+                if i != 0 {
+                    write!(writer, ", ")?;
+                }
+
+                write!(
+                    writer,
+                    "{}",
+                    self.ty
+                        .get_element(self.library, i)
+                        .get_displayer(self.library)
+                )?;
+            }
+
+            write!(writer, "}}")
+        } else if self.ty.is_int(self.library) {
+            write!(writer, "i{}", self.ty.get_bits(self.library))
+        } else if self.ty.is_uint(self.library) {
+            write!(writer, "u{}", self.ty.get_bits(self.library))
+        } else if self.ty.is_float(self.library) {
+            write!(writer, "f{}", self.ty.get_bits(self.library))
+        } else if self.ty.is_pointer(self.library) {
+            write!(writer, "*{}", self.ty.get_domain(self.library))
+        } else {
+            std::unreachable!();
+        }
+    }
+}
 
 impl Type {
     /// Get the number of bits required to represent the type.
@@ -413,6 +493,10 @@ impl Type {
             }
             _ => panic!("Unable to index into type!"),
         }
+    }
+
+    pub fn get_displayer<'a>(&self, library: &'a Library) -> TypeDisplayer<'a> {
+        TypeDisplayer { ty: *self, library }
     }
 }
 

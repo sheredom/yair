@@ -250,7 +250,7 @@ impl<'a> InstructionBuilder<'a> {
     /// # let mut library = Library::new();
     /// # let module = library.create_module().build();
     /// # let u32_ty = library.get_uint_type(32);
-    /// # let function = module.create_function(&mut library).with_name("func").with_return_type(u32_ty).with_argument("a", u32_ty).build();
+    /// # let function = module.create_function(&mut library).with_name("func").with_return_type(u32_ty).with_arg("a", u32_ty).build();
     /// # let block = function.create_block(&mut library).build();
     /// # let return_value = function.get_arg(&library, 0);
     /// # let mut instruction_builder = block.create_instructions(&mut library);
@@ -277,7 +277,7 @@ impl<'a> InstructionBuilder<'a> {
     /// # let mut library = Library::new();
     /// # let module = library.create_module().build();
     /// # let u32_ty = library.get_uint_type(32);
-    /// # let function = module.create_function(&mut library).with_name("func").with_return_type(u32_ty).with_argument("a", u32_ty).with_argument("b", u32_ty).build();
+    /// # let function = module.create_function(&mut library).with_name("func").with_return_type(u32_ty).with_arg("a", u32_ty).with_arg("b", u32_ty).build();
     /// # let block = function.create_block(&mut library).build();
     /// # let x = function.get_arg(&library, 0);
     /// # let y = function.get_arg(&library, 1);
@@ -308,7 +308,7 @@ impl<'a> InstructionBuilder<'a> {
     /// # let mut library = Library::new();
     /// # let module = library.create_module().build();
     /// # let u32_ty = library.get_uint_type(32);
-    /// # let function = module.create_function(&mut library).with_name("func").with_return_type(u32_ty).with_argument("a", u32_ty).with_argument("b", u32_ty).build();
+    /// # let function = module.create_function(&mut library).with_name("func").with_return_type(u32_ty).with_arg("a", u32_ty).with_arg("b", u32_ty).build();
     /// # let block = function.create_block(&mut library).build();
     /// # let x = function.get_arg(&library, 0);
     /// # let y = function.get_arg(&library, 1);
@@ -339,7 +339,7 @@ impl<'a> InstructionBuilder<'a> {
     /// # let mut library = Library::new();
     /// # let module = library.create_module().build();
     /// # let u32_ty = library.get_uint_type(32);
-    /// # let function = module.create_function(&mut library).with_name("func").with_return_type(u32_ty).with_argument("a", u32_ty).with_argument("b", u32_ty).build();
+    /// # let function = module.create_function(&mut library).with_name("func").with_return_type(u32_ty).with_arg("a", u32_ty).with_arg("b", u32_ty).build();
     /// # let block = function.create_block(&mut library).build();
     /// # let x = function.get_arg(&library, 0);
     /// # let y = function.get_arg(&library, 1);
@@ -370,7 +370,7 @@ impl<'a> InstructionBuilder<'a> {
     /// # let mut library = Library::new();
     /// # let module = library.create_module().build();
     /// # let u32_ty = library.get_uint_type(32);
-    /// # let function = module.create_function(&mut library).with_name("func").with_return_type(u32_ty).with_argument("a", u32_ty).with_argument("b", u32_ty).build();
+    /// # let function = module.create_function(&mut library).with_name("func").with_return_type(u32_ty).with_arg("a", u32_ty).with_arg("b", u32_ty).build();
     /// # let block = function.create_block(&mut library).build();
     /// # let x = function.get_arg(&library, 0);
     /// # let y = function.get_arg(&library, 1);
@@ -401,7 +401,7 @@ impl<'a> InstructionBuilder<'a> {
     /// # let mut library = Library::new();
     /// # let module = library.create_module().build();
     /// # let u32_ty = library.get_uint_type(32);
-    /// # let function = module.create_function(&mut library).with_name("func").with_return_type(u32_ty).with_argument("a", u32_ty).with_argument("b", u32_ty).build();
+    /// # let function = module.create_function(&mut library).with_name("func").with_return_type(u32_ty).with_arg("a", u32_ty).with_arg("b", u32_ty).build();
     /// # let block = function.create_block(&mut library).build();
     /// # let x = function.get_arg(&library, 0);
     /// # let y = function.get_arg(&library, 1);
@@ -429,7 +429,7 @@ impl<'a> InstructionBuilder<'a> {
     /// # let mut library = Library::new();
     /// # let module = library.create_module().build();
     /// # let u32_ty = library.get_uint_type(32);
-    /// # let function = module.create_function(&mut library).with_name("func").with_return_type(u32_ty).with_argument("a", u32_ty).build();
+    /// # let function = module.create_function(&mut library).with_name("func").with_return_type(u32_ty).with_arg("a", u32_ty).build();
     /// # let block = function.create_block(&mut library).build();
     /// # let x = function.get_arg(&library, 0);
     /// # let mut instruction_builder = block.create_instructions(&mut library);
@@ -458,7 +458,7 @@ impl<'a> InstructionBuilder<'a> {
     /// # let mut library = Library::new();
     /// # let module = library.create_module().build();
     /// # let u32_ty = library.get_uint_type(32);
-    /// # let function = module.create_function(&mut library).with_name("func").with_return_type(u32_ty).with_argument("a", u32_ty).with_argument("b", u32_ty).build();
+    /// # let function = module.create_function(&mut library).with_name("func").with_return_type(u32_ty).with_arg("a", u32_ty).with_arg("b", u32_ty).build();
     /// # let block = function.create_block(&mut library).build();
     /// # let x = function.get_arg(&library, 0);
     /// # let y = function.get_arg(&library, 1);
@@ -493,7 +493,7 @@ impl<'a> InstructionBuilder<'a> {
     /// # let mut library = Library::new();
     /// # let module = library.create_module().build();
     /// # let u32_ty = library.get_uint_type(32);
-    /// # let function = module.create_function(&mut library).with_name("func").with_return_type(u32_ty).with_argument("a", u32_ty).with_argument("b", u32_ty).build();
+    /// # let function = module.create_function(&mut library).with_name("func").with_return_type(u32_ty).with_arg("a", u32_ty).with_arg("b", u32_ty).build();
     /// # let block = function.create_block(&mut library).build();
     /// # let x = function.get_arg(&library, 0);
     /// # let y = function.get_arg(&library, 1);
@@ -528,7 +528,7 @@ impl<'a> InstructionBuilder<'a> {
     /// # let mut library = Library::new();
     /// # let module = library.create_module().build();
     /// # let u32_ty = library.get_uint_type(32);
-    /// # let function = module.create_function(&mut library).with_name("func").with_return_type(u32_ty).with_argument("a", u32_ty).with_argument("b", u32_ty).build();
+    /// # let function = module.create_function(&mut library).with_name("func").with_return_type(u32_ty).with_arg("a", u32_ty).with_arg("b", u32_ty).build();
     /// # let block = function.create_block(&mut library).build();
     /// # let x = function.get_arg(&library, 0);
     /// # let y = function.get_arg(&library, 1);
@@ -562,7 +562,7 @@ impl<'a> InstructionBuilder<'a> {
     /// # let mut library = Library::new();
     /// # let module = library.create_module().build();
     /// # let u32_ty = library.get_uint_type(32);
-    /// # let function = module.create_function(&mut library).with_name("func").with_return_type(u32_ty).with_argument("a", u32_ty).build();
+    /// # let function = module.create_function(&mut library).with_name("func").with_return_type(u32_ty).with_arg("a", u32_ty).build();
     /// # let block = function.create_block(&mut library).build();
     /// # let x = function.get_arg(&library, 0);
     /// # let mut instruction_builder = block.create_instructions(&mut library);
@@ -593,7 +593,7 @@ impl<'a> InstructionBuilder<'a> {
     /// # let mut library = Library::new();
     /// # let module = library.create_module().build();
     /// # let u32_ty = library.get_uint_type(32);
-    /// # let function = module.create_function(&mut library).with_name("func").with_return_type(u32_ty).with_argument("a", u32_ty).with_argument("b", u32_ty).build();
+    /// # let function = module.create_function(&mut library).with_name("func").with_return_type(u32_ty).with_arg("a", u32_ty).with_arg("b", u32_ty).build();
     /// # let block = function.create_block(&mut library).build();
     /// # let x = function.get_arg(&library, 0);
     /// # let y = function.get_arg(&library, 1);
@@ -624,7 +624,7 @@ impl<'a> InstructionBuilder<'a> {
     /// # let mut library = Library::new();
     /// # let module = library.create_module().build();
     /// # let u32_ty = library.get_uint_type(32);
-    /// # let function = module.create_function(&mut library).with_name("func").with_return_type(u32_ty).with_argument("a", u32_ty).with_argument("b", u32_ty).build();
+    /// # let function = module.create_function(&mut library).with_name("func").with_return_type(u32_ty).with_arg("a", u32_ty).with_arg("b", u32_ty).build();
     /// # let block = function.create_block(&mut library).build();
     /// # let x = function.get_arg(&library, 0);
     /// # let y = function.get_arg(&library, 1);
@@ -656,7 +656,7 @@ impl<'a> InstructionBuilder<'a> {
     /// # let module = library.create_module().build();
     /// # let u32_ty = library.get_uint_type(32);
     /// # let i8_ty = library.get_int_type(8);
-    /// # let function = module.create_function(&mut library).with_name("func").with_return_type(u32_ty).with_argument("a", u32_ty).build();
+    /// # let function = module.create_function(&mut library).with_name("func").with_return_type(u32_ty).with_arg("a", u32_ty).build();
     /// # let block = function.create_block(&mut library).build();
     /// # let x = function.get_arg(&library, 0);
     /// # let mut instruction_builder = block.create_instructions(&mut library);
@@ -683,7 +683,7 @@ impl<'a> InstructionBuilder<'a> {
     /// # let module = library.create_module().build();
     /// # let u32_ty = library.get_uint_type(32);
     /// # let i32_ty = library.get_int_type(32);
-    /// # let function = module.create_function(&mut library).with_name("func").with_return_type(u32_ty).with_argument("a", u32_ty).build();
+    /// # let function = module.create_function(&mut library).with_name("func").with_return_type(u32_ty).with_arg("a", u32_ty).build();
     /// # let block = function.create_block(&mut library).build();
     /// # let x = function.get_arg(&library, 0);
     /// # let mut instruction_builder = block.create_instructions(&mut library);
@@ -710,7 +710,7 @@ impl<'a> InstructionBuilder<'a> {
     /// # let module = library.create_module().build();
     /// # let u32_ty = library.get_uint_type(32);
     /// # let u32_ptr_ty = library.get_pointer_type(Domain::CPU);
-    /// # let function = module.create_function(&mut library).with_name("func").with_return_type(u32_ty).with_argument("a", u32_ptr_ty).build();
+    /// # let function = module.create_function(&mut library).with_name("func").with_return_type(u32_ty).with_arg("a", u32_ptr_ty).build();
     /// # let block = function.create_block(&mut library).build();
     /// # let ptr = function.get_arg(&library, 0);
     /// # let mut instruction_builder = block.create_instructions(&mut library);
@@ -737,7 +737,7 @@ impl<'a> InstructionBuilder<'a> {
     /// # let void_ty = library.get_void_type();
     /// # let u32_ty = library.get_uint_type(32);
     /// # let u32_ptr_ty = library.get_pointer_type(Domain::CPU);
-    /// # let function = module.create_function(&mut library).with_name("func").with_return_type(void_ty).with_argument("a", u32_ty).with_argument("b", u32_ptr_ty).build();
+    /// # let function = module.create_function(&mut library).with_name("func").with_return_type(void_ty).with_arg("a", u32_ty).with_arg("b", u32_ptr_ty).build();
     /// # let block = function.create_block(&mut library).build();
     /// # let val = function.get_arg(&library, 0);
     /// # let ptr = function.get_arg(&library, 1);
@@ -761,7 +761,7 @@ impl<'a> InstructionBuilder<'a> {
     /// # let module = library.create_module().build();
     /// # let u32_ty = library.get_uint_type(32);
     /// # let vec_ty = library.get_vector_type(u32_ty, 4);
-    /// # let function = module.create_function(&mut library).with_name("func").with_return_type(u32_ty).with_argument("", vec_ty).build();
+    /// # let function = module.create_function(&mut library).with_name("func").with_return_type(u32_ty).with_arg("", vec_ty).build();
     /// # let block = function.create_block(&mut library).build();
     /// # let val = function.get_arg(&library, 0);
     /// # let mut instruction_builder = block.create_instructions(&mut library);
@@ -782,7 +782,7 @@ impl<'a> InstructionBuilder<'a> {
     /// # let module = library.create_module().build();
     /// # let u32_ty = library.get_uint_type(32);
     /// # let vec_ty = library.get_vector_type(u32_ty, 4);
-    /// # let function = module.create_function(&mut library).with_name("func").with_return_type(u32_ty).with_argument("a", vec_ty).with_argument("b", u32_ty).build();
+    /// # let function = module.create_function(&mut library).with_name("func").with_return_type(u32_ty).with_arg("a", vec_ty).with_arg("b", u32_ty).build();
     /// # let block = function.create_block(&mut library).build();
     /// # let val = function.get_arg(&library, 0);
     /// # let element = function.get_arg(&library, 1);
@@ -816,7 +816,7 @@ impl<'a> InstructionBuilder<'a> {
     /// # let mut library = Library::new();
     /// # let module = library.create_module().build();
     /// # let u32_ty = library.get_uint_type(32);
-    /// # let function = module.create_function(&mut library).with_name("func").with_return_type(u32_ty).with_argument("a", u32_ty).with_argument("b", u32_ty).build();
+    /// # let function = module.create_function(&mut library).with_name("func").with_return_type(u32_ty).with_arg("a", u32_ty).with_arg("b", u32_ty).build();
     /// # let block = function.create_block(&mut library).build();
     /// # let x = function.get_arg(&library, 0);
     /// # let y = function.get_arg(&library, 1);
@@ -842,7 +842,7 @@ impl<'a> InstructionBuilder<'a> {
     /// # let mut library = Library::new();
     /// # let module = library.create_module().build();
     /// # let u32_ty = library.get_uint_type(32);
-    /// # let function = module.create_function(&mut library).with_name("func").with_return_type(u32_ty).with_argument("a", u32_ty).with_argument("b", u32_ty).build();
+    /// # let function = module.create_function(&mut library).with_name("func").with_return_type(u32_ty).with_arg("a", u32_ty).with_arg("b", u32_ty).build();
     /// # let block = function.create_block(&mut library).build();
     /// # let x = function.get_arg(&library, 0);
     /// # let y = function.get_arg(&library, 1);
@@ -868,7 +868,7 @@ impl<'a> InstructionBuilder<'a> {
     /// # let mut library = Library::new();
     /// # let module = library.create_module().build();
     /// # let u32_ty = library.get_uint_type(32);
-    /// # let function = module.create_function(&mut library).with_name("func").with_return_type(u32_ty).with_argument("a", u32_ty).with_argument("b", u32_ty).build();
+    /// # let function = module.create_function(&mut library).with_name("func").with_return_type(u32_ty).with_arg("a", u32_ty).with_arg("b", u32_ty).build();
     /// # let block = function.create_block(&mut library).build();
     /// # let x = function.get_arg(&library, 0);
     /// # let y = function.get_arg(&library, 1);
@@ -894,7 +894,7 @@ impl<'a> InstructionBuilder<'a> {
     /// # let mut library = Library::new();
     /// # let module = library.create_module().build();
     /// # let u32_ty = library.get_uint_type(32);
-    /// # let function = module.create_function(&mut library).with_name("func").with_return_type(u32_ty).with_argument("a", u32_ty).with_argument("b", u32_ty).build();
+    /// # let function = module.create_function(&mut library).with_name("func").with_return_type(u32_ty).with_arg("a", u32_ty).with_arg("b", u32_ty).build();
     /// # let block = function.create_block(&mut library).build();
     /// # let x = function.get_arg(&library, 0);
     /// # let y = function.get_arg(&library, 1);
@@ -920,7 +920,7 @@ impl<'a> InstructionBuilder<'a> {
     /// # let mut library = Library::new();
     /// # let module = library.create_module().build();
     /// # let u32_ty = library.get_uint_type(32);
-    /// # let function = module.create_function(&mut library).with_name("func").with_return_type(u32_ty).with_argument("a", u32_ty).with_argument("b", u32_ty).build();
+    /// # let function = module.create_function(&mut library).with_name("func").with_return_type(u32_ty).with_arg("a", u32_ty).with_arg("b", u32_ty).build();
     /// # let block = function.create_block(&mut library).build();
     /// # let x = function.get_arg(&library, 0);
     /// # let y = function.get_arg(&library, 1);
@@ -946,7 +946,7 @@ impl<'a> InstructionBuilder<'a> {
     /// # let mut library = Library::new();
     /// # let module = library.create_module().build();
     /// # let u32_ty = library.get_uint_type(32);
-    /// # let function = module.create_function(&mut library).with_name("func").with_return_type(u32_ty).with_argument("a", u32_ty).with_argument("b", u32_ty).build();
+    /// # let function = module.create_function(&mut library).with_name("func").with_return_type(u32_ty).with_arg("a", u32_ty).with_arg("b", u32_ty).build();
     /// # let block = function.create_block(&mut library).build();
     /// # let x = function.get_arg(&library, 0);
     /// # let y = function.get_arg(&library, 1);
@@ -972,7 +972,7 @@ impl<'a> InstructionBuilder<'a> {
     /// # let mut library = Library::new();
     /// # let module = library.create_module().build();
     /// # let u32_ty = library.get_uint_type(32);
-    /// # let function = module.create_function(&mut library).with_name("func").with_return_type(u32_ty).with_argument("a", u32_ty).with_argument("b", u32_ty).build();
+    /// # let function = module.create_function(&mut library).with_name("func").with_return_type(u32_ty).with_arg("a", u32_ty).with_arg("b", u32_ty).build();
     /// # let block = function.create_block(&mut library).build();
     /// # let x = function.get_arg(&library, 0);
     /// # let y = function.get_arg(&library, 1);
@@ -1018,8 +1018,8 @@ impl<'a> InstructionBuilder<'a> {
     /// # let mut library = Library::new();
     /// # let module = library.create_module().build();
     /// # let u32_ty = library.get_uint_type(32);
-    /// # let called_function = module.create_function(&mut library).with_name("called_function").with_return_type(u32_ty).with_argument("a", u32_ty).with_argument("b", u32_ty).build();
-    /// # let function = module.create_function(&mut library).with_name("func").with_return_type(u32_ty).with_argument("a", u32_ty).with_argument("b", u32_ty).build();
+    /// # let called_function = module.create_function(&mut library).with_name("called_function").with_return_type(u32_ty).with_arg("a", u32_ty).with_arg("b", u32_ty).build();
+    /// # let function = module.create_function(&mut library).with_name("func").with_return_type(u32_ty).with_arg("a", u32_ty).with_arg("b", u32_ty).build();
     /// # let block = function.create_block(&mut library).build();
     /// # let x = function.get_arg(&library, 0);
     /// # let y = function.get_arg(&library, 1);
@@ -1045,9 +1045,9 @@ impl<'a> InstructionBuilder<'a> {
     /// # let mut library = Library::new();
     /// # let module = library.create_module().build();
     /// # let u32_ty = library.get_uint_type(32);
-    /// # let function = module.create_function(&mut library).with_name("func").with_return_type(u32_ty).with_argument("a", u32_ty).with_argument("b", u32_ty).build();
+    /// # let function = module.create_function(&mut library).with_name("func").with_return_type(u32_ty).with_arg("a", u32_ty).with_arg("b", u32_ty).build();
     /// # let block = function.create_block(&mut library).build();
-    /// # let called_block = function.create_block(&mut library).with_argument(u32_ty).with_argument(u32_ty).build();
+    /// # let called_block = function.create_block(&mut library).with_arg(u32_ty).with_arg(u32_ty).build();
     /// # let x = function.get_arg(&library, 0);
     /// # let y = function.get_arg(&library, 1);
     /// # let mut instruction_builder = block.create_instructions(&mut library);
@@ -1070,10 +1070,10 @@ impl<'a> InstructionBuilder<'a> {
     /// # let mut library = Library::new();
     /// # let module = library.create_module().build();
     /// # let u32_ty = library.get_uint_type(32);
-    /// # let function = module.create_function(&mut library).with_name("func").with_return_type(u32_ty).with_argument("a", u32_ty).with_argument("b", u32_ty).build();
+    /// # let function = module.create_function(&mut library).with_name("func").with_return_type(u32_ty).with_arg("a", u32_ty).with_arg("b", u32_ty).build();
     /// # let block = function.create_block(&mut library).build();
-    /// # let true_block = function.create_block(&mut library).with_argument(u32_ty).with_argument(u32_ty).build();
-    /// # let false_block = function.create_block(&mut library).with_argument(u32_ty).with_argument(u32_ty).build();
+    /// # let true_block = function.create_block(&mut library).with_arg(u32_ty).with_arg(u32_ty).build();
+    /// # let false_block = function.create_block(&mut library).with_arg(u32_ty).with_arg(u32_ty).build();
     /// # let x = function.get_arg(&library, 0);
     /// # let y = function.get_arg(&library, 1);
     /// # let mut instruction_builder = block.create_instructions(&mut library);
@@ -1114,7 +1114,7 @@ impl<'a> InstructionBuilder<'a> {
     /// # let mut library = Library::new();
     /// # let module = library.create_module().build();
     /// # let u32_ty = library.get_uint_type(32);
-    /// # let function = module.create_function(&mut library).with_name("func").with_return_type(u32_ty).with_argument("a", u32_ty).with_argument("b", u32_ty).build();
+    /// # let function = module.create_function(&mut library).with_name("func").with_return_type(u32_ty).with_arg("a", u32_ty).with_arg("b", u32_ty).build();
     /// # let block = function.create_block(&mut library).build();
     /// # let x = function.get_arg(&library, 0);
     /// # let y = function.get_arg(&library, 1);
@@ -1159,7 +1159,7 @@ impl<'a> InstructionBuilder<'a> {
     /// # let u32_array_ty = library.get_array_type(u32_ty, 42);
     /// # let struct_ty = library.get_struct_type(&[ u32_ptr_ty, u32_array_ty, u32_ty ]);
     /// # let ptr_ty = library.get_pointer_type(Domain::CPU);
-    /// # let function = module.create_function(&mut library).with_name("func").with_return_type(u32_ptr_ty).with_argument("a", ptr_ty).build();
+    /// # let function = module.create_function(&mut library).with_name("func").with_return_type(u32_ptr_ty).with_arg("a", ptr_ty).build();
     /// # let block = function.create_block(&mut library).build();
     /// # let ptr = function.get_arg(&library, 0);
     /// # let i0 = library.get_int_constant(8, 0);

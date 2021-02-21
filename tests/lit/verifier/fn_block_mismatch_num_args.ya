@@ -1,0 +1,9 @@
+// RUN: @yair_as @file | @yair_verify -
+
+// CHECK: A function and the first block contained within it must have matching arguments
+mod "😀" {
+  fn "🎄"(a : u8) : void {
+    bar():
+      ret
+  }
+}

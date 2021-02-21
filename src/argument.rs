@@ -17,7 +17,7 @@ impl Named for Argument {
     /// # let mut library = Library::new();
     /// # let module = library.create_module().build();
     /// # let int_ty = library.get_int_type(8);
-    /// # let function = module.create_function(&mut library).with_name("func").with_argument("😀", int_ty).build();
+    /// # let function = module.create_function(&mut library).with_name("func").with_arg("😀", int_ty).build();
     /// # let arg = function.get_arg(&library, 0);
     /// let name = arg.get_name(&library);
     /// # assert_eq!(name, "😀");
@@ -37,7 +37,7 @@ impl Typed for Argument {
     /// # let mut library = Library::new();
     /// # let module = library.create_module().build();
     /// # let int_ty = library.get_int_type(8);
-    /// # let function = module.create_function(&mut library).with_name("func").with_argument("😀", int_ty).build();
+    /// # let function = module.create_function(&mut library).with_name("func").with_arg("😀", int_ty).build();
     /// # let arg = function.get_arg(&library, 0);
     /// let ty = arg.get_type(&library);
     /// # assert_eq!(int_ty, ty);

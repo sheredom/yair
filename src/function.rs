@@ -1,7 +1,7 @@
 use crate::*;
 
 #[cfg_attr(feature = "io", derive(Serialize, Deserialize))]
-pub struct FunctionPayload {
+pub(crate) struct FunctionPayload {
     pub(crate) name: String,
     pub(crate) function_type: Type,
     pub(crate) arguments: Vec<Value>,
@@ -13,6 +13,64 @@ pub struct FunctionPayload {
 #[derive(Clone, Copy, Debug)]
 #[cfg_attr(feature = "io", derive(Serialize, Deserialize))]
 pub struct Function(pub(crate) generational_arena::Index);
+
+pub struct FunctionDisplayer<'a> {
+    pub(crate) function: Function,
+    pub(crate) library: &'a Library,
+}
+
+fn get_identifier(string: &str) -> String {
+    if string
+        .chars()
+        .all(|c| c.is_ascii_alphanumeric() || c == '_')
+    {
+        string.to_string()
+    } else {
+        format!("\"{}\"", string)
+    }
+}
+
+impl<'a> std::fmt::Display for FunctionDisplayer<'a> {
+    fn fmt(
+        &self,
+        writer: &mut std::fmt::Formatter<'_>,
+    ) -> std::result::Result<(), std::fmt::Error> {
+        if self.function.is_export(self.library) {
+            write!(writer, "export ")?;
+        }
+
+        let name = get_identifier(self.function.get_name(self.library));
+
+        writer.write_fmt(format_args!("fn {}(", name))?;
+
+        for i in 0..self.function.get_num_args(self.library) {
+            if i > 0 {
+                writer.write_fmt(format_args!(", "))?;
+            }
+
+            let arg = self.function.get_arg(self.library, i);
+
+            let arg_name = get_identifier(arg.get_name(self.library));
+            let ty_name = arg.get_type(self.library).get_displayer(self.library);
+
+            writer.write_fmt(format_args!("{} : {}", arg_name, ty_name))?;
+        }
+
+        let ret_ty_name = self
+            .function
+            .get_return_type(self.library)
+            .get_displayer(self.library);
+        let location = self.function.get_location(self.library);
+
+        writer.write_fmt(format_args!(") : {}", ret_ty_name))?;
+
+        if let Some(location) = location {
+            write!(writer, "{}", location.get_displayer(self.library))?;
+        }
+
+        Ok(())
+    }
+}
 
 impl Function {
     /// Get the name of the function.
@@ -64,7 +122,7 @@ impl Function {
     /// # let mut library = Library::new();
     /// # let module = library.create_module().build();
     /// # let ty = library.get_int_type(8);
-    /// # let function = module.create_function(&mut library).with_name("func").with_argument("arg", ty).build();
+    /// # let function = module.create_function(&mut library).with_name("func").with_arg("arg", ty).build();
     /// let arg = function.get_arg(&library, 0);
     /// # assert_eq!(arg.get_type(&library), ty);
     /// ```
@@ -90,7 +148,7 @@ impl Function {
     /// # let mut library = Library::new();
     /// # let module = library.create_module().build();
     /// # let ty = library.get_int_type(8);
-    /// # let function = module.create_function(&mut library).with_name("func").with_argument("arg", ty).build();
+    /// # let function = module.create_function(&mut library).with_name("func").with_arg("arg", ty).build();
     /// let num_args = function.get_num_args(&library);
     /// # assert_eq!(1, num_args);
     /// ```
@@ -152,6 +210,24 @@ impl Function {
         BlockIterator::new(&function.blocks)
     }
 
+    /// Get all the arguments in a function.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # use yair::*;
+    /// # let mut library = Library::new();
+    /// # let module = library.create_module().build();
+    /// # let u32_ty = library.get_uint_type(32);
+    /// # let function = module.create_function(&mut library).with_name("func").with_arg("a", u32_ty).build();
+    /// let mut args = function.get_args(&library);
+    /// assert_eq!(args.nth(0).unwrap().get_type(&library), u32_ty);
+    /// ```
+    pub fn get_args(&self, library: &Library) -> ValueIterator {
+        let function = &library.functions[self.0];
+        ValueIterator::new(&function.arguments)
+    }
+
     /// Get the location of a function.
     ///
     /// # Examples
@@ -171,6 +247,13 @@ impl Function {
     pub fn get_location(&self, library: &Library) -> Option<Location> {
         let function = &library.functions[self.0];
         function.location
+    }
+
+    pub fn get_displayer<'a>(&self, library: &'a Library) -> FunctionDisplayer<'a> {
+        FunctionDisplayer {
+            function: *self,
+            library,
+        }
     }
 }
 
@@ -249,9 +332,9 @@ impl<'a> FunctionBuilder<'a> {
     /// # let i8_ty = library.get_int_type(8);
     /// # let u32_ty = library.get_uint_type(32);
     /// # let function_builder = module.create_function(&mut library);
-    /// function_builder.with_argument("a", i8_ty).with_argument("b", u32_ty);
+    /// function_builder.with_arg("a", i8_ty).with_arg("b", u32_ty);
     /// ```
-    pub fn with_argument(mut self, argument_name: &'a str, argument_type: Type) -> Self {
+    pub fn with_arg(mut self, argument_name: &'a str, argument_type: Type) -> Self {
         self.argument_names.push(argument_name);
         self.argument_types.push(argument_type);
         self

@@ -533,6 +533,24 @@ impl Library {
             None => Value(self.values.insert(ValuePayload::Constant(constant))),
         }
     }
+
+    /// Verify a library of modules.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # use yair::*;
+    /// # let mut library = Library::new();
+    /// let result = library.verify();
+    /// # assert!(result.is_ok());
+    /// ```
+    pub fn verify(&self) -> Result<(), VerifyError> {
+        for module in self.get_modules() {
+            module.verify(self)?;
+        }
+
+        Ok(())
+    }
 }
 
 impl Default for Library {

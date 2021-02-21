@@ -93,6 +93,21 @@ impl Module {
         let module = &library.modules[self.0];
         FunctionIterator::new(&module.functions)
     }
+
+    /// Verify a library of modules.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # use yair::*;
+    /// # let mut library = Library::new();
+    /// # let module = library.create_module().with_name("module").build();
+    /// let result = module.verify(&library);
+    /// # assert!(result.is_ok());
+    /// ```
+    pub fn verify<'a>(&self, library: &'a Library) -> Result<(), VerifyError<'a>> {
+        verify(library, *self)
+    }
 }
 
 pub struct ModuleBuilder<'a> {

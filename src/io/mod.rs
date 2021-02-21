@@ -5,7 +5,7 @@ extern crate serde;
 use crate::*;
 use codespan::{FileId, Span};
 use codespan_reporting::diagnostic::{Diagnostic, Label};
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::str::FromStr;
 
 struct Assembler<'a> {
@@ -679,7 +679,7 @@ impl<'a> Assembler<'a> {
             let mut builder = function.create_block(library);
 
             for (_, ty) in &args {
-                builder = builder.with_argument(*ty);
+                builder = builder.with_arg(*ty);
             }
 
             let block = builder.build();
@@ -688,34 +688,6 @@ impl<'a> Assembler<'a> {
 
             block
         };
-
-        // If we are the first block, verify that the block shares the same arguments as the function.
-        if self.current_blocks.len() == 1 {
-            let function_num_args = function.get_num_args(library);
-            let block_num_args = block.get_num_args(library);
-
-            if function_num_args != block_num_args {
-                return Err(Diagnostic::new_error(
-                    "The number of arguments of the function and its first basic block must match",
-                    Label::new(self.file, self.single_char_span(), "here"),
-                ));
-            }
-
-            for arg in 0..function_num_args {
-                let function_arg = function.get_arg(library, arg);
-                let block_arg = block.get_arg(library, arg);
-
-                let function_arg_type = function_arg.get_type(library);
-                let block_arg_type = block_arg.get_type(library);
-
-                if function_arg_type != block_arg_type {
-                    return Err(Diagnostic::new_error(
-                        "The arguments for the first block and its parent function did not match",
-                        Label::new(self.file, self.single_char_span(), "here"),
-                    ));
-                }
-            }
-        }
 
         for (i, arg) in args.iter().enumerate().take(block.get_num_args(library)) {
             self.current_values.insert(arg.0, block.get_arg(library, i));
@@ -814,7 +786,7 @@ impl<'a> Assembler<'a> {
                     let mut block_builder = self.current_function.unwrap().create_block(library);
 
                     for ty in tys {
-                        block_builder = block_builder.with_argument(ty);
+                        block_builder = block_builder.with_arg(ty);
                     }
 
                     let block = block_builder.build();
@@ -883,7 +855,7 @@ impl<'a> Assembler<'a> {
                     let mut block_builder = self.current_function.unwrap().create_block(library);
 
                     for ty in tys {
-                        block_builder = block_builder.with_argument(ty);
+                        block_builder = block_builder.with_arg(ty);
                     }
 
                     let block = block_builder.build();
@@ -942,7 +914,7 @@ impl<'a> Assembler<'a> {
                     let mut block_builder = self.current_function.unwrap().create_block(library);
 
                     for ty in tys {
-                        block_builder = block_builder.with_argument(ty);
+                        block_builder = block_builder.with_arg(ty);
                     }
 
                     let block = block_builder.build();
@@ -1629,7 +1601,7 @@ impl<'a> Assembler<'a> {
         }
 
         for (name, ty) in args {
-            builder = builder.with_argument(name, ty);
+            builder = builder.with_arg(name, ty);
         }
 
         let function = builder.build();
@@ -1886,16 +1858,11 @@ fn get_identifier(string: &str) -> String {
 }
 
 fn get_loc(library: &Library, loc: &Option<Location>) -> String {
-    if loc.is_none() {
-        return "".to_string();
+    if let Some(loc) = loc {
+        format!("{}", loc.get_displayer(library))
+    } else {
+        "".to_string()
     }
-
-    format!(
-        " !\"{}\":{:?}:{:?}",
-        loc.unwrap().get_name(library),
-        loc.unwrap().get_line(),
-        loc.unwrap().get_column(),
-    )
 }
 
 fn get_constant_literal(library: &Library, val: &Value) -> String {
@@ -1937,15 +1904,13 @@ fn get_constant_literal(library: &Library, val: &Value) -> String {
 fn get_val(
     library: &Library,
     value: &Value,
-    values: &mut HashMap<Value, String>,
+    values: &mut HashSet<Value>,
     writer: &mut impl std::io::Write,
 ) -> std::io::Result<String> {
-    if let Some(name) = values.get(value) {
-        Ok(name.to_string())
+    if let Some(value) = values.get(value) {
+        Ok(format_args!("{}", value.get_displayer(library)).to_string())
     } else if value.is_constant(library) {
-        let cnst_name = "v".to_string() + &value.get_unique_index().to_string();
-
-        values.insert(*value, cnst_name.clone());
+        values.insert(*value);
 
         let val = get_val(library, &value, values, writer)?;
 
@@ -1956,7 +1921,7 @@ fn get_val(
             get_constant_literal(library, &value)
         ))?;
 
-        Ok(cnst_name)
+        Ok(format_args!("{}", value.get_displayer(library)).to_string())
     } else {
         Err(std::io::Error::new(
             std::io::ErrorKind::Other,
@@ -1971,116 +1936,68 @@ pub fn disassemble(library: &Library, mut writer: impl std::io::Write) -> std::i
     for module in modules {
         let name = module.get_name(library);
 
-        writer.write_fmt(format_args!("mod "))?;
-
-        writer.write_fmt(format_args!("{}", get_identifier(name)))?;
-
-        writer.write_fmt(format_args!(" {{"))?;
+        write!(writer, "mod {} {{", get_identifier(name))?;
 
         let mut printed_newline = false;
 
         for global in module.get_globals(library) {
             if !printed_newline {
-                writer.write_fmt(format_args!("\n"))?;
+                writeln!(writer)?;
                 printed_newline = true;
             }
 
-            let export = if global.is_export(library) {
-                "  export "
-            } else {
-                "  "
-            };
+            write!(writer, "  ")?;
+
+            if global.is_export(library) {
+                write!(writer, "export ")?;
+            }
+
             let name = get_identifier(global.get_name(library));
             let domain = get_domain(global.get_global_domain(library));
             let ty = global.get_global_backing_type(library);
             let ty_name = get_type_name(library, ty);
             let location = global.get_location(library);
 
-            writer.write_fmt(format_args!(
-                "{}var {} : {}, {}{}\n",
-                export,
+            writeln!(
+                writer,
+                "var {} : {}, {}{}",
                 name,
                 domain,
                 ty_name,
                 get_loc(library, &location)
-            ))?;
+            )?;
         }
 
         for function in module.get_functions(library) {
             if !printed_newline {
-                writer.write_fmt(format_args!("\n"))?;
+                writeln!(writer)?;
                 printed_newline = true;
             }
 
-            let export = if function.is_export(library) {
-                "  export "
-            } else {
-                "  "
-            };
-
-            let name = get_identifier(function.get_name(library));
-
-            writer.write_fmt(format_args!("{}fn {}(", export, name))?;
-
-            for i in 0..function.get_num_args(library) {
-                if i > 0 {
-                    writer.write_fmt(format_args!(", "))?;
-                }
-
-                let arg = function.get_arg(library, i);
-
-                let arg_name = get_identifier(arg.get_name(library));
-                let ty_name = get_type_name(library, arg.get_type(library));
-
-                writer.write_fmt(format_args!("{} : {}", arg_name, ty_name))?;
-            }
-
-            let ret_ty_name = get_type_name(library, function.get_return_type(library));
-            let location = function.get_location(library);
-
-            writer.write_fmt(format_args!(
-                ") : {}{}",
-                ret_ty_name,
-                get_loc(library, &location)
-            ))?;
+            write!(writer, "  {}", function.get_displayer(library))?;
 
             let mut first = true;
 
             for block in function.get_blocks(library) {
-                let block_id = block.get_unique_index();
-
                 if first {
-                    writer.write_fmt(format_args!(" {{\n"))?;
+                    writeln!(writer, " {{")?;
                     first = false;
                 }
 
-                writer.write_fmt(format_args!("    b{}(", block_id))?;
+                writeln!(writer, "    {}:", block.get_displayer(library))?;
 
-                let mut values = HashMap::new();
+                let mut values = HashSet::new();
 
                 for i in 0..block.get_num_args(library) {
-                    if i > 0 {
-                        writer.write_fmt(format_args!(", "))?;
-                    }
-
                     let arg = block.get_arg(library, i);
 
-                    let arg_name = "v".to_string() + &arg.get_unique_index().to_string();
-                    let ty_name = get_type_name(library, arg.get_type(library));
-
-                    writer.write_fmt(format_args!("{} : {}", arg_name, ty_name))?;
-
-                    values.insert(arg, arg_name);
+                    values.insert(arg);
                 }
-
-                writer.write_fmt(format_args!("):\n"))?;
 
                 for value in block.get_insts(library) {
                     let inst = value.get_inst(library);
 
-                    let inst_name = "v".to_string() + &value.get_unique_index().to_string();
-
-                    values.insert(value, inst_name);
+                    values.insert(value);
 
                     match inst {
                         Instruction::Return(loc) => writer

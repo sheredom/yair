@@ -14,6 +14,12 @@
 
 ## TODOs
 
+- Core:
+  - Add per-domain functions and function multi-versioning.
+- Verifier:
+  - When we have per-domain functions (CPU-only for instance) check for:
+    - Recursion.
+    - Calling a function in a conflicting domain (call GPU from CPU).
 - Add a cranelift code generation library.
 - Add an optimizer!
 

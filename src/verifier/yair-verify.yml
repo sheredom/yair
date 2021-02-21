@@ -1,0 +1,16 @@
+name: yair-verify
+version: "0.0.1"
+author: Neil Henning <sheredom@gmail.com>
+about: Verify a YAIR binary file (.yair) is valid.
+args:
+    - input:
+        help: The input .yair file (or - for stdin)
+        required: true
+        index: 1
+    - color:
+        long: color
+        value_name: COLOR
+        help: Whether to allow colored command line output
+        takes_value: true
+        default_value: "auto"
+        possible_values: [ "auto", "always", "ansi", "never" ]
