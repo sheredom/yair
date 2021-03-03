@@ -5,7 +5,7 @@ extern crate serde;
 use crate::*;
 use codespan::{FileId, Span};
 use codespan_reporting::diagnostic::{Diagnostic, Label};
-use std::collections::{HashMap, HashSet};
+use std::collections::HashMap;
 use std::str::FromStr;
 
 struct Assembler<'a> {
@@ -665,15 +665,8 @@ impl<'a> Assembler<'a> {
         }
 
         let block = if let Some(block) = self.current_blocks.get(name) {
-            for (i, arg) in args.iter().enumerate().take(block.get_num_args(library)) {
-                if block.get_arg(library, i).get_type(library) != arg.1 {
-                    return Err(Diagnostic::new_error(
-                        "Previous branch to block had different argument types than block!",
-                        Label::new(self.file, self.single_char_span(), "here"),
-                    ));
-                }
-            }
-
+            let mut block_args = block.get_args_mut(library);
+            args.iter().for_each(|(_, b)| block_args.push(*b));
             *block
         } else {
             let mut builder = function.create_block(library);
@@ -781,13 +774,9 @@ impl<'a> Assembler<'a> {
                 } else {
                     let paused_builder = builder.pause_building();
 
-                    let tys: Vec<_> = args.iter().map(|arg| arg.get_type(library)).collect();
+                    let block_builder = self.current_function.unwrap().create_block(library);
 
-                    let mut block_builder = self.current_function.unwrap().create_block(library);
-
-                    for ty in tys {
-                        block_builder = block_builder.with_arg(ty);
-                    }
+                    // Make the block with no args for now, we'll fill it out later when we actually hit the creation of the block.
 
                     let block = block_builder.build();
 
@@ -850,13 +839,9 @@ impl<'a> Assembler<'a> {
                 } else {
                     let paused_builder = builder.pause_building();
 
-                    let tys: Vec<_> = true_args.iter().map(|arg| arg.get_type(library)).collect();
+                    let block_builder = self.current_function.unwrap().create_block(library);
 
-                    let mut block_builder = self.current_function.unwrap().create_block(library);
-
-                    for ty in tys {
-                        block_builder = block_builder.with_arg(ty);
-                    }
+                    // Make the block with no args for now, we'll fill it out later when we actually hit the creation of the block.
 
                     let block = block_builder.build();
 
@@ -909,13 +894,9 @@ impl<'a> Assembler<'a> {
                 } else {
                     let paused_builder = builder.pause_building();
 
-                    let tys: Vec<_> = false_args.iter().map(|arg| arg.get_type(library)).collect();
+                    let block_builder = self.current_function.unwrap().create_block(library);
 
-                    let mut block_builder = self.current_function.unwrap().create_block(library);
-
-                    for ty in tys {
-                        block_builder = block_builder.with_arg(ty);
-                    }
+                    // Make the block with no args for now, we'll fill it out later when we actually hit the creation of the block.
 
                     let block = block_builder.build();
 
@@ -1846,17 +1827,6 @@ fn get_type_name(library: &Library, ty: Type) -> String {
     }
 }
 
-fn get_identifier(string: &str) -> String {
-    if string
-        .chars()
-        .all(|c| c.is_ascii_alphanumeric() || c == '_')
-    {
-        string.to_string()
-    } else {
-        format!("\"{}\"", string)
-    }
-}
-
 fn get_loc(library: &Library, loc: &Option<Location>) -> String {
     if let Some(loc) = loc {
         format!("{}", loc.get_displayer(library))
@@ -1901,33 +1871,21 @@ fn get_constant_literal(library: &Library, val: &Value) -> String {
     }
 }
 
-fn get_val(
+fn write_if_constant(
     library: &Library,
     value: &Value,
-    values: &mut HashSet<Value>,
     writer: &mut impl std::io::Write,
-) -> std::io::Result<String> {
-    if let Some(value) = values.get(value) {
-        Ok(format_args!("{}", value.get_displayer(library)).to_string())
-    } else if value.is_constant(library) {
-        values.insert(*value);
-
-        let val = get_val(library, &value, values, writer)?;
-
-        writer.write_fmt(format_args!(
-            "      {} = const {} {}\n",
-            val,
-            get_type_name(library, value.get_type(library)),
+) -> std::io::Result<()> {
+    if value.is_constant(library) {
+        writeln!(writer,
+            "      {} = const {} {}",
+            value.get_displayer(library),
+            value.get_type(library).get_displayer(library),
             get_constant_literal(library, &value)
-        ))?;
-
-        Ok(format_args!("{}", value.get_displayer(library)).to_string())
-    } else {
-        Err(std::io::Error::new(
-            std::io::ErrorKind::Other,
-            "Could not find value, internal compiler error!",
-        ))
+        )?;
     }
+
+    Ok(())
 }
 
 pub fn disassemble(library: &Library, mut writer: impl std::io::Write) -> std::io::Result<()> {
@@ -1936,7 +1894,7 @@ pub fn disassemble(library: &Library, mut writer: impl std::io::Write) -> std::i
     for module in modules {
         let name = module.get_name(library);
 
-        write!(writer, "mod {} {{", get_identifier(name))?;
+        write!(writer, "mod {} {{", name.get_displayer(library))?;
 
         let mut printed_newline = false;
 
@@ -1952,7 +1910,7 @@ pub fn disassemble(library: &Library, mut writer: impl std::io::Write) -> std::i
                 write!(writer, "export ")?;
             }
 
-            let name = get_identifier(global.get_name(library));
+            let name = global.get_name(library).get_displayer(library);
             let domain = get_domain(global.get_global_domain(library));
             let ty = global.get_global_backing_type(library);
             let ty_name = get_type_name(library, ty);
@@ -1986,276 +1944,86 @@ pub fn disassemble(library: &Library, mut writer: impl std::io::Write) -> std::i
 
                 writeln!(writer, "    {}:", block.get_displayer(library))?;
 
-                let mut values = HashSet::new();
-
-                for i in 0..block.get_num_args(library) {
-                    let arg = block.get_arg(library, i);
-
-                    values.insert(arg);
-                }
-
                 for value in block.get_insts(library) {
-                    let inst = value.get_inst(library);
-
-                    values.insert(value);
-
-                    match inst {
-                        Instruction::Return(loc) => writer
-                            .write_fmt(format_args!("      ret {}\n", get_loc(library, loc)))?,
-                        Instruction::ReturnValue(_, val, loc) => {
-                            let val = get_val(library, val, &mut values, &mut writer)?;
-
-                            writer.write_fmt(format_args!(
-                                "      ret {}{}\n",
-                                val,
-                                get_loc(library, loc)
-                            ))?;
+                    match value.get_inst(library) {
+                        Instruction::ReturnValue(_, r, _) => {
+                            write_if_constant(library, r, &mut writer)?;
                         }
-                        Instruction::Cmp(_, cmp, a, b, loc) => {
-                            let value = get_val(library, &value, &mut values, &mut writer)?;
-                            let a = get_val(library, &a, &mut values, &mut writer)?;
-                            let b = get_val(library, &b, &mut values, &mut writer)?;
-
-                            writer.write_fmt(format_args!(
-                                "      {} = cmp {} {}, {}{}\n",
-                                value,
-                                cmp,
-                                a,
-                                b,
-                                get_loc(library, loc)
-                            ))?;
+                        Instruction::Cmp(_, _, a, b, _) => {
+                            write_if_constant(library, a, &mut writer)?;
+                            write_if_constant(library, b, &mut writer)?;
                         }
-                        Instruction::Unary(_, unary, a, loc) => {
-                            let value = get_val(library, &value, &mut values, &mut writer)?;
-                            let a = get_val(library, &a, &mut values, &mut writer)?;
-
-                            writer.write_fmt(format_args!(
-                                "      {} = {} {}{}\n",
-                                value,
-                                unary,
-                                a,
-                                get_loc(library, loc)
-                            ))?;
+                        Instruction::Unary(_, _, a, _) => {
+                            write_if_constant(library, a, &mut writer)?;
                         }
-                        Instruction::Binary(_, binary, a, b, loc) => {
-                            let value = get_val(library, &value, &mut values, &mut writer)?;
-                            let a = get_val(library, &a, &mut values, &mut writer)?;
-                            let b = get_val(library, &b, &mut values, &mut writer)?;
-
-                            writer.write_fmt(format_args!(
-                                "      {} = {} {}, {}{}\n",
-                                value,
-                                binary,
-                                a,
-                                b,
-                                get_loc(library, loc)
-                            ))?
+                        Instruction::Binary(_, _, a, b, _) => {
+                            write_if_constant(library, a, &mut writer)?;
+                            write_if_constant(library, b, &mut writer)?;
                         }
-                        Instruction::Cast(ty, val, loc) => {
-                            let value = get_val(library, &value, &mut values, &mut writer)?;
-                            let val = get_val(library, &val, &mut values, &mut writer)?;
-
-                            writer.write_fmt(format_args!(
-                                "      {} = cast {} to {}{}\n",
-                                value,
-                                val,
-                                get_type_name(library, *ty),
-                                get_loc(library, loc)
-                            ))?;
+                        Instruction::Cast(_, val, _) => {
+                            write_if_constant(library, val, &mut writer)?;
                         }
-                        Instruction::BitCast(ty, val, loc) => {
-                            let value = get_val(library, &value, &mut values, &mut writer)?;
-                            let val = get_val(library, &val, &mut values, &mut writer)?;
-
-                            writer.write_fmt(format_args!(
-                                "      {} = bitcast {} to {}{}\n",
-                                value,
-                                val,
-                                get_type_name(library, *ty),
-                                get_loc(library, loc)
-                            ))?;
+                        Instruction::BitCast(_, val, _) => {
+                            write_if_constant(library, val, &mut writer)?;
                         }
-                        Instruction::Load(ty, ptr, loc) => {
-                            let value = get_val(library, &value, &mut values, &mut writer)?;
-                            let ptr = get_val(library, &ptr, &mut values, &mut writer)?;
-
-                            writer.write_fmt(format_args!(
-                                "      {} = load {}, {}{}\n",
-                                value,
-                                get_type_name(library, *ty),
-                                ptr,
-                                get_loc(library, loc)
-                            ))?;
+                        Instruction::Load(_, ptr, _) => {
+                            write_if_constant(library, ptr, &mut writer)?;
                         }
-                        Instruction::Store(ty, ptr, val, loc) => {
-                            let ptr = get_val(library, &ptr, &mut values, &mut writer)?;
-                            let val = get_val(library, &val, &mut values, &mut writer)?;
-
-                            writer.write_fmt(format_args!(
-                                "      store {}, {}, {}{}\n",
-                                get_type_name(library, *ty),
-                                ptr,
-                                val,
-                                get_loc(library, loc)
-                            ))?;
+                        Instruction::Store(_, ptr, val, _) => {
+                            write_if_constant(library, ptr, &mut writer)?;
+                            write_if_constant(library, val, &mut writer)?;
                         }
-                        Instruction::Extract(agg, index, loc) => {
-                            let value = get_val(library, &value, &mut values, &mut writer)?;
-                            let agg = get_val(library, &agg, &mut values, &mut writer)?;
-
-                            writer.write_fmt(format_args!(
-                                "      {} = extract {}, {}{}\n",
-                                value,
-                                agg,
-                                index,
-                                get_loc(library, loc)
-                            ))?;
+                        Instruction::Extract(agg, _, _) => {
+                            write_if_constant(library, agg, &mut writer)?;
                         }
-                        Instruction::Insert(agg, elem, index, loc) => {
-                            let value = get_val(library, &value, &mut values, &mut writer)?;
-                            let agg = get_val(library, &agg, &mut values, &mut writer)?;
-                            let elem = get_val(library, &elem, &mut values, &mut writer)?;
-
-                            writer.write_fmt(format_args!(
-                                "      {} = insert {}, {}, {}{}\n",
-                                value,
-                                agg,
-                                elem,
-                                index,
-                                get_loc(library, loc)
-                            ))?
+                        Instruction::Insert(agg, elem, _, _) => {
+                            write_if_constant(library, agg, &mut writer)?;
+                            write_if_constant(library, elem, &mut writer)?;
                         }
-                        Instruction::StackAlloc(name, ty, _, loc) => {
-                            let value = get_val(library, &value, &mut values, &mut writer)?;
-                            writer.write_fmt(format_args!(
-                                "      {} = stackalloc {}, {}{}\n",
-                                value,
-                                get_identifier(name.get_name(library)),
-                                get_type_name(library, *ty),
-                                get_loc(library, loc)
-                            ))?
-                        }
-                        Instruction::Call(func, args, loc) => {
-                            let value = get_val(library, &value, &mut values, &mut writer)?;
-                            writer.write_fmt(format_args!(
-                                "      {} = call {}(",
-                                value,
-                                get_identifier(func.get_name(library)),
-                            ))?;
-
-                            for arg in args.iter().take(1) {
-                                let arg = get_val(library, &arg, &mut values, &mut writer)?;
-                                writer.write_fmt(format_args!("{}", arg,))?;
+                        Instruction::Call(_, args, _) => {
+                            for arg in args {
+                                write_if_constant(library, arg, &mut writer)?;
                             }
-
-                            for arg in args.iter().skip(1) {
-                                let arg = get_val(library, &arg, &mut values, &mut writer)?;
-                                writer.write_fmt(format_args!(", {}", arg,))?;
-                            }
-
-                            writer.write_fmt(format_args!(") {}\n", get_loc(library, loc)))?
                         }
-                        Instruction::Branch(block, args, loc) => {
-                            writer.write_fmt(format_args!(
-                                "      br b{}(",
-                                block.get_unique_index()
-                            ))?;
-
-                            for arg in args.iter().take(1) {
-                                let arg = get_val(library, &arg, &mut values, &mut writer)?;
-                                writer.write_fmt(format_args!("{}", arg,))?;
+                        Instruction::Branch(_, args, _) => {
+                            for arg in args {
+                                write_if_constant(library, arg, &mut writer)?;
                             }
-
-                            for arg in args.iter().skip(1) {
-                                let arg = get_val(library, &arg, &mut values, &mut writer)?;
-                                writer.write_fmt(format_args!(", {}", arg,))?;
-                            }
-
-                            writer.write_fmt(format_args!(") {}\n", get_loc(library, loc)))?
                         }
                         Instruction::ConditionalBranch(
                             cond,
-                            true_block,
-                            false_block,
+                            _,
+                            _,
                             true_args,
                             false_args,
-                            loc,
+                            _,
                         ) => {
-                            let cond = get_val(library, &cond, &mut values, &mut writer)?;
-                            writer.write_fmt(format_args!(
-                                "      cbr {}, b{}(",
-                                cond,
-                                true_block.get_unique_index()
-                            ))?;
-
-                            for arg in true_args.iter().take(1) {
-                                let arg = get_val(library, &arg, &mut values, &mut writer)?;
-                                writer.write_fmt(format_args!("{}", arg,))?;
+                            write_if_constant(library, cond, &mut writer)?;
+                            
+                            for arg in true_args {
+                                write_if_constant(library, arg, &mut writer)?;
                             }
 
-                            for arg in true_args.iter().skip(1) {
-                                let arg = get_val(library, &arg, &mut values, &mut writer)?;
-                                writer.write_fmt(format_args!(", {}", arg,))?;
+                            for arg in false_args {
+                                write_if_constant(library, arg, &mut writer)?;
                             }
-
-                            writer.write_fmt(format_args!(
-                                "), b{}(",
-                                false_block.get_unique_index()
-                            ))?;
-
-                            for arg in false_args.iter().take(1) {
-                                let arg = get_val(library, &arg, &mut values, &mut writer)?;
-                                writer.write_fmt(format_args!("{}", arg,))?;
-                            }
-
-                            for arg in false_args.iter().skip(1) {
-                                let arg = get_val(library, &arg, &mut values, &mut writer)?;
-                                writer.write_fmt(format_args!(", {}", arg,))?;
-                            }
-
-                            writer.write_fmt(format_args!(") {}\n", get_loc(library, loc)))?
                         }
-                        Instruction::Select(_, cond, true_val, false_val, loc) => {
-                            let value = get_val(library, &value, &mut values, &mut writer)?;
-                            let cond = get_val(library, &cond, &mut values, &mut writer)?;
-                            let true_val = get_val(library, &true_val, &mut values, &mut writer)?;
-                            let false_val = get_val(library, &false_val, &mut values, &mut writer)?;
-
-                            writer.write_fmt(format_args!(
-                                "      {} = select {}, {}, {}{}\n",
-                                value,
-                                cond,
-                                true_val,
-                                false_val,
-                                get_loc(library, loc)
-                            ))?;
+                        Instruction::Select(_, cond, true_val, false_val, _) => {
+                            write_if_constant(library, cond, &mut writer)?;
+                            write_if_constant(library, true_val, &mut writer)?;
+                            write_if_constant(library, false_val, &mut writer)?;
                         }
-                        Instruction::IndexInto(ty, ptr, args, loc) => {
-                            let value = get_val(library, &value, &mut values, &mut writer)?;
-                            let ptr = get_val(library, &ptr, &mut values, &mut writer)?;
+                        Instruction::IndexInto(_, ptr, args, _) => {
+                            write_if_constant(library, ptr, &mut writer)?;
 
-                            writer.write_fmt(format_args!(
-                                "      {} = indexinto {}, {}, ",
-                                value,
-                                get_type_name(library, *ty),
-                                ptr,
-                            ))?;
-
-                            for arg in args.iter().take(1) {
-                                let arg = get_val(library, &arg, &mut values, &mut writer)?;
-
-                                writer.write_fmt(format_args!("{}", arg))?;
+                            for arg in args {
+                                write_if_constant(library, arg, &mut writer)?;
                             }
-
-                            for arg in args.iter().skip(1) {
-                                let arg = get_val(library, &arg, &mut values, &mut writer)?;
-
-                                writer.write_fmt(format_args!(", {}", arg))?;
-                            }
-
-                            writer.write_fmt(format_args!("{}\n", get_loc(library, loc)))?
                         }
+                        _ => ()
                     }
+
+                    writeln!(writer, "      {}", value.get_inst_displayer(library))?;
                 }
             }
 

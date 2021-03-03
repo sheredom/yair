@@ -77,18 +77,44 @@ impl Default for TypePayload {
     }
 }
 
-pub trait Named {
-    fn get_name<'a>(&self, library: &'a Library) -> &'a str;
-}
-
 #[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
 #[cfg_attr(feature = "io", derive(Serialize, Deserialize))]
 pub struct Name(pub(crate) generational_arena::Index);
 
-impl Named for Name {
-    fn get_name<'a>(&self, library: &'a Library) -> &'a str {
+impl Name {
+    pub fn get_name<'a>(&self, library: &'a Library) -> &'a str {
         &library.names[self.0]
     }
+
+    pub fn get_displayer<'a>(&self, library: &'a Library) -> NameDisplayer<'a> {
+        NameDisplayer { name: *self, library }
+    }
+}
+
+pub struct NameDisplayer<'a> {
+    pub(crate) name: Name,
+    pub(crate) library: &'a Library,
+}
+
+impl<'a> std::fmt::Display for NameDisplayer<'a> {
+    fn fmt(
+        &self,
+        writer: &mut std::fmt::Formatter<'_>,
+    ) -> std::result::Result<(), std::fmt::Error> {
+        let name = self.name.get_name(self.library);
+            if name
+                .chars()
+                .all(|c| c.is_ascii_alphanumeric() || c == '_')
+            {
+                write!(writer, "{}", name)
+            } else {
+                write!(writer, "\"{}\"", name)
+            }
+    }
+}
+
+pub trait Named {
+    fn get_name(&self, library: &Library) -> Name;
 }
 
 pub trait Typed {

@@ -2,7 +2,7 @@ use crate::*;
 
 #[cfg_attr(feature = "io", derive(Serialize, Deserialize))]
 pub(crate) struct FunctionPayload {
-    pub(crate) name: String,
+    pub(crate) name: Name,
     pub(crate) function_type: Type,
     pub(crate) arguments: Vec<Value>,
     pub(crate) blocks: Vec<Block>,
@@ -19,17 +19,6 @@ pub struct FunctionDisplayer<'a> {
     pub(crate) library: &'a Library,
 }
 
-fn get_identifier(string: &str) -> String {
-    if string
-        .chars()
-        .all(|c| c.is_ascii_alphanumeric() || c == '_')
-    {
-        string.to_string()
-    } else {
-        format!("\"{}\"", string)
-    }
-}
-
 impl<'a> std::fmt::Display for FunctionDisplayer<'a> {
     fn fmt(
         &self,
@@ -39,9 +28,7 @@ impl<'a> std::fmt::Display for FunctionDisplayer<'a> {
             write!(writer, "export ")?;
         }
 
-        let name = get_identifier(self.function.get_name(self.library));
-
-        writer.write_fmt(format_args!("fn {}(", name))?;
+        write!(writer, "fn {}(", self.function.get_name(self.library).get_displayer(self.library))?;
 
         for i in 0..self.function.get_num_args(self.library) {
             if i > 0 {
@@ -50,7 +37,7 @@ impl<'a> std::fmt::Display for FunctionDisplayer<'a> {
 
             let arg = self.function.get_arg(self.library, i);
 
-            let arg_name = get_identifier(arg.get_name(self.library));
+            let arg_name = arg.get_name(self.library).get_displayer(self.library);
             let ty_name = arg.get_type(self.library).get_displayer(self.library);
 
             writer.write_fmt(format_args!("{} : {}", arg_name, ty_name))?;
@@ -83,12 +70,12 @@ impl Function {
     /// # let module = library.create_module().build();
     /// # let function = module.create_function(&mut library).with_name("foo").build();
     /// let name = function.get_name(&library);
-    /// # assert_eq!(name, "foo");
+    /// # assert_eq!(name.get_name(&library), "foo");
     /// ```
-    pub fn get_name<'a>(&self, library: &'a Library) -> &'a str {
+    pub fn get_name<'a>(&self, library: &'a Library) -> Name {
         let function = &library.functions[self.0];
 
-        &function.name
+        function.name
     }
 
     /// Get the return type of the function.
@@ -396,7 +383,7 @@ impl<'a> FunctionBuilder<'a> {
             .get_function_type(self.return_type, &self.argument_types);
 
         let mut function = FunctionPayload {
-            name: self.name.to_string(),
+            name: self.library.get_name(self.name),
             function_type,
             arguments: Vec::new(),
             blocks: Vec::new(),

@@ -2,7 +2,7 @@ use crate::*;
 
 #[cfg_attr(feature = "io", derive(Serialize, Deserialize))]
 pub(crate) struct ModulePayload {
-    pub(crate) name: String,
+    pub(crate) name: Name,
     pub(crate) functions: Vec<Function>,
     pub(crate) globals: Vec<Value>,
 }
@@ -11,22 +11,13 @@ pub(crate) struct ModulePayload {
 #[cfg_attr(feature = "io", derive(Serialize, Deserialize))]
 pub struct Module(pub(crate) generational_arena::Index);
 
-impl Module {
-    /// Get the name of the module.
-    ///
-    /// # Examples
-    ///
-    /// ```
-    /// # use yair::*;
-    /// # let mut library = Library::new();
-    /// # let module = library.create_module().with_name("foo").build();
-    /// let name = module.get_name(&library);
-    /// # assert_eq!(name, "foo");
-    /// ```
-    pub fn get_name<'a>(&self, library: &'a Library) -> &'a str {
-        &library.modules[self.0].name
+impl Named for Module {
+    fn get_name<'a>(&self, library: &'a Library) -> Name {
+        library.modules[self.0].name
     }
+}
 
+impl Module {
     /// Create a new function.
     ///
     /// # Examples
@@ -67,8 +58,8 @@ impl Module {
     /// let global_a = module.create_global(&mut library).with_name("a").with_type(u32_ty).build();
     /// let global_b = module.create_global(&mut library).with_name("b").with_type(u32_ty).build();
     /// let mut globals = module.get_globals(&library);
-    /// assert_eq!(globals.nth(0).unwrap().get_name(&library), "a");
-    /// assert_eq!(globals.nth(0).unwrap().get_name(&library), "b");
+    /// assert_eq!(globals.nth(0).unwrap().get_name(&library).get_name(&library), "a");
+    /// assert_eq!(globals.nth(0).unwrap().get_name(&library).get_name(&library), "b");
     /// ```
     pub fn get_globals(&self, library: &Library) -> GlobalIterator {
         let module = &library.modules[self.0];
@@ -86,8 +77,8 @@ impl Module {
     /// let function_a = module.create_function(&mut library).with_name("a").build();
     /// let function_b = module.create_function(&mut library).with_name("b").build();
     /// let mut functions = module.get_functions(&library);
-    /// assert_eq!(functions.nth(0).unwrap().get_name(&library), "a");
-    /// assert_eq!(functions.nth(0).unwrap().get_name(&library), "b");
+    /// assert_eq!(functions.nth(0).unwrap().get_name(&library).get_name(&library), "a");
+    /// assert_eq!(functions.nth(0).unwrap().get_name(&library).get_name(&library), "b");
     /// ```
     pub fn get_functions(&self, library: &Library) -> FunctionIterator {
         let module = &library.modules[self.0];
@@ -147,7 +138,7 @@ impl<'a> ModuleBuilder<'a> {
     /// ```
     pub fn build(self) -> Module {
         let module = ModulePayload {
-            name: self.name.to_string(),
+            name: self.library.get_name(self.name),
             functions: Vec::new(),
             globals: Vec::new(),
         };

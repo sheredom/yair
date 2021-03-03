@@ -26,8 +26,8 @@ impl Location {
 }
 
 impl Named for Location {
-    fn get_name<'a>(&self, library: &'a Library) -> &'a str {
-        &library.names[self.filename.0]
+    fn get_name<'a>(&self, _: &'a Library) -> Name {
+        self.filename
     }
 }
 
@@ -43,8 +43,8 @@ impl<'a> std::fmt::Display for LocationDisplayer<'a> {
     ) -> std::result::Result<(), std::fmt::Error> {
         write!(
             writer,
-            " !\"{}\":{:?}:{:?}",
-            self.loc.get_name(self.library),
+            " !{}:{:?}:{:?}",
+            self.loc.get_name(self.library).get_displayer(self.library),
             self.loc.get_line(),
             self.loc.get_column(),
         )

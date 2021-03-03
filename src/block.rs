@@ -156,6 +156,24 @@ impl Block {
         ValueIterator::new(&block.arguments)
     }
 
+    /// Get a mutable reference to all the arguments in a block.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # use yair::*;
+    /// # let mut library = Library::new();
+    /// # let module = library.create_module().build();
+    /// # let u32_ty = library.get_uint_type(32);
+    /// # let function = module.create_function(&mut library).with_name("func").with_arg("a", u32_ty).build();
+    /// # let block = function.create_block(&mut library).with_arg(u32_ty).build();
+    /// let mut args = block.get_args_mut(&mut library);
+    /// # args.push(u32_ty);
+    /// ```
+    pub fn get_args_mut<'a>(&self, library: &'a mut Library) -> BlockArguments<'a> {
+        BlockArguments::new(library, *self)
+    }
+
     pub fn get_displayer<'a>(&self, library: &'a Library) -> BlockDisplayer<'a> {
         BlockDisplayer {
             block: *self,

@@ -20,10 +20,10 @@ impl Named for Argument {
     /// # let function = module.create_function(&mut library).with_name("func").with_arg("😀", int_ty).build();
     /// # let arg = function.get_arg(&library, 0);
     /// let name = arg.get_name(&library);
-    /// # assert_eq!(name, "😀");
+    /// # assert_eq!(name.get_name(&library), "😀");
     /// ```
-    fn get_name<'a>(&self, library: &'a Library) -> &'a str {
-        &library.names[self.name.0]
+    fn get_name(&self, _: &Library) -> Name {
+        self.name
     }
 }
 
@@ -44,5 +44,66 @@ impl Typed for Argument {
     /// ```
     fn get_type(&self, _: &Library) -> Type {
         self.ty
+    }
+}
+
+pub struct ArgumentIterator<'a> {
+    library: &'a mut Library,
+    vec: Vec<Value>,
+    next: usize,
+}
+
+impl<'a> Extend<(&'a str, Type)> for ArgumentIterator<'a> {
+    fn extend<T: IntoIterator<Item=(&'a str, Type)>>(&mut self, iter: T) {
+        for elem in iter {
+            let name = self.library.get_name(elem.0);
+
+            let argument = self.library.values.insert(ValuePayload::Argument(Argument {
+                name,
+                ty: elem.1,
+            }));
+
+            self.vec.push(Value(argument));
+        }
+    }
+}
+
+impl<'a> Iterator for ArgumentIterator<'a> {
+    type Item = Value;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        if self.next < self.vec.len() {
+            let next = self.next;
+            self.next += 1;
+            Some(self.vec[next])
+        } else {
+            None
+        }
+    }
+}
+
+pub struct BlockArguments<'a> {
+    library: &'a mut Library,
+    block: Block,
+}
+
+impl<'a> BlockArguments<'a> {
+    pub(crate) fn new(library: &'a mut Library, block: Block) -> Self {
+        BlockArguments {
+            library,
+            block
+        }
+    }
+
+    /// Push a new argument to the end of the argument list.
+    pub fn push(&mut self, ty: Type) {
+        let name = self.library.get_name("");
+
+        let argument = self.library.values.insert(ValuePayload::Argument(Argument {
+            name,
+            ty,
+        }));
+
+        self.library.blocks[self.block.0].arguments.push(Value(argument));
     }
 }

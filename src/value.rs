@@ -240,11 +240,15 @@ impl Value {
     pub fn get_displayer(&self, _: &Library) -> ValueDisplayer {
         ValueDisplayer { value: *self }
     }
+
+    pub fn get_inst_displayer<'a>(&self, library: &'a Library) -> InstructionDisplayer<'a> {
+        InstructionDisplayer { value: *self, library }
+    }
 }
 
 impl Named for Value {
     /// Get the name of a value.
-    fn get_name<'a>(&self, library: &'a Library) -> &'a str {
+    fn get_name(&self, library: &Library) -> Name {
         match &library.values[self.0] {
             ValuePayload::Undef(_) => panic!("Undef values cannot have names"),
             ValuePayload::Argument(arg) => arg.get_name(library),

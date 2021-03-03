@@ -102,6 +102,270 @@ pub enum Instruction {
     IndexInto(Type, Value, Vec<Value>, Option<Location>),
 }
 
+pub struct InstructionDisplayer<'a> {
+    pub(crate) value: Value,
+    pub(crate) library: &'a Library,
+}
+
+impl<'a> std::fmt::Display for InstructionDisplayer<'a> {
+    fn fmt(
+        &self,
+        writer: &mut std::fmt::Formatter<'_>,
+    ) -> std::result::Result<(), std::fmt::Error> {
+        let inst = self.value.get_inst(self.library);
+        match inst {
+            Instruction::Return(loc) => {
+                write!(writer,
+                    "ret",
+                )?;
+                if let Some(loc) = loc {
+                    write!(writer, "{}", loc.get_displayer(self.library))?;
+                }
+            }
+            Instruction::ReturnValue(_, val, loc) => {
+                write!(writer,
+                    "ret {}",
+                    val.get_displayer(self.library),
+                )?;
+                if let Some(loc) = loc {
+                    write!(writer, "{}", loc.get_displayer(self.library))?;
+                }
+            }
+            Instruction::Cmp(_, cmp, a, b, loc) => {
+                write!(writer,
+                    "{} = cmp {} {}, {}",
+                    self.value.get_displayer(self.library),
+                    cmp,
+                    a.get_displayer(self.library),
+                    b.get_displayer(self.library),
+                )?;
+                if let Some(loc) = loc {
+                    write!(writer, "{}", loc.get_displayer(self.library))?;
+                }
+            }
+            Instruction::Unary(_, unary, a, loc) => {
+                write!(writer,
+                    "{} = {} {}",
+                    self.value.get_displayer(self.library),
+                    unary,
+                    a.get_displayer(self.library),
+                )?;
+                if let Some(loc) = loc {
+                    write!(writer, "{}", loc.get_displayer(self.library))?;
+                }
+            }
+            Instruction::Binary(_, binary, a, b, loc) => {
+                write!(writer,
+                    "{} = {} {}, {}",
+                    self.value.get_displayer(self.library),
+                    binary,
+                    a.get_displayer(self.library),
+                    b.get_displayer(self.library),
+                )?;
+                if let Some(loc) = loc {
+                    write!(writer, "{}", loc.get_displayer(self.library))?;
+                }
+            }
+            Instruction::Cast(ty, val, loc) => {
+                write!(writer,
+                    "{} = cast {} to {}",
+                    self.value.get_displayer(self.library),
+                    val.get_displayer(self.library),
+                    ty.get_displayer(self.library),
+                )?;
+                if let Some(loc) = loc {
+                    write!(writer, "{}", loc.get_displayer(self.library))?;
+                }
+            }
+            Instruction::BitCast(ty, val, loc) => {
+                write!(writer,
+                    "{} = bitcast {} to {}",
+                    self.value.get_displayer(self.library),
+                    val.get_displayer(self.library),
+                    ty.get_displayer(self.library),
+                )?;
+                if let Some(loc) = loc {
+                    write!(writer, "{}", loc.get_displayer(self.library))?;
+                }
+            }
+            Instruction::Load(ty, ptr, loc) => {
+                write!(writer,
+                    "{} = load {}, {}",
+                    self.value.get_displayer(self.library),
+                    ty.get_displayer(self.library),
+                    ptr.get_displayer(self.library),
+                )?;
+                if let Some(loc) = loc {
+                    write!(writer, "{}", loc.get_displayer(self.library))?;
+                }
+            }
+            Instruction::Store(ty, ptr, val, loc) => {
+                write!(writer,
+                    "store {}, {}, {}",
+                    ty.get_displayer(self.library),
+                    ptr.get_displayer(self.library),
+                    val.get_displayer(self.library),
+                )?;
+                if let Some(loc) = loc {
+                    write!(writer, "{}", loc.get_displayer(self.library))?;
+                }
+            }
+            Instruction::Extract(agg, index, loc) => {
+                write!(writer,
+                    "{} = extract {}, {}",
+                    self.value.get_displayer(self.library),
+                    agg.get_displayer(self.library),
+                    index,
+                )?;
+                if let Some(loc) = loc {
+                    write!(writer, "{}", loc.get_displayer(self.library))?;
+                }
+            }
+            Instruction::Insert(agg, elem, index, loc) => {
+                write!(writer,
+                    "{} = insert {}, {}, {}",
+                    self.value.get_displayer(self.library),
+                    agg.get_displayer(self.library),
+                    elem.get_displayer(self.library),
+                    index,
+                )?;
+                if let Some(loc) = loc {
+                    write!(writer, "{}", loc.get_displayer(self.library))?;
+                }
+            }
+            Instruction::StackAlloc(name, ty, _, loc) => {
+                write!(writer,
+                    "{} = stackalloc {}, {}",
+                    self.value.get_displayer(self.library),
+                    name.get_displayer(self.library),
+                    ty.get_displayer(self.library),
+                )?;
+
+                if let Some(loc) = loc {
+                    write!(writer, "{}", loc.get_displayer(self.library))?;
+                }
+            }
+            Instruction::Call(func, args, loc) => {
+                write!(writer,
+                    "      {} = call {}(",
+                    self.value.get_displayer(self.library),
+                    func.get_name(self.library).get_displayer(self.library)
+                )?;
+
+                for arg in args.iter().take(1) {
+                    write!(writer, "{}", arg.get_displayer(self.library))?;
+                }
+
+                for arg in args.iter().skip(1) {
+                    write!(writer, ", {}", arg.get_displayer(self.library))?;
+                }
+
+                write!(writer, ")")?;
+
+                if let Some(loc) = loc {
+                    write!(writer, "{}", loc.get_displayer(self.library))?;
+                }
+            }
+            Instruction::Branch(block, args, loc) => {
+                write!(writer,
+                    "      br b{}(",
+                    block.get_unique_index()
+                )?;
+
+                for arg in args.iter().take(1) {
+                    write!(writer, "{}", arg.get_displayer(self.library))?;
+                }
+
+                for arg in args.iter().skip(1) {
+                    write!(writer, ", {}", arg.get_displayer(self.library))?;
+                }
+
+                write!(writer, ")")?;
+
+                if let Some(loc) = loc {
+                    write!(writer, "{}", loc.get_displayer(self.library))?;
+                }
+            }
+            Instruction::ConditionalBranch(
+                cond,
+                true_block,
+                false_block,
+                true_args,
+                false_args,
+                loc,
+            ) => {
+                write!(writer,
+                    "      cbr {}, b{}(",
+                    cond.get_displayer(self.library),
+                    true_block.get_unique_index()
+                )?;
+
+                for arg in true_args.iter().take(1) {
+                    write!(writer, "{}", arg.get_displayer(self.library))?;
+                }
+
+                for arg in true_args.iter().skip(1) {
+                    write!(writer,", {}", arg.get_displayer(self.library))?;
+                }
+
+                write!(writer,
+                    "), b{}(",
+                    false_block.get_unique_index()
+                )?;
+
+                for arg in false_args.iter().take(1) {
+                    write!(writer, "{}", arg.get_displayer(self.library))?;
+                }
+
+                for arg in false_args.iter().skip(1) {
+                    write!(writer,", {}", arg.get_displayer(self.library))?;
+                }
+
+                write!(writer, ")")?;
+
+                if let Some(loc) = loc {
+                    write!(writer, "{}", loc.get_displayer(self.library))?;
+                }
+            }
+            Instruction::Select(_, cond, true_val, false_val, loc) => {
+                write!(writer,
+                    "{} = select {}, {}, {}",
+                    self.value.get_displayer(self.library),
+                    cond.get_displayer(self.library),
+                    true_val.get_displayer(self.library),
+                    false_val.get_displayer(self.library),
+                )?;
+
+                if let Some(loc) = loc {
+                    write!(writer, "{}", loc.get_displayer(self.library))?;
+                }
+            }
+            Instruction::IndexInto(ty, ptr, args, loc) => {
+                write!(writer,
+                    "      {} = indexinto {}, {}, ",
+                    self.value.get_displayer(self.library),
+                    ty.get_displayer(self.library),
+                    ptr.get_displayer(self.library),
+                )?;
+
+                for arg in args.iter().take(1) {
+                    write!(writer,"{}", arg.get_displayer(self.library))?;
+                }
+
+                for arg in args.iter().skip(1) {
+                    write!(writer,", {}", arg.get_displayer(self.library))?;
+                }
+
+                if let Some(loc) = loc {
+                    write!(writer, "{}", loc.get_displayer(self.library))?;
+                }
+            }
+        }
+
+        Ok(())
+    }
+}
+
 impl Typed for Instruction {
     /// Get the type of an instruction.
     ///
@@ -167,11 +431,11 @@ impl Named for Instruction {
     /// # let instruction = instruction_builder.stack_alloc("😀", u32_ty, None);
     /// # instruction_builder.ret(None);
     /// let name = instruction.get_name(&library);
-    /// # assert_eq!(name, "😀");
+    /// # assert_eq!(name.get_name(&library), "😀");
     /// ```
-    fn get_name<'a>(&self, library: &'a Library) -> &'a str {
+    fn get_name(&self, _: &Library) -> Name {
         match self {
-            Instruction::StackAlloc(name, _, _, _) => &library.names[name.0],
+            Instruction::StackAlloc(name, _, _, _) => *name,
             _ => panic!("Cannot get the name of instruction"),
         }
     }

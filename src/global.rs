@@ -24,8 +24,8 @@ impl Named for Global {
     /// # let void_ty = library.get_void_type();
     /// # assert_eq!(ty, library.get_pointer_type(Domain::CrossDevice));
     /// ```
-    fn get_name<'a>(&self, library: &'a Library) -> &'a str {
-        &library.names[self.name.0]
+    fn get_name(&self, _: &Library) -> Name {
+       self.name
     }
 }
 
