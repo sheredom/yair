@@ -115,24 +115,20 @@ impl<'a> std::fmt::Display for InstructionDisplayer<'a> {
         let inst = self.value.get_inst(self.library);
         match inst {
             Instruction::Return(loc) => {
-                write!(writer,
-                    "ret",
-                )?;
+                write!(writer, "ret",)?;
                 if let Some(loc) = loc {
                     write!(writer, "{}", loc.get_displayer(self.library))?;
                 }
             }
             Instruction::ReturnValue(_, val, loc) => {
-                write!(writer,
-                    "ret {}",
-                    val.get_displayer(self.library),
-                )?;
+                write!(writer, "ret {}", val.get_displayer(self.library),)?;
                 if let Some(loc) = loc {
                     write!(writer, "{}", loc.get_displayer(self.library))?;
                 }
             }
             Instruction::Cmp(_, cmp, a, b, loc) => {
-                write!(writer,
+                write!(
+                    writer,
                     "{} = cmp {} {}, {}",
                     self.value.get_displayer(self.library),
                     cmp,
@@ -144,7 +140,8 @@ impl<'a> std::fmt::Display for InstructionDisplayer<'a> {
                 }
             }
             Instruction::Unary(_, unary, a, loc) => {
-                write!(writer,
+                write!(
+                    writer,
                     "{} = {} {}",
                     self.value.get_displayer(self.library),
                     unary,
@@ -155,7 +152,8 @@ impl<'a> std::fmt::Display for InstructionDisplayer<'a> {
                 }
             }
             Instruction::Binary(_, binary, a, b, loc) => {
-                write!(writer,
+                write!(
+                    writer,
                     "{} = {} {}, {}",
                     self.value.get_displayer(self.library),
                     binary,
@@ -167,7 +165,8 @@ impl<'a> std::fmt::Display for InstructionDisplayer<'a> {
                 }
             }
             Instruction::Cast(ty, val, loc) => {
-                write!(writer,
+                write!(
+                    writer,
                     "{} = cast {} to {}",
                     self.value.get_displayer(self.library),
                     val.get_displayer(self.library),
@@ -178,7 +177,8 @@ impl<'a> std::fmt::Display for InstructionDisplayer<'a> {
                 }
             }
             Instruction::BitCast(ty, val, loc) => {
-                write!(writer,
+                write!(
+                    writer,
                     "{} = bitcast {} to {}",
                     self.value.get_displayer(self.library),
                     val.get_displayer(self.library),
@@ -189,7 +189,8 @@ impl<'a> std::fmt::Display for InstructionDisplayer<'a> {
                 }
             }
             Instruction::Load(ty, ptr, loc) => {
-                write!(writer,
+                write!(
+                    writer,
                     "{} = load {}, {}",
                     self.value.get_displayer(self.library),
                     ty.get_displayer(self.library),
@@ -200,7 +201,8 @@ impl<'a> std::fmt::Display for InstructionDisplayer<'a> {
                 }
             }
             Instruction::Store(ty, ptr, val, loc) => {
-                write!(writer,
+                write!(
+                    writer,
                     "store {}, {}, {}",
                     ty.get_displayer(self.library),
                     ptr.get_displayer(self.library),
@@ -211,7 +213,8 @@ impl<'a> std::fmt::Display for InstructionDisplayer<'a> {
                 }
             }
             Instruction::Extract(agg, index, loc) => {
-                write!(writer,
+                write!(
+                    writer,
                     "{} = extract {}, {}",
                     self.value.get_displayer(self.library),
                     agg.get_displayer(self.library),
@@ -222,7 +225,8 @@ impl<'a> std::fmt::Display for InstructionDisplayer<'a> {
                 }
             }
             Instruction::Insert(agg, elem, index, loc) => {
-                write!(writer,
+                write!(
+                    writer,
                     "{} = insert {}, {}, {}",
                     self.value.get_displayer(self.library),
                     agg.get_displayer(self.library),
@@ -234,7 +238,8 @@ impl<'a> std::fmt::Display for InstructionDisplayer<'a> {
                 }
             }
             Instruction::StackAlloc(name, ty, _, loc) => {
-                write!(writer,
+                write!(
+                    writer,
                     "{} = stackalloc {}, {}",
                     self.value.get_displayer(self.library),
                     name.get_displayer(self.library),
@@ -246,8 +251,9 @@ impl<'a> std::fmt::Display for InstructionDisplayer<'a> {
                 }
             }
             Instruction::Call(func, args, loc) => {
-                write!(writer,
-                    "      {} = call {}(",
+                write!(
+                    writer,
+                    "{} = call {}(",
                     self.value.get_displayer(self.library),
                     func.get_name(self.library).get_displayer(self.library)
                 )?;
@@ -267,10 +273,7 @@ impl<'a> std::fmt::Display for InstructionDisplayer<'a> {
                 }
             }
             Instruction::Branch(block, args, loc) => {
-                write!(writer,
-                    "      br b{}(",
-                    block.get_unique_index()
-                )?;
+                write!(writer, "br b{}(", block.get_unique_index())?;
 
                 for arg in args.iter().take(1) {
                     write!(writer, "{}", arg.get_displayer(self.library))?;
@@ -294,8 +297,9 @@ impl<'a> std::fmt::Display for InstructionDisplayer<'a> {
                 false_args,
                 loc,
             ) => {
-                write!(writer,
-                    "      cbr {}, b{}(",
+                write!(
+                    writer,
+                    "cbr {}, b{}(",
                     cond.get_displayer(self.library),
                     true_block.get_unique_index()
                 )?;
@@ -305,20 +309,17 @@ impl<'a> std::fmt::Display for InstructionDisplayer<'a> {
                 }
 
                 for arg in true_args.iter().skip(1) {
-                    write!(writer,", {}", arg.get_displayer(self.library))?;
+                    write!(writer, ", {}", arg.get_displayer(self.library))?;
                 }
 
-                write!(writer,
-                    "), b{}(",
-                    false_block.get_unique_index()
-                )?;
+                write!(writer, "), b{}(", false_block.get_unique_index())?;
 
                 for arg in false_args.iter().take(1) {
                     write!(writer, "{}", arg.get_displayer(self.library))?;
                 }
 
                 for arg in false_args.iter().skip(1) {
-                    write!(writer,", {}", arg.get_displayer(self.library))?;
+                    write!(writer, ", {}", arg.get_displayer(self.library))?;
                 }
 
                 write!(writer, ")")?;
@@ -328,7 +329,8 @@ impl<'a> std::fmt::Display for InstructionDisplayer<'a> {
                 }
             }
             Instruction::Select(_, cond, true_val, false_val, loc) => {
-                write!(writer,
+                write!(
+                    writer,
                     "{} = select {}, {}, {}",
                     self.value.get_displayer(self.library),
                     cond.get_displayer(self.library),
@@ -341,19 +343,20 @@ impl<'a> std::fmt::Display for InstructionDisplayer<'a> {
                 }
             }
             Instruction::IndexInto(ty, ptr, args, loc) => {
-                write!(writer,
-                    "      {} = indexinto {}, {}, ",
+                write!(
+                    writer,
+                    "{} = indexinto {}, {}, ",
                     self.value.get_displayer(self.library),
                     ty.get_displayer(self.library),
                     ptr.get_displayer(self.library),
                 )?;
 
                 for arg in args.iter().take(1) {
-                    write!(writer,"{}", arg.get_displayer(self.library))?;
+                    write!(writer, "{}", arg.get_displayer(self.library))?;
                 }
 
                 for arg in args.iter().skip(1) {
-                    write!(writer,", {}", arg.get_displayer(self.library))?;
+                    write!(writer, ", {}", arg.get_displayer(self.library))?;
                 }
 
                 if let Some(loc) = loc {

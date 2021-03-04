@@ -39,6 +39,33 @@ impl<'a> Verifier<'a> {
         }
     }
 
+    fn verify_branch_and_block(
+        &self,
+        branch: Value,
+        branch_args: &[Value],
+        block: Block,
+    ) -> Result<(), VerifyError<'a>> {
+        if branch_args.len() != block.get_num_args(self.library) {
+            return Err(VerifyError::BranchAndBlockMustHaveMatchingArguments(
+                self.library,
+                branch,
+                block,
+            ));
+        }
+
+        for (barg, iarg) in block.get_args(self.library).zip(branch_args) {
+            if barg.get_type(self.library) != iarg.get_type(self.library) {
+                return Err(VerifyError::BranchAndBlockMustHaveMatchingArguments(
+                    self.library,
+                    branch,
+                    block,
+                ));
+            }
+        }
+
+        Ok(())
+    }
+
     fn verify_function(&mut self, function: Function) -> Result<(), VerifyError<'a>> {
         for (index, block) in function.get_blocks(self.library).enumerate() {
             // The first block has to have the same arguments as the function.
@@ -73,25 +100,18 @@ impl<'a> Verifier<'a> {
             for inst in block.get_insts(self.library) {
                 match inst.get_inst(self.library) {
                     Instruction::Branch(block, inst_args, _) => {
-                        if inst_args.len() != block.get_num_args(self.library) {
-                            return Err(
-                                VerifyError::BranchAndBlockMustHaveMatchingArguments(
-                                    self.library,
-                                    inst,
-                                    *block,
-                                ),
-                            );
-                        }
-
-                        for (barg, iarg) in block.get_args(self.library).zip(inst_args) {
-                            if barg.get_type(self.library) != iarg.get_type(self.library) {
-                                return Err(VerifyError::BranchAndBlockMustHaveMatchingArguments(
-                                    self.library,
-                                    inst,
-                                    *block,
-                                ));
-                            }
-                        }
+                        self.verify_branch_and_block(inst, inst_args, *block)?;
+                    }
+                    Instruction::ConditionalBranch(
+                        _,
+                        true_block,
+                        false_block,
+                        true_args,
+                        false_args,
+                        _,
+                    ) => {
+                        self.verify_branch_and_block(inst, true_args, *true_block)?;
+                        self.verify_branch_and_block(inst, false_args, *false_block)?;
                     }
                     _ => (),
                 }

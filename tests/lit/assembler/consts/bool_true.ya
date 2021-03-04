@@ -6,8 +6,8 @@ mod "😀" {
   fn foo() : bool {
     // CHECK: b0():
     bar():
-      // CHECK: [[result:\w+]] = const bool false
-      r = const bool false
+      // CHECK: [[result:\w+]] = const bool true
+      r = const bool true
       // CHECK: ret $$result
       ret r
   }

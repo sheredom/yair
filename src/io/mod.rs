@@ -1877,7 +1877,8 @@ fn write_if_constant(
     writer: &mut impl std::io::Write,
 ) -> std::io::Result<()> {
     if value.is_constant(library) {
-        writeln!(writer,
+        writeln!(
+            writer,
             "      {} = const {} {}",
             value.get_displayer(library),
             value.get_type(library).get_displayer(library),
@@ -1990,16 +1991,9 @@ pub fn disassemble(library: &Library, mut writer: impl std::io::Write) -> std::i
                                 write_if_constant(library, arg, &mut writer)?;
                             }
                         }
-                        Instruction::ConditionalBranch(
-                            cond,
-                            _,
-                            _,
-                            true_args,
-                            false_args,
-                            _,
-                        ) => {
+                        Instruction::ConditionalBranch(cond, _, _, true_args, false_args, _) => {
                             write_if_constant(library, cond, &mut writer)?;
-                            
+
                             for arg in true_args {
                                 write_if_constant(library, arg, &mut writer)?;
                             }
@@ -2020,7 +2014,7 @@ pub fn disassemble(library: &Library, mut writer: impl std::io::Write) -> std::i
                                 write_if_constant(library, arg, &mut writer)?;
                             }
                         }
-                        _ => ()
+                        _ => (),
                     }
 
                     writeln!(writer, "      {}", value.get_inst_displayer(library))?;

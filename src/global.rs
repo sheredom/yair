@@ -25,7 +25,7 @@ impl Named for Global {
     /// # assert_eq!(ty, library.get_pointer_type(Domain::CrossDevice));
     /// ```
     fn get_name(&self, _: &Library) -> Name {
-       self.name
+        self.name
     }
 }
 

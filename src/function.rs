@@ -28,7 +28,13 @@ impl<'a> std::fmt::Display for FunctionDisplayer<'a> {
             write!(writer, "export ")?;
         }
 
-        write!(writer, "fn {}(", self.function.get_name(self.library).get_displayer(self.library))?;
+        write!(
+            writer,
+            "fn {}(",
+            self.function
+                .get_name(self.library)
+                .get_displayer(self.library)
+        )?;
 
         for i in 0..self.function.get_num_args(self.library) {
             if i > 0 {
@@ -72,7 +78,7 @@ impl Function {
     /// let name = function.get_name(&library);
     /// # assert_eq!(name.get_name(&library), "foo");
     /// ```
-    pub fn get_name<'a>(&self, library: &'a Library) -> Name {
+    pub fn get_name(&self, library: &Library) -> Name {
         let function = &library.functions[self.0];
 
         function.name

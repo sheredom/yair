@@ -87,7 +87,10 @@ impl Name {
     }
 
     pub fn get_displayer<'a>(&self, library: &'a Library) -> NameDisplayer<'a> {
-        NameDisplayer { name: *self, library }
+        NameDisplayer {
+            name: *self,
+            library,
+        }
     }
 }
 
@@ -102,14 +105,11 @@ impl<'a> std::fmt::Display for NameDisplayer<'a> {
         writer: &mut std::fmt::Formatter<'_>,
     ) -> std::result::Result<(), std::fmt::Error> {
         let name = self.name.get_name(self.library);
-            if name
-                .chars()
-                .all(|c| c.is_ascii_alphanumeric() || c == '_')
-            {
-                write!(writer, "{}", name)
-            } else {
-                write!(writer, "\"{}\"", name)
-            }
+        if name.chars().all(|c| c.is_ascii_alphanumeric() || c == '_') {
+            write!(writer, "{}", name)
+        } else {
+            write!(writer, "\"{}\"", name)
+        }
     }
 }
 

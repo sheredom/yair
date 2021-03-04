@@ -1,0 +1,20 @@
+// RUN: @yair_as @file | @yair_verify -
+
+// CHECK: A branch and its target block contained within it must have matching arguments:
+mod "😀" {
+  fn "🎄"() : void {
+    bar():
+      c = const bool true
+      r = const f32 42.13e100
+
+      // CHECK: cbr [[c:\w+]], [[foo:\w+]](), [[haz:\w+]]([[r:\w+]])
+      cbr c, foo(), haz(r)
+
+    // CHECK: $$foo([[a:\w+]] : f32)
+    foo(a : f32):
+      ret
+
+    haz(a : f32):
+      ret
+  }
+}

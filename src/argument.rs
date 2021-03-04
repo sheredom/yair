@@ -54,14 +54,14 @@ pub struct ArgumentIterator<'a> {
 }
 
 impl<'a> Extend<(&'a str, Type)> for ArgumentIterator<'a> {
-    fn extend<T: IntoIterator<Item=(&'a str, Type)>>(&mut self, iter: T) {
+    fn extend<T: IntoIterator<Item = (&'a str, Type)>>(&mut self, iter: T) {
         for elem in iter {
             let name = self.library.get_name(elem.0);
 
-            let argument = self.library.values.insert(ValuePayload::Argument(Argument {
-                name,
-                ty: elem.1,
-            }));
+            let argument = self
+                .library
+                .values
+                .insert(ValuePayload::Argument(Argument { name, ty: elem.1 }));
 
             self.vec.push(Value(argument));
         }
@@ -89,21 +89,20 @@ pub struct BlockArguments<'a> {
 
 impl<'a> BlockArguments<'a> {
     pub(crate) fn new(library: &'a mut Library, block: Block) -> Self {
-        BlockArguments {
-            library,
-            block
-        }
+        BlockArguments { library, block }
     }
 
     /// Push a new argument to the end of the argument list.
     pub fn push(&mut self, ty: Type) {
         let name = self.library.get_name("");
 
-        let argument = self.library.values.insert(ValuePayload::Argument(Argument {
-            name,
-            ty,
-        }));
+        let argument = self
+            .library
+            .values
+            .insert(ValuePayload::Argument(Argument { name, ty }));
 
-        self.library.blocks[self.block.0].arguments.push(Value(argument));
+        self.library.blocks[self.block.0]
+            .arguments
+            .push(Value(argument));
     }
 }

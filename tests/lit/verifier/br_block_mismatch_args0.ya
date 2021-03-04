@@ -4,9 +4,10 @@
 mod "😀" {
   fn "🎄"() : void {
     bar():
+      // CHECK: br [[foo:\w+]]()
       br foo()
 
-    // CHECK: [[foo:\w+]]([[a:\w+]] : f32)
+    // CHECK: $$foo([[a:\w+]] : f32)
     foo(a : f32):
       ret
   }

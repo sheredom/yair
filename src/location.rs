@@ -26,7 +26,7 @@ impl Location {
 }
 
 impl Named for Location {
-    fn get_name<'a>(&self, _: &'a Library) -> Name {
+    fn get_name(&self, _: &Library) -> Name {
         self.filename
     }
 }

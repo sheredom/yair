@@ -12,7 +12,7 @@ pub(crate) struct ModulePayload {
 pub struct Module(pub(crate) generational_arena::Index);
 
 impl Named for Module {
-    fn get_name<'a>(&self, library: &'a Library) -> Name {
+    fn get_name(&self, library: &Library) -> Name {
         library.modules[self.0].name
     }
 }

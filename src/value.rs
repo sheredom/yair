@@ -242,7 +242,10 @@ impl Value {
     }
 
     pub fn get_inst_displayer<'a>(&self, library: &'a Library) -> InstructionDisplayer<'a> {
-        InstructionDisplayer { value: *self, library }
+        InstructionDisplayer {
+            value: *self,
+            library,
+        }
     }
 }
 
