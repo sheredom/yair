@@ -4,6 +4,8 @@ use std::collections::HashSet;
 pub enum VerifyError<'a> {
     FunctionAndFirstBlockMustHaveMatchingArguments(&'a Library, Function, Block),
     BranchAndBlockMustHaveMatchingArguments(&'a Library, Value, Block),
+    ReturnDoesNotMatchType(&'a Library, Value, Type),
+    ReturnValueDoesNotMatchType(&'a Library, Value, Type, Type),
 }
 
 impl<'a> std::fmt::Display for VerifyError<'a> {
@@ -15,12 +17,34 @@ impl<'a> std::fmt::Display for VerifyError<'a> {
             VerifyError::FunctionAndFirstBlockMustHaveMatchingArguments(l, f, b) => {
                 writeln!(formatter, "A function and the first block contained within it must have matching arguments:")?;
                 writeln!(formatter, "  {}", f.get_displayer(l))?;
+                writeln!(formatter, "And:")?;
                 writeln!(formatter, "  {}", b.get_displayer(l))
             }
             VerifyError::BranchAndBlockMustHaveMatchingArguments(l, v, b) => {
                 writeln!(formatter, "A branch and its target block contained within it must have matching arguments:")?;
                 writeln!(formatter, "  {}", v.get_inst_displayer(l))?;
+                writeln!(formatter, "And:")?;
                 writeln!(formatter, "  {}", b.get_displayer(l))
+            }
+            VerifyError::ReturnDoesNotMatchType(l, v, t) => {
+                writeln!(
+                    formatter,
+                    "A return and a function must have matching types:"
+                )?;
+                writeln!(formatter, "  {}", v.get_inst_displayer(l))?;
+                writeln!(formatter, "And:")?;
+                writeln!(formatter, "  {}", t.get_displayer(l))
+            }
+            VerifyError::ReturnValueDoesNotMatchType(l, v, rt, ft) => {
+                writeln!(
+                    formatter,
+                    "A return and a function must have matching types:"
+                )?;
+                writeln!(formatter, "  {}", v.get_inst_displayer(l))?;
+                writeln!(formatter, "Which has type:")?;
+                writeln!(formatter, "  {}", rt.get_displayer(l))?;
+                writeln!(formatter, "And:")?;
+                writeln!(formatter, "  {}", ft.get_displayer(l))
             }
         }
     }
@@ -99,6 +123,29 @@ impl<'a> Verifier<'a> {
 
             for inst in block.get_insts(self.library) {
                 match inst.get_inst(self.library) {
+                    Instruction::Return(_) => {
+                        let ty = function.get_return_type(self.library);
+
+                        if !ty.is_void(self.library) {
+                            return Err(VerifyError::ReturnDoesNotMatchType(
+                                self.library,
+                                inst,
+                                ty,
+                            ));
+                        }
+                    }
+                    Instruction::ReturnValue(ret_ty, _, _) => {
+                        let func_ty = function.get_return_type(self.library);
+
+                        if *ret_ty != func_ty {
+                            return Err(VerifyError::ReturnValueDoesNotMatchType(
+                                self.library,
+                                inst,
+                                *ret_ty,
+                                func_ty,
+                            ));
+                        }
+                    }
                     Instruction::Branch(block, inst_args, _) => {
                         self.verify_branch_and_block(inst, inst_args, *block)?;
                     }

@@ -1,0 +1,16 @@
+// RUN: @yair_as @file | @yair_verify -
+
+// CHECK: A return and a function must have matching types:
+mod "😀" {
+  fn "🎄"() : u8 {
+    bar():
+      r = const f32 42.13e100
+
+      // CHECK: ret [[r:\w+]]
+      // CHECK: Which has type:
+      // CHECK: f32
+      // CHECK: And:
+      // CHECK: u8
+      ret r
+  }
+}
