@@ -1092,7 +1092,6 @@ impl<'a> InstructionBuilder<'a> {
     /// let cmp_eq = instruction_builder.cmp(Cmp::Eq, x, y, location);
     /// ```
     pub fn cmp(&mut self, cmp: Cmp, x: Value, y: Value, location: Option<Location>) -> Value {
-        assert_eq!(x.get_type(self.library), y.get_type(self.library));
         let bool_ty = self.library.get_bool_type();
         self.make_value(Instruction::Cmp(bool_ty, cmp, x, y, location))
     }
@@ -1118,7 +1117,6 @@ impl<'a> InstructionBuilder<'a> {
     /// let cmp_eq = instruction_builder.cmp_eq(x, y, location);
     /// ```
     pub fn cmp_eq(&mut self, x: Value, y: Value, location: Option<Location>) -> Value {
-        assert_eq!(x.get_type(self.library), y.get_type(self.library));
         let bool_ty = self.library.get_bool_type();
         self.make_value(Instruction::Cmp(bool_ty, Cmp::Eq, x, y, location))
     }
@@ -1144,7 +1142,6 @@ impl<'a> InstructionBuilder<'a> {
     /// let cmp_ne = instruction_builder.cmp_ne(x, y, location);
     /// ```
     pub fn cmp_ne(&mut self, x: Value, y: Value, location: Option<Location>) -> Value {
-        assert_eq!(x.get_type(self.library), y.get_type(self.library));
         let bool_ty = self.library.get_bool_type();
         self.make_value(Instruction::Cmp(bool_ty, Cmp::Ne, x, y, location))
     }
@@ -1170,7 +1167,6 @@ impl<'a> InstructionBuilder<'a> {
     /// let cmp_lt = instruction_builder.cmp_lt(x, y, location);
     /// ```
     pub fn cmp_lt(&mut self, x: Value, y: Value, location: Option<Location>) -> Value {
-        assert_eq!(x.get_type(self.library), y.get_type(self.library));
         let bool_ty = self.library.get_bool_type();
         self.make_value(Instruction::Cmp(bool_ty, Cmp::Lt, x, y, location))
     }
@@ -1196,7 +1192,6 @@ impl<'a> InstructionBuilder<'a> {
     /// let cmp_le = instruction_builder.cmp_le(x, y, location);
     /// ```
     pub fn cmp_le(&mut self, x: Value, y: Value, location: Option<Location>) -> Value {
-        assert_eq!(x.get_type(self.library), y.get_type(self.library));
         let bool_ty = self.library.get_bool_type();
         self.make_value(Instruction::Cmp(bool_ty, Cmp::Le, x, y, location))
     }
@@ -1222,7 +1217,6 @@ impl<'a> InstructionBuilder<'a> {
     /// let cmp_gt = instruction_builder.cmp_gt(x, y, location);
     /// ```
     pub fn cmp_gt(&mut self, x: Value, y: Value, location: Option<Location>) -> Value {
-        assert_eq!(x.get_type(self.library), y.get_type(self.library));
         let bool_ty = self.library.get_bool_type();
         self.make_value(Instruction::Cmp(bool_ty, Cmp::Gt, x, y, location))
     }
@@ -1248,7 +1242,6 @@ impl<'a> InstructionBuilder<'a> {
     /// let cmp_ge = instruction_builder.cmp_ge(x, y, location);
     /// ```
     pub fn cmp_ge(&mut self, x: Value, y: Value, location: Option<Location>) -> Value {
-        assert_eq!(x.get_type(self.library), y.get_type(self.library));
         let bool_ty = self.library.get_bool_type();
         self.make_value(Instruction::Cmp(bool_ty, Cmp::Ge, x, y, location))
     }
@@ -1357,7 +1350,6 @@ impl<'a> InstructionBuilder<'a> {
         false_args: &[Value],
         location: Option<Location>,
     ) {
-        assert!(condition.get_type(self.library).is_boolean(self.library));
         self.make_value(Instruction::ConditionalBranch(
             condition,
             true_block,

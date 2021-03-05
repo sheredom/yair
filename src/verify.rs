@@ -6,6 +6,8 @@ pub enum VerifyError<'a> {
     BranchAndBlockMustHaveMatchingArguments(&'a Library, Value, Block),
     ReturnDoesNotMatchType(&'a Library, Value, Type),
     ReturnValueDoesNotMatchType(&'a Library, Value, Type, Type),
+    ConditionMustBeBool(&'a Library, Value, Value, Type),
+    TypesMustMatch(&'a Library, Value, Value, Value),
 }
 
 impl<'a> std::fmt::Display for VerifyError<'a> {
@@ -45,6 +47,26 @@ impl<'a> std::fmt::Display for VerifyError<'a> {
                 writeln!(formatter, "  {}", rt.get_displayer(l))?;
                 writeln!(formatter, "And:")?;
                 writeln!(formatter, "  {}", ft.get_displayer(l))
+            }
+            VerifyError::ConditionMustBeBool(l, v, c, t) => {
+                writeln!(formatter, "Condition must be of type bool:")?;
+                writeln!(formatter, "  {}", v.get_inst_displayer(l))?;
+                writeln!(formatter, "Which has condition:")?;
+                writeln!(formatter, "  {}", c.get_displayer(l))?;
+                writeln!(formatter, "Which has type:")?;
+                writeln!(formatter, "  {}", t.get_displayer(l))
+            }
+            VerifyError::TypesMustMatch(l, i, a, b) => {
+                writeln!(formatter, "Types must match:")?;
+                writeln!(formatter, "  {}", i.get_inst_displayer(l))?;
+                writeln!(formatter, "With:")?;
+                writeln!(formatter, "  {}", a.get_displayer(l))?;
+                writeln!(formatter, "Which has type:")?;
+                writeln!(formatter, "  {}", a.get_type(l).get_displayer(l))?;
+                writeln!(formatter, "And:")?;
+                writeln!(formatter, "  {}", b.get_displayer(l))?;
+                writeln!(formatter, "Which has type:")?;
+                writeln!(formatter, "  {}", b.get_type(l).get_displayer(l))
             }
         }
     }
@@ -149,8 +171,16 @@ impl<'a> Verifier<'a> {
                     Instruction::Branch(block, inst_args, _) => {
                         self.verify_branch_and_block(inst, inst_args, *block)?;
                     }
+                    Instruction::Cmp(_, _, a, b, _) => {
+                        let a_ty = a.get_type(self.library);
+                        let b_ty = b.get_type(self.library);
+
+                        if a_ty != b_ty {
+                            return Err(VerifyError::TypesMustMatch(self.library, inst, *a, *b));
+                        }
+                    }
                     Instruction::ConditionalBranch(
-                        _,
+                        cond,
                         true_block,
                         false_block,
                         true_args,
@@ -159,6 +189,17 @@ impl<'a> Verifier<'a> {
                     ) => {
                         self.verify_branch_and_block(inst, true_args, *true_block)?;
                         self.verify_branch_and_block(inst, false_args, *false_block)?;
+
+                        let cond_ty = cond.get_type(self.library);
+
+                        if !cond_ty.is_boolean(self.library) {
+                            return Err(VerifyError::ConditionMustBeBool(
+                                self.library,
+                                inst,
+                                *cond,
+                                cond_ty,
+                            ));
+                        }
                     }
                     _ => (),
                 }

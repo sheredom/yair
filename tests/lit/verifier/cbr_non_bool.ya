@@ -1,0 +1,22 @@
+// RUN: @yair_as @file | @yair_verify -
+
+// CHECK: Condition must be of type bool:
+mod "😀" {
+  fn "🎄"() : void {
+    bar():
+      r = const f32 42.13e100
+
+      // CHECK: cbr [[r0:\w+]], [[foo:\w+]]([[r1:\w+]]), [[haz:\w+]]([[r2:\w+]])
+      // CHECK: Which has condition:
+      // CHECK: $$r0
+      // CHECK: Which has type:
+      // CHECK: f32
+      cbr r, foo(r), haz(r)
+
+    foo(a : f32):
+      ret
+
+    haz(a : f32):
+      ret
+  }
+}
