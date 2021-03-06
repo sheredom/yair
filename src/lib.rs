@@ -421,7 +421,7 @@ impl Type {
     /// let is_vector_integral = vec_ty.is_integral_or_integral_vector(&library);
     /// # assert!(is_integral);
     /// # assert!(is_vector_integral);
-    /// # assert!(!bool_ty.is_integral(&library));
+    /// # assert!(!bool_ty.is_integral_or_integral_vector(&library));
     /// ```
     pub fn is_integral_or_integral_vector(&self, library: &Library) -> bool {
         let mut ty = *self;
@@ -431,6 +431,60 @@ impl Type {
         }
 
         ty.is_integral(library)
+    }
+
+    /// Checks whether a type is a float type, or a vector of float.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # use yair::*;
+    /// # let mut library = Library::new();
+    /// # let module = library.create_module().build();
+    /// # let f32_ty = library.get_float_type(32);
+    /// # let vec_ty = library.get_vector_type(f32_ty, 4);
+    /// # let bool_ty = library.get_bool_type();
+    /// let is_float = f32_ty.is_float_or_float_vector(&library);
+    /// let is_vector_float = vec_ty.is_float_or_float_vector(&library);
+    /// # assert!(is_float);
+    /// # assert!(is_vector_float);
+    /// # assert!(!bool_ty.is_float_or_float_vector(&library));
+    /// ```
+    pub fn is_float_or_float_vector(&self, library: &Library) -> bool {
+        let mut ty = *self;
+
+        if ty.is_vector(library) {
+            ty = ty.get_element(library, 0);
+        }
+
+        ty.is_float(library)
+    }
+
+    /// Checks whether a type is a float type, or a vector of float.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # use yair::*;
+    /// # let mut library = Library::new();
+    /// # let module = library.create_module().build();
+    /// # let f32_ty = library.get_float_type(32);
+    /// # let bool_ty = library.get_bool_type();
+    /// # let vec_ty = library.get_vector_type(bool_ty, 4);
+    /// let is_bool = bool_ty.is_bool_or_bool_vector(&library);
+    /// let is_vector_bool = vec_ty.is_bool_or_bool_vector(&library);
+    /// # assert!(is_bool);
+    /// # assert!(is_vector_bool);
+    /// # assert!(!f32_ty.is_bool_or_bool_vector(&library));
+    /// ```
+    pub fn is_bool_or_bool_vector(&self, library: &Library) -> bool {
+        let mut ty = *self;
+
+        if ty.is_vector(library) {
+            ty = ty.get_element(library, 0);
+        }
+
+        ty.is_boolean(library)
     }
 
     /// Checks whether a type is a boolean type.

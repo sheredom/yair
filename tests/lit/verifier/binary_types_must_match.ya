@@ -1,0 +1,23 @@
+// RUN: @yair_as @file | @yair_verify -
+
+// CHECK: Types must match:
+mod "😀" {
+  fn "🎄"() : bool {
+    bar():
+      f = const f32 42.13e100
+      d = const f64 42.13e100
+
+      // CHECK: [[b:\w+]] = add [[f:\w+]], [[d:\w+]]
+      // CHECK: With:
+      // CHECK: $$f
+      // CHECK: Which has type:
+      // CHECK: f32
+      // CHECK: And:
+      // CHECK: $$d
+      // CHECK: Which has type:
+      // CHECK: f64
+      b = add f, d
+
+      ret b
+  }
+}

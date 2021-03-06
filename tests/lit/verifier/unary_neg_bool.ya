@@ -1,0 +1,18 @@
+// RUN: @yair_as @file | @yair_verify -
+
+// CHECK: Type must be float, integral, or vector of float or integral:
+mod "😀" {
+  fn "🎄"() : bool {
+    bar():
+      t = const bool true
+
+      // CHECK: [[r:\w+]] = neg [[t:\w+]]
+      // CHECK: With:
+      // CHECK: $$t
+      // CHECK: Which has type:
+      // CHECK: bool
+      r = neg t
+
+      ret r
+  }
+}

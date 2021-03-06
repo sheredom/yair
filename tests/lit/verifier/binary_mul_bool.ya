@@ -1,0 +1,19 @@
+// RUN: @yair_as @file | @yair_verify -
+
+// CHECK: Type must be float, integral, or vector of float or integral:
+mod "😀" {
+  fn "🎄"() : bool {
+    bar():
+      t = const bool true
+      f = const bool false
+
+      // CHECK: [[r:\w+]] = mul [[t:\w+]], [[f:\w+]]
+      // CHECK: With:
+      // CHECK: $$t
+      // CHECK: Which has type:
+      // CHECK: bool
+      r = mul t, f
+
+      ret r
+  }
+}

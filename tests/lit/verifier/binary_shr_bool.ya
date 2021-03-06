@@ -1,0 +1,19 @@
+// RUN: @yair_as @file | @yair_verify -
+
+// CHECK: Type must be integral, or vector of integral:
+mod "😀" {
+  fn "🎄"() : bool {
+    bar():
+      t = const bool true
+      f = const bool false
+
+      // CHECK: [[r:\w+]] = shr [[t:\w+]], [[f:\w+]]
+      // CHECK: With:
+      // CHECK: $$t
+      // CHECK: Which has type:
+      // CHECK: bool
+      r = shr t, f
+
+      ret r
+  }
+}

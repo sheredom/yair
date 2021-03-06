@@ -1,7 +1,7 @@
 use crate::*;
 use std::fmt;
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Eq, PartialEq)]
 #[cfg_attr(feature = "io", derive(Serialize, Deserialize))]
 pub enum Cmp {
     Eq,
@@ -25,7 +25,7 @@ impl fmt::Display for Cmp {
     }
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Eq, PartialEq)]
 #[cfg_attr(feature = "io", derive(Serialize, Deserialize))]
 pub enum Unary {
     Neg,
@@ -41,7 +41,7 @@ impl fmt::Display for Unary {
     }
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Eq, PartialEq)]
 #[cfg_attr(feature = "io", derive(Serialize, Deserialize))]
 pub enum Binary {
     Add,
@@ -553,7 +553,6 @@ impl<'a> InstructionBuilder<'a> {
     /// let add = instruction_builder.add(x, y, location);
     /// ```
     pub fn add(&mut self, x: Value, y: Value, location: Option<Location>) -> Value {
-        assert_eq!(x.get_type(self.library), y.get_type(self.library));
         self.make_value(Instruction::Binary(
             x.get_type(self.library),
             Binary::Add,
@@ -584,7 +583,6 @@ impl<'a> InstructionBuilder<'a> {
     /// let sub = instruction_builder.sub(x, y, location);
     /// ```
     pub fn sub(&mut self, x: Value, y: Value, location: Option<Location>) -> Value {
-        assert_eq!(x.get_type(self.library), y.get_type(self.library));
         self.make_value(Instruction::Binary(
             x.get_type(self.library),
             Binary::Sub,
@@ -615,7 +613,6 @@ impl<'a> InstructionBuilder<'a> {
     /// let mul = instruction_builder.mul(x, y, location);
     /// ```
     pub fn mul(&mut self, x: Value, y: Value, location: Option<Location>) -> Value {
-        assert_eq!(x.get_type(self.library), y.get_type(self.library));
         self.make_value(Instruction::Binary(
             x.get_type(self.library),
             Binary::Mul,
@@ -646,7 +643,6 @@ impl<'a> InstructionBuilder<'a> {
     /// let div = instruction_builder.div(x, y, location);
     /// ```
     pub fn div(&mut self, x: Value, y: Value, location: Option<Location>) -> Value {
-        assert_eq!(x.get_type(self.library), y.get_type(self.library));
         self.make_value(Instruction::Binary(
             x.get_type(self.library),
             Binary::Div,
@@ -677,7 +673,6 @@ impl<'a> InstructionBuilder<'a> {
     /// let rem = instruction_builder.rem(x, y, location);
     /// ```
     pub fn rem(&mut self, x: Value, y: Value, location: Option<Location>) -> Value {
-        assert_eq!(x.get_type(self.library), y.get_type(self.library));
         self.make_value(Instruction::Binary(
             x.get_type(self.library),
             Binary::Rem,
@@ -734,10 +729,6 @@ impl<'a> InstructionBuilder<'a> {
     /// let and = instruction_builder.and(x, y, location);
     /// ```
     pub fn and(&mut self, x: Value, y: Value, location: Option<Location>) -> Value {
-        assert!(x
-            .get_type(self.library)
-            .is_integral_or_integral_vector(self.library));
-        assert_eq!(x.get_type(self.library), y.get_type(self.library));
         self.make_value(Instruction::Binary(
             x.get_type(self.library),
             Binary::And,
@@ -769,10 +760,6 @@ impl<'a> InstructionBuilder<'a> {
     /// let or = instruction_builder.or(x, y, location);
     /// ```
     pub fn or(&mut self, x: Value, y: Value, location: Option<Location>) -> Value {
-        assert!(x
-            .get_type(self.library)
-            .is_integral_or_integral_vector(self.library));
-        assert_eq!(x.get_type(self.library), y.get_type(self.library));
         self.make_value(Instruction::Binary(
             x.get_type(self.library),
             Binary::Or,
@@ -804,10 +791,6 @@ impl<'a> InstructionBuilder<'a> {
     /// let xor = instruction_builder.xor(x, y, location);
     /// ```
     pub fn xor(&mut self, x: Value, y: Value, location: Option<Location>) -> Value {
-        assert!(x
-            .get_type(self.library)
-            .is_integral_or_integral_vector(self.library));
-        assert_eq!(x.get_type(self.library), y.get_type(self.library));
         self.make_value(Instruction::Binary(
             x.get_type(self.library),
             Binary::Xor,
@@ -837,9 +820,6 @@ impl<'a> InstructionBuilder<'a> {
     /// let not = instruction_builder.not(x, location);
     /// ```
     pub fn not(&mut self, x: Value, location: Option<Location>) -> Value {
-        assert!(x
-            .get_type(self.library)
-            .is_integral_or_integral_vector(self.library));
         self.make_value(Instruction::Unary(
             x.get_type(self.library),
             Unary::Not,
@@ -869,7 +849,6 @@ impl<'a> InstructionBuilder<'a> {
     /// let shl = instruction_builder.shl(x, y, location);
     /// ```
     pub fn shl(&mut self, x: Value, y: Value, location: Option<Location>) -> Value {
-        assert_eq!(x.get_type(self.library), y.get_type(self.library));
         self.make_value(Instruction::Binary(
             x.get_type(self.library),
             Binary::Shl,
@@ -900,7 +879,6 @@ impl<'a> InstructionBuilder<'a> {
     /// let shr = instruction_builder.shr(x, y, location);
     /// ```
     pub fn shr(&mut self, x: Value, y: Value, location: Option<Location>) -> Value {
-        assert_eq!(x.get_type(self.library), y.get_type(self.library));
         self.make_value(Instruction::Binary(
             x.get_type(self.library),
             Binary::Shr,
@@ -931,7 +909,6 @@ impl<'a> InstructionBuilder<'a> {
     /// let cast = instruction_builder.cast(x, i8_ty, location);
     /// ```
     pub fn cast(&mut self, x: Value, ty: Type, location: Option<Location>) -> Value {
-        assert_ne!(x.get_type(self.library), ty);
         self.make_value(Instruction::Cast(ty, x, location))
     }
 

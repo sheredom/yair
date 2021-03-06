@@ -1,0 +1,19 @@
+// RUN: @yair_as @file | @yair_verify -
+
+// CHECK: Type must be bool, integral, or vector of bool or integral:
+mod "😀" {
+  fn "🎄"() : bool {
+    bar():
+      a = const f32 42.13e100
+      b = const f32 -42.13e100
+
+      // CHECK: [[r:\w+]] = or [[a:\w+]], [[b:\w+]]
+      // CHECK: With:
+      // CHECK: $$a
+      // CHECK: Which has type:
+      // CHECK: f32
+      r = or a, b
+
+      ret r
+  }
+}

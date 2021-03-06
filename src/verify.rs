@@ -8,6 +8,10 @@ pub enum VerifyError<'a> {
     ReturnValueDoesNotMatchType(&'a Library, Value, Type, Type),
     ConditionMustBeBool(&'a Library, Value, Value, Type),
     TypesMustMatch(&'a Library, Value, Value, Value),
+    TypeMustBeIntVector(&'a Library, Value, Value),
+    TypeMustBeBoolOrIntVector(&'a Library, Value, Value),
+    TypeMustBeFloatOrIntVector(&'a Library, Value, Value),
+    TypeMustBeBoolOrFloatOrIntVector(&'a Library, Value, Value),
 }
 
 impl<'a> std::fmt::Display for VerifyError<'a> {
@@ -67,6 +71,47 @@ impl<'a> std::fmt::Display for VerifyError<'a> {
                 writeln!(formatter, "  {}", b.get_displayer(l))?;
                 writeln!(formatter, "Which has type:")?;
                 writeln!(formatter, "  {}", b.get_type(l).get_displayer(l))
+            }
+            VerifyError::TypeMustBeIntVector(l, i, v) => {
+                writeln!(formatter, "Type must be integral, or vector of integral:")?;
+                writeln!(formatter, "  {}", i.get_inst_displayer(l))?;
+                writeln!(formatter, "With:")?;
+                writeln!(formatter, "  {}", v.get_displayer(l))?;
+                writeln!(formatter, "Which has type:")?;
+                writeln!(formatter, "  {}", v.get_type(l).get_displayer(l))
+            }
+            VerifyError::TypeMustBeBoolOrIntVector(l, i, v) => {
+                writeln!(
+                    formatter,
+                    "Type must be bool, integral, or vector of bool or integral:"
+                )?;
+                writeln!(formatter, "  {}", i.get_inst_displayer(l))?;
+                writeln!(formatter, "With:")?;
+                writeln!(formatter, "  {}", v.get_displayer(l))?;
+                writeln!(formatter, "Which has type:")?;
+                writeln!(formatter, "  {}", v.get_type(l).get_displayer(l))
+            }
+            VerifyError::TypeMustBeFloatOrIntVector(l, i, v) => {
+                writeln!(
+                    formatter,
+                    "Type must be float, integral, or vector of float or integral:"
+                )?;
+                writeln!(formatter, "  {}", i.get_inst_displayer(l))?;
+                writeln!(formatter, "With:")?;
+                writeln!(formatter, "  {}", v.get_displayer(l))?;
+                writeln!(formatter, "Which has type:")?;
+                writeln!(formatter, "  {}", v.get_type(l).get_displayer(l))
+            }
+            VerifyError::TypeMustBeBoolOrFloatOrIntVector(l, i, v) => {
+                writeln!(
+                    formatter,
+                    "Type must be bool, float, integral, or vector of bool, float, or integral:"
+                )?;
+                writeln!(formatter, "  {}", i.get_inst_displayer(l))?;
+                writeln!(formatter, "With:")?;
+                writeln!(formatter, "  {}", v.get_displayer(l))?;
+                writeln!(formatter, "Which has type:")?;
+                writeln!(formatter, "  {}", v.get_type(l).get_displayer(l))
             }
         }
     }
@@ -177,6 +222,74 @@ impl<'a> Verifier<'a> {
 
                         if a_ty != b_ty {
                             return Err(VerifyError::TypesMustMatch(self.library, inst, *a, *b));
+                        }
+
+                        if !(a_ty.is_integral_or_integral_vector(self.library)
+                            || a_ty.is_float_or_float_vector(self.library))
+                        {
+                            return Err(VerifyError::TypeMustBeFloatOrIntVector(
+                                self.library,
+                                inst,
+                                *a,
+                            ));
+                        }
+                    }
+                    Instruction::Unary(_, o, v, _) => {
+                        let ty = v.get_type(self.library);
+
+                        if *o == Unary::Neg
+                            && !(ty.is_integral_or_integral_vector(self.library)
+                                || ty.is_float_or_float_vector(self.library))
+                        {
+                            return Err(VerifyError::TypeMustBeFloatOrIntVector(
+                                self.library,
+                                inst,
+                                *v,
+                            ));
+                        }
+
+                        if *o == Unary::Not
+                            && !(ty.is_bool_or_bool_vector(self.library)
+                                || ty.is_integral_or_integral_vector(self.library)
+                                || ty.is_float_or_float_vector(self.library))
+                        {
+                            return Err(VerifyError::TypeMustBeBoolOrFloatOrIntVector(
+                                self.library,
+                                inst,
+                                *v,
+                            ));
+                        }
+                    }
+                    Instruction::Binary(_, o, a, b, _) => {
+                        let a_ty = a.get_type(self.library);
+                        let b_ty = b.get_type(self.library);
+
+                        if a_ty != b_ty {
+                            return Err(VerifyError::TypesMustMatch(self.library, inst, *a, *b));
+                        }
+
+                        match o {
+                            Binary::And | Binary::Or | Binary::Xor => {
+                                return Err(VerifyError::TypeMustBeBoolOrIntVector(
+                                    self.library,
+                                    inst,
+                                    *a,
+                                ));
+                            }
+                            Binary::Shl | Binary::Shr => {
+                                return Err(VerifyError::TypeMustBeIntVector(
+                                    self.library,
+                                    inst,
+                                    *a,
+                                ));
+                            }
+                            _ => {
+                                return Err(VerifyError::TypeMustBeFloatOrIntVector(
+                                    self.library,
+                                    inst,
+                                    *a,
+                                ));
+                            }
                         }
                     }
                     Instruction::ConditionalBranch(
