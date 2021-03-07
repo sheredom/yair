@@ -76,4 +76,4 @@ This approach is similar in some ways to the Swift Intermediate Language approac
 
 ### References 3
 
-This is similar to something that was proposed for LLVM in 2015 but not yet (as of January 2021) enacted - [Moving towards a singular pointer type](https://lists.llvm.org/pipermail/llvm-dev/2015-February/081822.html)
+This is similar to something that was proposed for LLVM in 2015 but not yet (as of January 2021) enacted - [Moving towards a singular pointer type](https://lists.llvm.org/pipermail/llvm-dev/2015-February/081822.html).

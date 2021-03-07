@@ -1,0 +1,21 @@
+// RUN: @yair_as @file | @yair_verify -
+
+// CHECK: A call and its called function must have matching arguments:
+mod "😀" {
+  fn v() : void {
+      block():
+        ret
+  }
+
+  fn "🎄"() : void {
+    bar():
+      a = const bool true
+
+      // CHECK: [[v:\w+]] = call v([[a:\w+]])
+      // CHECK: And:
+      // CHECK: fn v() : void
+      v = call v(a)
+
+      ret
+  }
+}

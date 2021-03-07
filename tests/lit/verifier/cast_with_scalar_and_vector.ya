@@ -1,0 +1,20 @@
+// RUN: @yair_as @file | @yair_verify -
+
+// CHECK: Vector widths must match:
+mod "😀" {
+  fn "🎄"() : i8 {
+    bar():
+      c = const <i16, 2> <-4, 3>
+
+      // CHECK: [[r:\w+]] = cast [[v:\w+]] to i8
+      // CHECK: With:
+      // CHECK: $$v
+      // CHECK: Which has type:
+      // CHECK: <i16, 2>
+      // CHECK: And:
+      // CHECK: i8
+      r = cast c to i8
+
+      ret r
+  }
+}

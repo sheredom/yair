@@ -1,0 +1,23 @@
+// RUN: @yair_as @file | @yair_verify -
+
+// CHECK: Type must be float, integral, or vector of float or integral:
+mod "😀" {
+  fn v() : void {
+      block():
+        ret
+  }
+
+  fn "🎄"() : bool {
+    bar():
+      v = call v()
+
+      // CHECK: [[r:\w+]] = cast [[v:\w+]] to bool
+      // CHECK: With:
+      // CHECK: $$v
+      // CHECK: Which has type:
+      // CHECK: void
+      r = cast v to bool
+
+      ret r
+  }
+}
