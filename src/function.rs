@@ -7,13 +7,15 @@ pub enum FunctionAttribute {
     Job,
 }
 
+pub type FunctionAttributes = EnumSet<FunctionAttribute>;
+
 #[cfg_attr(feature = "io", derive(Serialize, Deserialize))]
 pub(crate) struct FunctionPayload {
     pub(crate) name: Name,
     pub(crate) function_type: Type,
     pub(crate) arguments: Vec<Value>,
     pub(crate) blocks: Vec<Block>,
-    pub(crate) attributes: EnumSet<FunctionAttribute>,
+    pub(crate) attributes: FunctionAttributes,
     pub(crate) location: Option<Location>,
 }
 
@@ -183,7 +185,7 @@ impl Function {
     /// # use yair::*;
     /// # let mut library = Library::new();
     /// # let module = library.create_module().with_name("module").build();
-    /// # let function = module.create_function(&mut library).with_name("func").with_export(true).build();;
+    /// # let function = module.create_function(&mut library).with_name("func").with_attributes(FunctionAttributes::only(FunctionAttribute::Export)).build();
     /// let is_export = function.is_export(&library);
     /// # assert!(is_export);
     /// ```
@@ -266,7 +268,7 @@ pub struct FunctionBuilder<'a> {
     return_type: Type,
     argument_names: Vec<&'a str>,
     argument_types: Vec<Type>,
-    export: bool,
+    attributes: FunctionAttributes,
     location: Option<Location>,
 }
 
@@ -281,7 +283,7 @@ impl<'a> FunctionBuilder<'a> {
             return_type: void_ty,
             argument_names: Vec::new(),
             argument_types: Vec::new(),
-            export: false,
+            attributes: Default::default(),
             location: None,
         }
     }
@@ -342,9 +344,9 @@ impl<'a> FunctionBuilder<'a> {
         self
     }
 
-    /// Sets whether the function is exported from the module or not.
-    ///
-    /// By default functions are not exported.
+    /// Sets the attributes for the function. This unions in the attributes with
+    /// any previously set attributes (allowing multiple calls to `with_attributes`)
+    /// to add attributes.
     ///
     /// # Examples
     ///
@@ -353,10 +355,10 @@ impl<'a> FunctionBuilder<'a> {
     /// # let mut library = Library::new();
     /// # let module = library.create_module().build();
     /// # let builder = module.create_function(&mut library);
-    /// builder.with_export(true);
+    /// builder.with_attributes(FunctionAttributes::only(FunctionAttribute::Export));
     /// ```
-    pub fn with_export(mut self, export: bool) -> Self {
-        self.export = export;
+    pub fn with_attributes(mut self, attributes: FunctionAttributes) -> Self {
+        self.attributes = self.attributes.union(attributes);
         self
     }
 
@@ -402,13 +404,9 @@ impl<'a> FunctionBuilder<'a> {
             function_type,
             arguments: Vec::new(),
             blocks: Vec::new(),
-            attributes: Default::default(),
+            attributes: self.attributes,
             location: self.location,
         };
-
-        if self.export {
-            function.attributes.insert(FunctionAttribute::Export);
-        }
 
         for (argument_name, argument_type) in self.argument_names.iter().zip(self.argument_types) {
             let name = self.library.get_name(argument_name);

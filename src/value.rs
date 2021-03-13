@@ -144,13 +144,13 @@ impl Value {
     /// # let mut library = Library::new();
     /// # let module = library.create_module().with_name("module").build();
     /// # let u32_ty = library.get_uint_type(32);
-    /// # let global = module.create_global(&mut library).with_export(true).with_name("global").with_type(u32_ty).build();
+    /// # let global = module.create_global(&mut library).with_attributes(GlobalAttributes::only(GlobalAttribute::Export)).with_name("global").with_type(u32_ty).build();
     /// let is_export = global.is_export(&library);
     /// # assert!(is_export);
     /// ```
     pub fn is_export(&self, library: &Library) -> bool {
         match &library.values[self.0] {
-            ValuePayload::Global(g) => g.export,
+            ValuePayload::Global(g) => g.attributes.contains(GlobalAttribute::Export),
             _ => false,
         }
     }

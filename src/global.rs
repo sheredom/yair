@@ -1,12 +1,20 @@
 use crate::*;
 
+#[derive(EnumSetType, Debug)]
+#[cfg_attr(feature = "io", derive(Serialize, Deserialize))]
+pub enum GlobalAttribute {
+    Export,
+}
+
+pub type GlobalAttributes = EnumSet<GlobalAttribute>;
+
 #[derive(Clone, Debug, Hash, Eq, PartialEq)]
 #[cfg_attr(feature = "io", derive(Serialize, Deserialize))]
 pub(crate) struct Global {
     name: Name,
     pub(crate) ty: Type,
     pub(crate) ptr_ty: Type,
-    pub(crate) export: bool,
+    pub(crate) attributes: GlobalAttributes,
     pub(crate) location: Option<Location>,
 }
 
@@ -54,7 +62,7 @@ pub struct GlobalBuilder<'a> {
     name: &'a str,
     ty: Type,
     domain: Domain,
-    export: bool,
+    attributes: GlobalAttributes,
     location: Option<Location>,
 }
 
@@ -67,7 +75,7 @@ impl<'a> GlobalBuilder<'a> {
             name: "",
             ty: void_ty,
             domain: Domain::CrossDevice,
-            export: false,
+            attributes: Default::default(),
             location: None,
         }
     }
@@ -123,9 +131,9 @@ impl<'a> GlobalBuilder<'a> {
         self
     }
 
-    /// Sets whether the variable is exported from the module or not.
-    ///
-    /// By default variables are not exported.
+    /// Sets the attributes for the global. This unions in the attributes with
+    /// any previously set attributes (allowing multiple calls to `with_attributes`)
+    /// to add attributes.
     ///
     /// # Examples
     ///
@@ -134,10 +142,10 @@ impl<'a> GlobalBuilder<'a> {
     /// # let mut library = Library::new();
     /// # let module = library.create_module().build();
     /// # let builder = module.create_global(&mut library);
-    /// builder.with_export(true);
+    /// builder.with_attributes(GlobalAttributes::only(GlobalAttribute::Export));
     /// ```
-    pub fn with_export(mut self, export: bool) -> Self {
-        self.export = export;
+    pub fn with_attributes(mut self, attributes: GlobalAttributes) -> Self {
+        self.attributes = self.attributes.union(attributes);
         self
     }
 
@@ -180,7 +188,7 @@ impl<'a> GlobalBuilder<'a> {
             name: self.library.get_name(self.name),
             ty: self.ty,
             ptr_ty: global_type,
-            export: self.export,
+            attributes: self.attributes,
             location: self.location,
         };
 

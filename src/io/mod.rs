@@ -1527,14 +1527,14 @@ impl<'a> Assembler<'a> {
 
         self.skip_comments_or_whitespace();
 
-        let mut is_export = false;
+        let mut attributes = FunctionAttributes::default();
 
         if self.pop_if_next_symbol("[")? {
             loop {
                 self.skip_comments_or_whitespace();
 
                 if self.pop_if_next_symbol("export")? {
-                    is_export = true;
+                    attributes |= FunctionAttribute::Export;
                 } else {
                     return Err(Diagnostic::new_error(
                         "Unknown function attribute",
@@ -1603,7 +1603,7 @@ impl<'a> Assembler<'a> {
         let mut builder = module
             .create_function(library)
             .with_name(name)
-            .with_export(is_export)
+            .with_attributes(attributes)
             .with_return_type(return_type);
 
         if let Some(location) = location {
@@ -1638,14 +1638,14 @@ impl<'a> Assembler<'a> {
 
         self.skip_comments_or_whitespace();
 
-        let mut is_export = false;
+        let mut attributes = GlobalAttributes::default();
 
         if self.pop_if_next_symbol("[")? {
             loop {
                 self.skip_comments_or_whitespace();
 
                 if self.pop_if_next_symbol("export")? {
-                    is_export = true;
+                    attributes |= GlobalAttribute::Export;
                 } else {
                     return Err(Diagnostic::new_error(
                         "Unknown variable attribute",
@@ -1705,7 +1705,7 @@ impl<'a> Assembler<'a> {
 
         let builder = module
             .create_global(library)
-            .with_export(is_export)
+            .with_attributes(attributes)
             .with_name(identifier)
             .with_type(ty)
             .with_domain(domain);
