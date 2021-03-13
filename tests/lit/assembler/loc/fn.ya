@@ -1,6 +1,6 @@
 // RUN: @yair_as @file | @yair_dis -
 
 mod "😀" {
-  // CHECK: export fn foo() : u8 !"some.file":4:6
-  export fn foo() : u8 !"some.file":4:6
+  // CHECK: fn [export] foo() : u8 !"some.file":4:6
+  fn [export] foo() : u8 !"some.file":4:6
 }

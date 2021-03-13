@@ -1,7 +1,0 @@
-// RUN: @yair_as @file --color never
-
-mod "😀" {
-  // CHECK: error: Unknown declaration within module
-  // CHECK: ^ expected export, fn, var, or '}' to close the module
-  export bad
-}

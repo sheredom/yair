@@ -1,5 +1,8 @@
+extern crate enumset;
 extern crate generational_arena;
 extern crate radix_trie;
+
+use enumset::*;
 
 mod argument;
 mod block;

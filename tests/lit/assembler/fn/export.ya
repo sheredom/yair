@@ -1,5 +1,6 @@
-// RUN: @yair_as @file -o "@first_tempfile"
+// RUN: @yair_as @file | @yair_dis -
 
 mod "😀" {
-  export fn foo() : u8
+  // CHECK: fn [export] foo() : u8
+  fn [export] foo() : u8
 }

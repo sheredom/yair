@@ -200,7 +200,7 @@ impl<'a> Assembler<'a> {
 
         if identifier.is_empty() {
             Err(Diagnostic::new_error(
-                "Expected string identifier for module name",
+                "Expected string identifier",
                 Label::new(self.file, self.single_char_span(), "missing identifier"),
             ))
         } else {
@@ -1520,31 +1520,60 @@ impl<'a> Assembler<'a> {
         Ok(Some(library.get_location(loc, line, column)))
     }
 
-    fn parse_fn(&mut self, library: &mut Library, is_export: bool) -> Result<(), Diagnostic> {
-        assert!(self.get_current_str().starts_with("fn"));
+    fn parse_fn(&mut self, library: &mut Library) -> Result<(), Diagnostic> {
+        debug_assert!(self.get_current_str().starts_with("fn"));
 
         self.bump_current_by("fn".len());
 
         self.skip_comments_or_whitespace();
 
+        let mut is_export = false;
+
+        if self.pop_if_next_symbol("[")? {
+            loop {
+                self.skip_comments_or_whitespace();
+
+                if self.pop_if_next_symbol("export")? {
+                    is_export = true;
+                } else {
+                    return Err(Diagnostic::new_error(
+                        "Unknown function attribute",
+                        Label::new(self.file, self.single_char_span(), "here"),
+                    ));
+                }
+
+                self.skip_comments_or_whitespace();
+
+                if self.pop_if_next_symbol("]")? {
+                    self.skip_comments_or_whitespace();
+                    break;
+                } else if self.pop_if_next_symbol(",")? {
+                    continue;
+                } else {
+                    return Err(Diagnostic::new_error(
+                        "Expected ']' or ',' in function attributes",
+                        Label::new(self.file, self.single_char_span(), "missing '(' or ','"),
+                    ));
+                }
+            }
+        }
+
         let name = self.parse_identifier()?;
 
         self.skip_comments_or_whitespace();
 
-        if !self.get_current_str().starts_with('(') {
+        if !self.pop_if_next_symbol("(")? {
             return Err(Diagnostic::new_error(
                 "Expected '(' to open a functions arguments",
                 Label::new(self.file, self.single_char_span(), "missing '('"),
             ));
         }
 
-        // Skip the '('
-        self.bump_current();
-
         let mut args = Vec::new();
 
         loop {
             if self.pop_if_next_symbol(")")? {
+                self.skip_comments_or_whitespace();
                 break;
             }
 
@@ -1602,12 +1631,43 @@ impl<'a> Assembler<'a> {
         Ok(())
     }
 
-    fn parse_var(&mut self, library: &mut Library, is_export: bool) -> Result<(), Diagnostic> {
+    fn parse_var(&mut self, library: &mut Library) -> Result<(), Diagnostic> {
         assert!(self.get_current_str().starts_with("var"));
 
         self.bump_current_by("var".len());
 
         self.skip_comments_or_whitespace();
+
+        let mut is_export = false;
+
+        if self.pop_if_next_symbol("[")? {
+            loop {
+                self.skip_comments_or_whitespace();
+
+                if self.pop_if_next_symbol("export")? {
+                    is_export = true;
+                } else {
+                    return Err(Diagnostic::new_error(
+                        "Unknown variable attribute",
+                        Label::new(self.file, self.single_char_span(), "here"),
+                    ));
+                }
+
+                self.skip_comments_or_whitespace();
+
+                if self.pop_if_next_symbol("]")? {
+                    self.skip_comments_or_whitespace();
+                    break;
+                } else if self.pop_if_next_symbol(",")? {
+                    continue;
+                } else {
+                    return Err(Diagnostic::new_error(
+                        "Expected ']' or ',' in variable attributes",
+                        Label::new(self.file, self.single_char_span(), "missing '(' or ','"),
+                    ));
+                }
+            }
+        }
 
         let identifier = self.parse_identifier()?;
 
@@ -1663,17 +1723,10 @@ impl<'a> Assembler<'a> {
     }
 
     fn parse_fn_or_var(&mut self, library: &mut Library) -> Result<(), Diagnostic> {
-        let is_export = self.get_current_str().starts_with("export");
-
-        if is_export {
-            self.bump_current_by("export".len());
-            self.skip_comments_or_whitespace();
-        }
-
         if self.get_current_str().starts_with("fn") {
-            self.parse_fn(library, is_export)
+            self.parse_fn(library)
         } else if self.get_current_str().starts_with("var") {
-            self.parse_var(library, is_export)
+            self.parse_var(library)
         } else if self.get_current_str().starts_with('}') || self.get_current_str().is_empty() {
             Ok(())
         } else {
@@ -1682,7 +1735,7 @@ impl<'a> Assembler<'a> {
                 Label::new(
                     self.file,
                     self.single_char_span(),
-                    "expected export, fn, var, or '}' to close the module",
+                    "expected fn, var, or '}' to close the module",
                 ),
             ))
         }
@@ -1905,10 +1958,10 @@ pub fn disassemble(library: &Library, mut writer: impl std::io::Write) -> std::i
                 printed_newline = true;
             }
 
-            write!(writer, "  ")?;
+            write!(writer, "  var ")?;
 
             if global.is_export(library) {
-                write!(writer, "export ")?;
+                write!(writer, "[export] ")?;
             }
 
             let name = global.get_name(library).get_displayer(library);
@@ -1919,7 +1972,7 @@ pub fn disassemble(library: &Library, mut writer: impl std::io::Write) -> std::i
 
             writeln!(
                 writer,
-                "var {} : {}, {}{}",
+                "{} : {}, {}{}",
                 name,
                 domain,
                 ty_name,

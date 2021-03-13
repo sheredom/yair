@@ -8,6 +8,7 @@ repository = "https://github.com/sheredom/yair"
 description = "A compiler framework written entirely in Rust"
 
 [dependencies]
+enumset = { version = "1.0.6", features = ["serde"] }
 generational-arena = { version = "0.2.7", features = ["serde"] }
 radix_trie = { version = "0.2.1", features = ["serde"] }
 serde = { version = "1.0.104", features = ["derive"] }

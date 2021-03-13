@@ -2,6 +2,6 @@
 
 mod "😀" {
   // CHECK: error: Unknown declaration within module
-  // CHECK: ^ expected export, fn, var, or '}' to close the module
+  // CHECK: ^ expected fn, var, or '}' to close the module
   bad
 }

@@ -1,12 +1,19 @@
 use crate::*;
 
+#[derive(EnumSetType, Debug)]
+#[cfg_attr(feature = "io", derive(Serialize, Deserialize))]
+pub enum FunctionAttribute {
+    Export,
+    Job,
+}
+
 #[cfg_attr(feature = "io", derive(Serialize, Deserialize))]
 pub(crate) struct FunctionPayload {
     pub(crate) name: Name,
     pub(crate) function_type: Type,
     pub(crate) arguments: Vec<Value>,
     pub(crate) blocks: Vec<Block>,
-    pub(crate) export: bool,
+    pub(crate) attributes: EnumSet<FunctionAttribute>,
     pub(crate) location: Option<Location>,
 }
 
@@ -24,13 +31,15 @@ impl<'a> std::fmt::Display for FunctionDisplayer<'a> {
         &self,
         writer: &mut std::fmt::Formatter<'_>,
     ) -> std::result::Result<(), std::fmt::Error> {
+        write!(writer, "fn ")?;
+
         if self.function.is_export(self.library) {
-            write!(writer, "export ")?;
+            write!(writer, "[export] ")?;
         }
 
         write!(
             writer,
-            "fn {}(",
+            "{}(",
             self.function
                 .get_name(self.library)
                 .get_displayer(self.library)
@@ -181,7 +190,7 @@ impl Function {
     pub fn is_export(&self, library: &Library) -> bool {
         let function = &library.functions[self.0];
 
-        function.export
+        function.attributes.contains(FunctionAttribute::Export)
     }
 
     /// Get all the blocks in a function.
@@ -393,9 +402,13 @@ impl<'a> FunctionBuilder<'a> {
             function_type,
             arguments: Vec::new(),
             blocks: Vec::new(),
-            export: self.export,
+            attributes: Default::default(),
             location: self.location,
         };
+
+        if self.export {
+            function.attributes.insert(FunctionAttribute::Export);
+        }
 
         for (argument_name, argument_type) in self.argument_names.iter().zip(self.argument_types) {
             let name = self.library.get_name(argument_name);

@@ -2,6 +2,6 @@
 
 // CHECK: mod "😀"
 mod "😀" {
-  // CHECK: export var ptr : cpu, f64
-  export var ptr : cpu, f64
+  // CHECK: var [export] ptr : cpu, f64
+  var [export] ptr : cpu, f64
 }
