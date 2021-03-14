@@ -1,0 +1,6 @@
+// RUN: @yair_as @file | @yair_dis -
+
+mod "😀" {
+  // CHECK: fn [export, job] foo(self : {}) : void
+  fn [job, export] foo(self : {}) : void
+}

@@ -7,6 +7,18 @@ pub enum FunctionAttribute {
     Job,
 }
 
+impl<'a> std::fmt::Display for FunctionAttribute {
+    fn fmt(
+        &self,
+        writer: &mut std::fmt::Formatter<'_>,
+    ) -> std::result::Result<(), std::fmt::Error> {
+        match self {
+            FunctionAttribute::Export => write!(writer, "export"),
+            FunctionAttribute::Job => write!(writer, "job"),
+        }
+    }
+}
+
 pub type FunctionAttributes = EnumSet<FunctionAttribute>;
 
 #[cfg_attr(feature = "io", derive(Serialize, Deserialize))]
@@ -35,8 +47,24 @@ impl<'a> std::fmt::Display for FunctionDisplayer<'a> {
     ) -> std::result::Result<(), std::fmt::Error> {
         write!(writer, "fn ")?;
 
-        if self.function.is_export(self.library) {
-            write!(writer, "[export] ")?;
+        let attributes = self.function.get_attributes(self.library);
+
+        if !attributes.is_empty() {
+            write!(writer, "[")?;
+
+            let mut first = true;
+
+            for attribute in attributes.iter() {
+                if first {
+                    first = false;
+                } else {
+                    write!(writer, ", ")?;
+                }
+
+                write!(writer, "{}", attribute)?;
+            }
+
+            write!(writer, "] ")?;
         }
 
         write!(
@@ -177,7 +205,7 @@ impl Function {
         BlockBuilder::with_library_and_function(library, *self)
     }
 
-    /// Return true if the function is exported.
+    /// Get the attributes on the function.
     ///
     /// # Examples
     ///
@@ -186,13 +214,13 @@ impl Function {
     /// # let mut library = Library::new();
     /// # let module = library.create_module().with_name("module").build();
     /// # let function = module.create_function(&mut library).with_name("func").with_attributes(FunctionAttributes::only(FunctionAttribute::Export)).build();
-    /// let is_export = function.is_export(&library);
-    /// # assert!(is_export);
+    /// let attributes = function.get_attributes(&library);
+    /// # assert!(attributes.contains(FunctionAttribute::Export));
     /// ```
-    pub fn is_export(&self, library: &Library) -> bool {
+    pub fn get_attributes(&self, library: &Library) -> FunctionAttributes {
         let function = &library.functions[self.0];
 
-        function.attributes.contains(FunctionAttribute::Export)
+        function.attributes
     }
 
     /// Get all the blocks in a function.

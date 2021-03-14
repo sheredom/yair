@@ -1,0 +1,7 @@
+// RUN: @yair_as @file | @yair_verify -
+
+// CHECK: A job must have a single struct argument:
+mod "😀" {
+  // CHECK: fn [export, job] foo() : void
+  fn [job, export] foo() : void
+}

@@ -15,6 +15,7 @@ pub enum VerifyError<'a> {
     VectorWidthsMustMatch(&'a Library, Value, Value, Type),
     ValueUsedWasNotLive(&'a Library, Value, Value),
     CallAndFunctionMustHaveMatchingArguments(&'a Library, Function, Value),
+    JobMustHaveOneStructArgument(&'a Library, Function),
 }
 
 impl<'a> std::fmt::Display for VerifyError<'a> {
@@ -141,6 +142,10 @@ impl<'a> std::fmt::Display for VerifyError<'a> {
                 writeln!(formatter, "And:")?;
                 writeln!(formatter, "  {}", f.get_displayer(l))
             }
+            VerifyError::JobMustHaveOneStructArgument(l, f) => {
+                writeln!(formatter, "A job must have a single struct argument:")?;
+                writeln!(formatter, "  {}", f.get_displayer(l))
+            }
         }
     }
 }
@@ -198,6 +203,32 @@ impl<'a> Verifier<'a> {
     }
 
     fn verify_function(&mut self, function: Function) -> Result<(), VerifyError<'a>> {
+        let attributes = function.get_attributes(self.library);
+
+        if attributes.contains(FunctionAttribute::Job) {
+            // Jobs have a required function argument layout, lets check that here.
+
+            // They must have a certain number of arguments.
+            if function.get_num_args(self.library) != 1 {
+                return Err(VerifyError::JobMustHaveOneStructArgument(
+                    self.library,
+                    function,
+                ));
+            }
+
+            // The first argument of a job must be the jobs struct.
+            if !function
+                .get_arg(self.library, 0)
+                .get_type(self.library)
+                .is_struct(self.library)
+            {
+                return Err(VerifyError::JobMustHaveOneStructArgument(
+                    self.library,
+                    function,
+                ));
+            }
+        }
+
         for (index, block) in function.get_blocks(self.library).enumerate() {
             // The first block has to have the same arguments as the function.
             if index == 0 {

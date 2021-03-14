@@ -1535,6 +1535,8 @@ impl<'a> Assembler<'a> {
 
                 if self.pop_if_next_symbol("export")? {
                     attributes |= FunctionAttribute::Export;
+                } else if self.pop_if_next_symbol("job")? {
+                    attributes |= FunctionAttribute::Job;
                 } else {
                     return Err(Diagnostic::new_error(
                         "Unknown function attribute",
