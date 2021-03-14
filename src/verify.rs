@@ -16,6 +16,7 @@ pub enum VerifyError<'a> {
     ValueUsedWasNotLive(&'a Library, Value, Value),
     CallAndFunctionMustHaveMatchingArguments(&'a Library, Function, Value),
     JobMustHaveOneStructArgument(&'a Library, Function),
+    JobMustHaveVoidReturnType(&'a Library, Function),
 }
 
 impl<'a> std::fmt::Display for VerifyError<'a> {
@@ -146,6 +147,10 @@ impl<'a> std::fmt::Display for VerifyError<'a> {
                 writeln!(formatter, "A job must have a single struct argument:")?;
                 writeln!(formatter, "  {}", f.get_displayer(l))
             }
+            VerifyError::JobMustHaveVoidReturnType(l, f) => {
+                writeln!(formatter, "A job must have a void return type:")?;
+                writeln!(formatter, "  {}", f.get_displayer(l))
+            }
         }
     }
 }
@@ -223,6 +228,13 @@ impl<'a> Verifier<'a> {
                 .is_struct(self.library)
             {
                 return Err(VerifyError::JobMustHaveOneStructArgument(
+                    self.library,
+                    function,
+                ));
+            }
+
+            if !function.get_return_type(self.library).is_void(self.library) {
+                return Err(VerifyError::JobMustHaveVoidReturnType(
                     self.library,
                     function,
                 ));
