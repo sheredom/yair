@@ -6,6 +6,7 @@ use enumset::*;
 
 mod argument;
 mod block;
+mod codegen;
 mod constant;
 mod function;
 mod global;
@@ -21,6 +22,7 @@ pub mod io;
 
 pub use argument::*;
 pub use block::*;
+pub use codegen::*;
 pub use constant::*;
 pub use function::*;
 pub use global::*;
