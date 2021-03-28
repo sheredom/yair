@@ -124,7 +124,7 @@ impl<'a> GlobalBuilder<'a> {
     /// # let mut library = Library::new();
     /// # let module = library.create_module().build();
     /// # let builder = module.create_global(&mut library);
-    /// builder.with_domain(Domain::CPU);
+    /// builder.with_domain(Domain::Cpu);
     /// ```
     pub fn with_domain(mut self, domain: Domain) -> Self {
         self.domain = domain;

@@ -389,9 +389,7 @@ impl<'a> Assembler<'a> {
             // Array elements have all the same type.
             let elem_ty = ty.get_element(library, 0);
 
-            let mut constants = Vec::new();
-
-            constants.push(self.parse_constant(library, elem_ty)?);
+            let mut constants = vec![self.parse_constant(library, elem_ty)?];
 
             for _ in 1..len {
                 if !self.pop_if_next_symbol(",")? {
@@ -425,9 +423,7 @@ impl<'a> Assembler<'a> {
             // Vector elements have all the same type.
             let elem_ty = ty.get_element(library, 0);
 
-            let mut constants = Vec::new();
-
-            constants.push(self.parse_constant(library, elem_ty)?);
+            let mut constants = vec![self.parse_constant(library, elem_ty)?];
 
             for _ in 1..len {
                 if !self.pop_if_next_symbol(",")? {
@@ -458,9 +454,7 @@ impl<'a> Assembler<'a> {
 
             let len = ty.get_len(library);
 
-            let mut constants = Vec::new();
-
-            constants.push(self.parse_constant(library, ty.get_element(library, 0))?);
+            let mut constants = vec![self.parse_constant(library, ty.get_element(library, 0))?];
 
             for i in 1..len {
                 if !self.pop_if_next_symbol(",")? {
@@ -562,13 +556,13 @@ impl<'a> Assembler<'a> {
             Ok(Domain::CrossDevice)
         } else if self.get_current_str().starts_with("cpu") {
             self.bump_current_by("cpu".len());
-            Ok(Domain::CPU)
+            Ok(Domain::Cpu)
         } else if self.get_current_str().starts_with("gpu") {
             self.bump_current_by("gpu".len());
-            Ok(Domain::GPU)
+            Ok(Domain::Gpu)
         } else if self.get_current_str().starts_with("stack") {
             self.bump_current_by("stack".len());
-            Ok(Domain::STACK)
+            Ok(Domain::Stack)
         } else {
             Err(Diagnostic::new_error(
                 "Invalid pointer domain - expected any, cpu, gpu, or stack",
@@ -1832,9 +1826,9 @@ pub fn assemble(file: FileId, data: &str) -> Result<Library, Diagnostic> {
 fn get_domain(domain: Domain) -> &'static str {
     match domain {
         Domain::CrossDevice => "any",
-        Domain::CPU => "cpu",
-        Domain::GPU => "gpu",
-        Domain::STACK => "stack",
+        Domain::Cpu => "cpu",
+        Domain::Gpu => "gpu",
+        Domain::Stack => "stack",
     }
 }
 

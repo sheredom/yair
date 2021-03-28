@@ -1,0 +1,7 @@
+// RUN: @yair_as @file | @yair_verify -
+
+// CHECK: A job must have a void return type:
+mod "😀" {
+  // CHECK: fn [job] foo(self : {}) : i8
+  fn [job] foo(self : {}) : i8
+}

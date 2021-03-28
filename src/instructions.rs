@@ -953,7 +953,7 @@ impl<'a> InstructionBuilder<'a> {
     /// # let mut library = Library::new();
     /// # let module = library.create_module().build();
     /// # let u32_ty = library.get_uint_type(32);
-    /// # let u32_ptr_ty = library.get_pointer_type(Domain::CPU);
+    /// # let u32_ptr_ty = library.get_pointer_type(Domain::Cpu);
     /// # let function = module.create_function(&mut library).with_name("func").with_return_type(u32_ty).with_arg("a", u32_ptr_ty).build();
     /// # let block = function.create_block(&mut library).build();
     /// # let ptr = function.get_arg(&library, 0);
@@ -980,7 +980,7 @@ impl<'a> InstructionBuilder<'a> {
     /// # let module = library.create_module().build();
     /// # let void_ty = library.get_void_type();
     /// # let u32_ty = library.get_uint_type(32);
-    /// # let u32_ptr_ty = library.get_pointer_type(Domain::CPU);
+    /// # let u32_ptr_ty = library.get_pointer_type(Domain::Cpu);
     /// # let function = module.create_function(&mut library).with_name("func").with_return_type(void_ty).with_arg("a", u32_ty).with_arg("b", u32_ptr_ty).build();
     /// # let block = function.create_block(&mut library).build();
     /// # let val = function.get_arg(&library, 0);
@@ -1232,7 +1232,7 @@ impl<'a> InstructionBuilder<'a> {
     /// # let mut library = Library::new();
     /// # let module = library.create_module().build();
     /// # let u32_ty = library.get_uint_type(32);
-    /// # let u32_stack_ptr_ty = library.get_pointer_type(Domain::STACK);
+    /// # let u32_stack_ptr_ty = library.get_pointer_type(Domain::Stack);
     /// # let function = module.create_function(&mut library).with_name("func").with_return_type(u32_ty).build();
     /// # let block = function.create_block(&mut library).build();
     /// # let mut instruction_builder = block.create_instructions(&mut library);
@@ -1241,7 +1241,7 @@ impl<'a> InstructionBuilder<'a> {
     /// # assert_eq!(stack_alloc.get_type(&library), u32_stack_ptr_ty);
     /// ```
     pub fn stack_alloc(&mut self, name: &str, ty: Type, location: Option<Location>) -> Value {
-        let ptr_ty = self.library.get_pointer_type(Domain::STACK);
+        let ptr_ty = self.library.get_pointer_type(Domain::Stack);
         let name_index = self.library.get_name(name);
         self.make_value(Instruction::StackAlloc(name_index, ty, ptr_ty, location))
     }
@@ -1391,10 +1391,10 @@ impl<'a> InstructionBuilder<'a> {
     /// # let mut library = Library::new();
     /// # let module = library.create_module().build();
     /// # let u32_ty = library.get_uint_type(32);
-    /// # let u32_ptr_ty = library.get_pointer_type(Domain::CPU);
+    /// # let u32_ptr_ty = library.get_pointer_type(Domain::Cpu);
     /// # let u32_array_ty = library.get_array_type(u32_ty, 42);
     /// # let struct_ty = library.get_struct_type(&[ u32_ptr_ty, u32_array_ty, u32_ty ]);
-    /// # let ptr_ty = library.get_pointer_type(Domain::CPU);
+    /// # let ptr_ty = library.get_pointer_type(Domain::Cpu);
     /// # let function = module.create_function(&mut library).with_name("func").with_return_type(u32_ptr_ty).with_arg("a", ptr_ty).build();
     /// # let block = function.create_block(&mut library).build();
     /// # let ptr = function.get_arg(&library, 0);
