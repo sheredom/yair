@@ -20,6 +20,9 @@ mod verify;
 #[cfg(feature = "io")]
 pub mod io;
 
+#[cfg(feature = "llvm")]
+pub mod llvm;
+
 pub use argument::*;
 pub use block::*;
 pub use codegen::*;
@@ -42,9 +45,9 @@ use serde::{Deserialize, Serialize};
 #[cfg_attr(feature = "io", derive(Serialize, Deserialize))]
 pub enum Domain {
     CrossDevice,
-    CPU,
-    GPU,
-    STACK,
+    Cpu,
+    Gpu,
+    Stack,
 }
 
 impl std::fmt::Display for Domain {
@@ -54,9 +57,9 @@ impl std::fmt::Display for Domain {
     ) -> std::result::Result<(), std::fmt::Error> {
         match self {
             Domain::CrossDevice => write!(writer, "any"),
-            Domain::CPU => write!(writer, "cpu"),
-            Domain::GPU => write!(writer, "gpu"),
-            Domain::STACK => write!(writer, "stack"),
+            Domain::Cpu => write!(writer, "cpu"),
+            Domain::Gpu => write!(writer, "gpu"),
+            Domain::Stack => write!(writer, "stack"),
         }
     }
 }
@@ -252,9 +255,9 @@ impl Type {
     /// # let mut library = Library::new();
     /// # let module = library.create_module().build();
     /// # let u32_ty = library.get_uint_type(32);
-    /// # let u32_ptr_ty = library.get_pointer_type(Domain::CPU);
+    /// # let u32_ptr_ty = library.get_pointer_type(Domain::Cpu);
     /// let domain = u32_ptr_ty.get_domain(&library);
-    /// # assert_eq!(domain, Domain::CPU);
+    /// # assert_eq!(domain, Domain::Cpu);
     /// ```
     pub fn get_domain(&self, library: &Library) -> Domain {
         match library.types[self.0] {
@@ -538,7 +541,7 @@ impl Type {
     /// # let mut library = Library::new();
     /// # let module = library.create_module().build();
     /// # let bool_ty = library.get_bool_type();
-    /// # let ptr_ty = library.get_pointer_type(Domain::CPU);
+    /// # let ptr_ty = library.get_pointer_type(Domain::Cpu);
     /// let is_pointer = ptr_ty.is_pointer(&library);
     /// # assert!(is_pointer);
     /// # assert!(!bool_ty.is_pointer(&library));
@@ -623,7 +626,7 @@ mod tests {
     #[should_panic]
     fn bad_get_bits() {
         let mut library = Library::new();
-        let ptr_ty = library.get_pointer_type(Domain::CPU);
+        let ptr_ty = library.get_pointer_type(Domain::Cpu);
         let _ = ptr_ty.get_bits(&library);
     }
 

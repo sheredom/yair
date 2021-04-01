@@ -291,7 +291,7 @@ impl Library {
     /// # use yair::*;
     /// # let mut library = Library::new();
     /// # let module = library.create_module().build();
-    /// let ptr_ty = library.get_pointer_type(Domain::CPU);
+    /// let ptr_ty = library.get_pointer_type(Domain::Cpu);
     /// # assert!(ptr_ty.is_pointer(&library));
     /// ```
     pub fn get_pointer_type(&mut self, domain: Domain) -> Type {
@@ -501,7 +501,7 @@ impl Library {
     /// # let mut library = Library::new();
     /// # let module = library.create_module().build();
     /// # let void_ty = library.get_void_type();
-    /// # let ty = library.get_pointer_type(Domain::CPU);
+    /// # let ty = library.get_pointer_type(Domain::Cpu);
     /// let constant = library.get_pointer_constant_null(ty);
     /// ```
     pub fn get_pointer_constant_null(&mut self, ty: Type) -> Value {

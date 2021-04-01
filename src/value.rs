@@ -164,9 +164,9 @@ impl Value {
     /// # let mut library = Library::new();
     /// # let module = library.create_module().with_name("module").build();
     /// # let u32_ty = library.get_uint_type(32);
-    /// # let global = module.create_global(&mut library).with_domain(Domain::CPU).with_name("global").with_type(u32_ty).build();
+    /// # let global = module.create_global(&mut library).with_domain(Domain::Cpu).with_name("global").with_type(u32_ty).build();
     /// let domain = global.get_global_domain(&library);
-    /// # assert_eq!(domain, Domain::CPU);
+    /// # assert_eq!(domain, Domain::Cpu);
     /// ```
     pub fn get_global_domain(&self, library: &Library) -> Domain {
         match &library.values[self.0] {
@@ -184,7 +184,7 @@ impl Value {
     /// # let mut library = Library::new();
     /// # let module = library.create_module().with_name("module").build();
     /// # let u32_ty = library.get_uint_type(32);
-    /// # let global = module.create_global(&mut library).with_domain(Domain::CPU).with_name("global").with_type(u32_ty).build();
+    /// # let global = module.create_global(&mut library).with_domain(Domain::Cpu).with_name("global").with_type(u32_ty).build();
     /// let ty = global.get_global_backing_type(&library);
     /// # assert_eq!(ty, u32_ty);
     /// ```
