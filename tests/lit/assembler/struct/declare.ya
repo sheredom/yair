@@ -1,0 +1,7 @@
+// RUN: @yair_as @file | @yair_dis -
+
+// CHECK: mod "😀"
+mod "😀" {
+  // CHECK: struct "🦉" : {a : i32, b : f32}
+  struct "🦉" : {a : i32, b: f32}
+}

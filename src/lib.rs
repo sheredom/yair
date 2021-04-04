@@ -2,6 +2,12 @@ extern crate enumset;
 extern crate generational_arena;
 extern crate radix_trie;
 
+#[cfg(feature = "llvm")]
+extern crate llvm_sys;
+
+#[cfg(feature = "llvm")]
+extern crate libc;
+
 use enumset::*;
 
 mod argument;
@@ -77,6 +83,12 @@ enum TypePayload {
     Struct(Vec<Type>),
     Function(Type, Vec<Type>),
     Array(Type, usize),
+    NamedStruct(
+        Module,
+        Name,
+        Vec<(Name, Type, Option<Location>)>,
+        Option<Location>,
+    ),
 }
 
 impl Default for TypePayload {
@@ -147,7 +159,9 @@ impl<'a> std::fmt::Display for TypeDisplayer<'a> {
         &self,
         writer: &mut std::fmt::Formatter<'_>,
     ) -> std::result::Result<(), std::fmt::Error> {
-        if self.ty.is_void(self.library) {
+        if self.ty.is_named_struct(self.library) {
+            write!(writer, "%{}", self.ty.get_name(self.library).get_displayer(self.library))
+        } else if self.ty.is_void(self.library) {
             write!(writer, "void")
         } else if self.ty.is_boolean(self.library) {
             write!(writer, "bool")
@@ -242,6 +256,7 @@ impl Type {
             TypePayload::Vector(_, width) => *width as usize,
             TypePayload::Array(_, width) => *width,
             TypePayload::Struct(vec) => vec.len(),
+            TypePayload::NamedStruct(_, _, vec, _) => vec.len(),
             _ => panic!("Cannot get the length of a non-aggregate type"),
         }
     }
@@ -289,6 +304,7 @@ impl Type {
                 *ty
             }
             TypePayload::Struct(tys) => tys[index],
+            TypePayload::NamedStruct(_, _, tys, _) => tys[index].1,
             TypePayload::Array(ty, size) => {
                 assert!(index < *size, "Index is beyond the end of the array");
                 *ty
@@ -329,6 +345,24 @@ impl Type {
     /// ```
     pub fn is_struct(&self, library: &Library) -> bool {
         matches!(library.types[self.0], TypePayload::Struct(_))
+            || matches!(library.types[self.0], TypePayload::NamedStruct(_, _, _, _))
+    }
+
+    /// Checks whether a type is a named struct type.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # use yair::*;
+    /// # let mut library = Library::new();
+    /// # let module = library.create_module().build();
+    /// # let u32_ty = library.get_uint_type(32);
+    /// # let struct_ty = library.get_struct_type(&[ u32_ty ]);
+    /// let is_named_struct = struct_ty.is_named_struct(&library);
+    /// # assert!(!is_named_struct);
+    /// ```
+    pub fn is_named_struct(&self, library: &Library) -> bool {
+        matches!(library.types[self.0], TypePayload::NamedStruct(_, _, _, _))
     }
 
     /// Checks whether a type is a vector type.
@@ -579,7 +613,85 @@ impl Type {
                     _ => panic!("Cannot index into a struct with a non-integral constant"),
                 }
             }
+            TypePayload::NamedStruct(_, _, tys, _) => {
+                assert!(
+                    index.is_constant(library),
+                    "Cannot index into a struct with a non-constant"
+                );
+
+                match index.get_constant(library) {
+                    Constant::Int(c, _) => tys[*c as usize].1,
+                    Constant::UInt(c, _) => tys[*c as usize].1,
+                    _ => panic!("Cannot index into a struct with a non-integral constant"),
+                }
+            }
             _ => panic!("Unable to index into type!"),
+        }
+    }
+
+    /// Get the name of a named-struct type.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # use yair::*;
+    /// # use yair::*;
+    /// # let mut library = Library::new();
+    /// # let u32_ty = library.get_uint_type(32);
+    /// # let module = library.create_module().build();
+    /// # let elements = vec![("my_field", u32_ty, None)];
+    /// # let location = None;
+    /// # let struct_ty = module.create_named_struct_type(&mut library, "my_struct", &elements, location);
+    /// let name = struct_ty.get_name(&library);
+    /// ```
+    pub fn get_name(&self, library: &Library) -> Name {
+        match library.types[self.0] {
+            TypePayload::NamedStruct(_, name, _, _) => name,
+            _ => panic!("Cannot get the name of anything other than a named-struct"),
+        }
+    }
+
+    /// Get the name of an element of a named-struct type.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # use yair::*;
+    /// # use yair::*;
+    /// # let mut library = Library::new();
+    /// # let u32_ty = library.get_uint_type(32);
+    /// # let module = library.create_module().build();
+    /// # let elements = vec![("my_field", u32_ty, None)];
+    /// # let location = None;
+    /// # let struct_ty = module.create_named_struct_type(&mut library, "my_struct", &elements, location);
+    /// let name = struct_ty.get_element_name(&library, 0);
+    /// ```
+    pub fn get_element_name(&self, library: &Library, index: usize) -> Name {
+        match &library.types[self.0] {
+            TypePayload::NamedStruct(_, _, elements, _) => elements[index].0,
+            _ => panic!("Cannot get the element name of anything other than a named-struct"),
+        }
+    }
+
+    /// Get the location of a named-struct type.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # use yair::*;
+    /// # use yair::*;
+    /// # let mut library = Library::new();
+    /// # let u32_ty = library.get_uint_type(32);
+    /// # let module = library.create_module().build();
+    /// # let elements = vec![("my_field", u32_ty, None)];
+    /// # let location = None;
+    /// # let struct_ty = module.create_named_struct_type(&mut library, "my_struct", &elements, location);
+    /// let location = struct_ty.get_location(&library);
+    /// ```
+    pub fn get_location(&self, library: &Library) -> Option<Location> {
+        match library.types[self.0] {
+            TypePayload::NamedStruct(_, _, _, location) => location,
+            _ => panic!("Cannot get the location of anything other than a named-struct"),
         }
     }
 

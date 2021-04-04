@@ -15,6 +15,7 @@ struct Assembler<'a> {
     modules: HashMap<&'a str, Module>,
     functions: HashMap<(&'a str, Module), Function>,
     variables: HashMap<(&'a str, Module), Value>,
+    structs: HashMap<&'a str, Type>,
     current_blocks: HashMap<&'a str, Block>,
     current_values: HashMap<&'a str, Value>,
     current_module: Option<Module>,
@@ -30,6 +31,7 @@ impl<'a> Assembler<'a> {
             modules: HashMap::new(),
             functions: HashMap::new(),
             variables: HashMap::new(),
+            structs: HashMap::new(),
             current_blocks: HashMap::new(),
             current_values: HashMap::new(),
             current_module: None,
@@ -584,6 +586,20 @@ impl<'a> Assembler<'a> {
 
     fn parse_type(&mut self, library: &mut Library) -> Result<Type, Diagnostic> {
         self.skip_comments_or_whitespace();
+
+        // Do we have a named struct?
+        if self.pop_if_next_symbol("%")? {
+            let identifier = self.parse_identifier()?;
+
+            if !self.structs.contains_key(identifier) {
+                return Err(Diagnostic::new_error(
+                    "Unknown named struct type",
+                    Label::new(self.file, self.single_char_span(), "unknown type"),
+                ));
+            }
+
+            return Ok(self.structs[identifier]);
+        }
 
         if let Some(t) = self.try_parse_int_or_float(library, 'i') {
             return Ok(t);
@@ -1718,11 +1734,73 @@ impl<'a> Assembler<'a> {
         Ok(())
     }
 
+    fn parse_struct(&mut self, library: &mut Library) -> Result<(), Diagnostic> {
+        let identifier = self.parse_identifier()?;
+
+        if !self.pop_if_next_symbol(":")? {
+            return Err(Diagnostic::new_error(
+                "Expected ':' to declare a struct type",
+                Label::new(self.file, self.single_char_span(), "missing ':'"),
+            ));
+        }
+
+        if !self.pop_if_next_symbol("{")? {
+            return Err(Diagnostic::new_error(
+                "Expected '{' to open a declaration of a struct type",
+                Label::new(self.file, self.single_char_span(), "missing '{'"),
+            ));
+        }
+
+        let mut elements = Vec::new();
+
+        loop {
+            let element_name = self.parse_identifier()?;
+
+            if !self.pop_if_next_symbol(":")? {
+                return Err(Diagnostic::new_error(
+                    "Expected ':' for a structs element type",
+                    Label::new(self.file, self.single_char_span(), "missing ':'"),
+                ));
+            }
+
+            let element_type = self.parse_type(library)?;
+
+            let location = self.parse_loc(library)?;
+
+            elements.push((element_name, element_type, location));
+
+            if self.pop_if_next_symbol(",")? {
+                continue;
+            } else if self.pop_if_next_symbol("}")? {
+                break;
+            } else {
+                return Err(Diagnostic::new_error(
+                    "Expected ',' or '}' for a struct type declaration",
+                    Label::new(self.file, self.single_char_span(), "missing ',' or '}'"),
+                ));
+            }
+        }
+
+        let location = self.parse_loc(library)?;
+
+        let named_struct = self
+            .current_module
+            .unwrap()
+            .create_named_struct_type(library, identifier, &elements, location);
+
+        self.structs
+            .insert(identifier, named_struct);
+
+        Ok(())
+    }
+
     fn parse_fn_or_var(&mut self, library: &mut Library) -> Result<(), Diagnostic> {
         if self.get_current_str().starts_with("fn") {
             self.parse_fn(library)
         } else if self.get_current_str().starts_with("var") {
             self.parse_var(library)
+        } else if self.pop_if_next_symbol("struct")? {
+            self.parse_struct(library)
         } else if self.get_current_str().starts_with('}') || self.get_current_str().is_empty() {
             Ok(())
         } else {
@@ -1731,7 +1809,7 @@ impl<'a> Assembler<'a> {
                 Label::new(
                     self.file,
                     self.single_char_span(),
-                    "expected fn, var, or '}' to close the module",
+                    "expected fn, var, struct, or '}' to close the module",
                 ),
             ))
         }
@@ -1833,7 +1911,9 @@ fn get_domain(domain: Domain) -> &'static str {
 }
 
 fn get_type_name(library: &Library, ty: Type) -> String {
-    if ty.is_void(library) {
+    if ty.is_named_struct(library) {
+        format!("%{}", ty.get_name(library).get_displayer(library))
+    } else if ty.is_void(library) {
         "void".to_string()
     } else if ty.is_boolean(library) {
         "bool".to_string()
@@ -1945,6 +2025,48 @@ pub fn disassemble(library: &Library, mut writer: impl std::io::Write) -> std::i
         let name = module.get_name(library);
 
         write!(writer, "mod {} {{", name.get_displayer(library))?;
+
+        let mut printed_newline = false;
+
+        for named_struct in module.get_named_structs(library) {
+            if !printed_newline {
+                writeln!(writer)?;
+                printed_newline = true;
+            }
+
+            write!(writer, "  struct ")?;
+
+            let name = named_struct.get_name(library).get_displayer(library);
+
+            write!(
+                writer,
+                "{} : {{",
+                name,
+            )?;
+
+            let len = named_struct.get_len(library);
+
+            for i in 0..named_struct.get_len(library) {
+                let name = named_struct.get_element_name(library, i);
+                let ty = named_struct.get_element(library, i);
+                let location = named_struct.get_location(library);
+
+                write!(
+                    writer,
+                    "{} : {}{}",
+                    name.get_displayer(library),
+                    get_type_name(library, ty),
+                    get_loc(library, &location)
+                )?;
+
+                if i != (len - 1)
+                {
+                    write!(writer, ", ")?;
+                }
+            }
+
+            writeln!(writer, "}}")?;
+        }
 
         let mut printed_newline = false;
 

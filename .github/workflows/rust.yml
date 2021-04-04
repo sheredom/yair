@@ -12,26 +12,18 @@ jobs:
     runs-on: ubuntu-16.04
     steps:
     - uses: actions/checkout@v2
-    - run: wget https://github.com/WAVM/WAVM-LLVM/releases/download/11.x/Ubuntu1604_Release.zip
-    - run: unzip -d llvm Ubuntu1604_Release.zip
 
     # run fmt to verify we have no non-formatted syntax
     - run: rustup component add rustfmt
     - run: cargo fmt -- --check --color always
-      env:
-        YAIR_LLVM_INSTALL_DIR: llvm
     
     # run clippy to verify we have no warnings
     - run: rustup component add clippy
     - run: cargo clippy --lib --tests -- -D warnings
-      env:
-        YAIR_LLVM_INSTALL_DIR: llvm
 
     # make sure cargo deny does not result in any errors
     - run: cargo install cargo-deny --locked
     - run: cargo deny check
-      env:
-        YAIR_LLVM_INSTALL_DIR: llvm
 
   windows:
     name: Build with LLVM on Windows
@@ -40,7 +32,7 @@ jobs:
     - uses: actions/checkout@v2
     - run: powershell.exe -NoP -NonI -Command "Invoke-WebRequest https://github.com/WAVM/WAVM-LLVM/releases/download/11.x/Win64_Release.zip -O Win64_Release.zip"
     - run: powershell.exe -NoP -NonI -Command "Expand-Archive '.\Win64_Release.zip' '.\llvm\'"
-    - run: cargo test
+    - run: cargo test --features llvm
       env:
         YAIR_LLVM_INSTALL_DIR: llvm
 
@@ -51,7 +43,7 @@ jobs:
     - uses: actions/checkout@v2
     - run: wget https://github.com/WAVM/WAVM-LLVM/releases/download/11.x/Ubuntu1604_Release.zip
     - run: unzip -d llvm Ubuntu1604_Release.zip
-    - run: cargo test
+    - run: cargo test --features llvm
       env:
         YAIR_LLVM_INSTALL_DIR: llvm
 
@@ -62,7 +54,7 @@ jobs:
     - uses: actions/checkout@v2
     - run: wget https://github.com/WAVM/WAVM-LLVM/releases/download/11.x/MacOS_Release.zip
     - run: unzip -d llvm MacOS_Release.zip
-    - run: cargo test
+    - run: cargo test --features llvm
       env:
         YAIR_LLVM_INSTALL_DIR: llvm
       
@@ -93,4 +85,4 @@ jobs:
         uses: actions-rs/cargo@v1
         with:
           command: publish
-          args: --dry-run --no-default-features
+          args: --dry-run

@@ -1,0 +1,9 @@
+// RUN: @yair_as @file | @yair_dis -
+
+// CHECK: mod "😀"
+mod "😀" {
+  struct contained_struct : {a : i32, b: f32}
+
+  // CHECK: struct "🦉" : {a : %contained_struct}
+  struct "🦉" : {a : %contained_struct}
+}

@@ -5,6 +5,7 @@ pub(crate) struct ModulePayload {
     pub(crate) name: Name,
     pub(crate) functions: Vec<Function>,
     pub(crate) globals: Vec<Value>,
+    pub(crate) named_structs: Vec<Type>,
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq, Hash)]
@@ -44,6 +45,50 @@ impl Module {
     /// ```
     pub fn create_global<'a>(&self, library: &'a mut Library) -> GlobalBuilder<'a> {
         GlobalBuilder::with_library_and_module(library, *self)
+    }
+
+    /// Get a named struct type.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # use yair::*;
+    /// # let mut library = Library::new();
+    /// # let u32_ty = library.get_uint_type(32);
+    /// # let module = library.create_module().build();
+    /// # let elements = vec![("my_field", u32_ty, None)];
+    /// # let location = None;
+    /// let struct_ty = module.create_named_struct_type(&mut library, "my_struct", &elements, location);
+    /// ```
+    pub fn create_named_struct_type(
+        &self,
+        library: &mut Library,
+        name: &str,
+        elements: &[(&str, Type, Option<Location>)],
+        location: Option<Location>,
+    ) -> Type {
+        let name = library.get_name(name);
+
+        let vec = elements
+            .iter()
+            .map(|(n, t, l)| (library.get_name(n), *t, *l))
+            .collect();
+
+        let ty = Type(
+            library
+                .types
+                .insert(TypePayload::NamedStruct(*self, name, vec, location)),
+        );
+
+        library.modules[self.0].named_structs.push(ty);
+
+        ty
+    }
+
+    // Get all named structs in a module.
+    pub fn get_named_structs(&self, library: &Library) -> StructIterator {
+        let module = &library.modules[self.0];
+        StructIterator::new(&module.named_structs)
     }
 
     /// Get all the globals in a module.
@@ -141,9 +186,38 @@ impl<'a> ModuleBuilder<'a> {
             name: self.library.get_name(self.name),
             functions: Vec::new(),
             globals: Vec::new(),
+            named_structs: Vec::new(),
         };
 
         Module(self.library.modules.insert(module))
+    }
+}
+
+pub struct StructIterator {
+    vec: Vec<Type>,
+    next: usize,
+}
+
+impl StructIterator {
+    fn new(iter: &[Type]) -> StructIterator {
+        StructIterator {
+            vec: iter.to_vec(),
+            next: 0,
+        }
+    }
+}
+
+impl Iterator for StructIterator {
+    type Item = Type;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        if self.next < self.vec.len() {
+            let next = self.next;
+            self.next += 1;
+            Some(self.vec[next])
+        } else {
+            None
+        }
     }
 }
 
