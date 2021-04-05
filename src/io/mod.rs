@@ -14,7 +14,7 @@ struct Assembler<'a> {
     file: FileId,
     modules: HashMap<&'a str, Module>,
     functions: HashMap<(&'a str, Module), Function>,
-    variables: HashMap<(&'a str, Module), Value>,
+    variables: HashMap<&'a str, Value>,
     structs: HashMap<&'a str, Type>,
     current_blocks: HashMap<&'a str, Block>,
     current_values: HashMap<&'a str, Value>,
@@ -638,13 +638,20 @@ impl<'a> Assembler<'a> {
     fn parse_value(&mut self) -> Result<Value, Diagnostic> {
         let (name, span) = self.parse_identifier_with_span()?;
 
-        match self.current_values.get(name) {
-            Some(v) => Ok(*v),
-            None => Err(Diagnostic::new_error(
-                "Unknown identified value",
-                Label::new(self.file, span, "no match for this name"),
-            )),
+        // First we check the current values.
+        if let Some(v) = self.current_values.get(name) {
+            return Ok(*v);
         }
+
+        // Then we check for a global with the name.
+        if let Some(v) = self.variables.get(name) {
+            return Ok(*v);
+        }
+
+        Err(Diagnostic::new_error(
+            "Unknown identified value",
+            Label::new(self.file, span, "no match for this name"),
+        ))
     }
 
     fn parse_block(&mut self, library: &mut Library) -> Result<(), Diagnostic> {
@@ -1729,7 +1736,7 @@ impl<'a> Assembler<'a> {
         }
         .build();
 
-        self.variables.insert((identifier, module), var);
+        self.variables.insert(identifier, var);
 
         Ok(())
     }
@@ -1864,6 +1871,9 @@ impl<'a> Assembler<'a> {
 
         // And reset the current module when exiting.
         self.current_module = None;
+        self.functions.clear();
+        self.structs.clear();
+        self.variables.clear();
 
         Ok(())
     }

@@ -14,16 +14,21 @@ pub(crate) enum ValuePayload {
 #[cfg_attr(feature = "io", derive(Serialize, Deserialize))]
 pub struct Value(pub(crate) generational_arena::Index);
 
-pub struct ValueDisplayer {
+pub struct ValueDisplayer<'a> {
     pub(crate) value: Value,
+    pub(crate) library: &'a Library,
 }
 
-impl<'a> std::fmt::Display for ValueDisplayer {
+impl<'a> std::fmt::Display for ValueDisplayer<'a> {
     fn fmt(
         &self,
         writer: &mut std::fmt::Formatter<'_>,
     ) -> std::result::Result<(), std::fmt::Error> {
+        if self.value.is_global(self.library) {
+            write!(writer, "{}", self.value.get_name(self.library).get_displayer(self.library))
+        } else {
         write!(writer, "v{}", self.value.get_unique_index())
+        }
     }
 }
 
@@ -49,6 +54,22 @@ impl Value {
     /// ```
     pub fn is_undef(&self, library: &Library) -> bool {
         matches!(library.values[self.0], ValuePayload::Undef(_))
+    }
+
+    /// Return true if a value is a global.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # use yair::*;
+    /// # let mut library = Library::new();
+    /// # let module = library.create_module().build();
+    /// # let value = library.get_bool_constant(true);
+    /// let is_global = value.is_global(&library);
+    /// # assert!(!is_global);
+    /// ```
+    pub fn is_global(&self, library: &Library) -> bool {
+        matches!(library.values[self.0], ValuePayload::Global(_))
     }
 
     /// Return true if a value is a constant.
@@ -237,8 +258,8 @@ impl Value {
         }
     }
 
-    pub fn get_displayer(&self, _: &Library) -> ValueDisplayer {
-        ValueDisplayer { value: *self }
+    pub fn get_displayer<'a>(&self, library: &'a Library) -> ValueDisplayer<'a> {
+        ValueDisplayer { value: *self, library }
     }
 
     pub fn get_inst_displayer<'a>(&self, library: &'a Library) -> InstructionDisplayer<'a> {

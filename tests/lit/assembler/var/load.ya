@@ -1,0 +1,17 @@
+// RUN: @yair_as @file | @yair_dis -
+
+// CHECK: mod "😀"
+mod "😀" {
+  // CHECK: [[v:\w+]] : cpu, i8
+  var my_var : cpu, i8
+
+  // CHECK: fn foo() : i8 {
+  fn foo() : i8 {
+    // CHECK: b0():
+    bar():
+      // CHECK: [[result:\w+]] = load i8, $$v
+      r = load i8, my_var
+      // CHECK: ret $$result
+      ret r
+  }
+}

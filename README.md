@@ -20,8 +20,12 @@
   - When we have per-domain functions (CPU-only for instance) check for:
     - Recursion.
     - Calling a function in a conflicting domain (call GPU from CPU).
+  - Maybe restrict variables to non-any non-gpu?
+    - At the least we should have some form of thread_local (shared) variables, and cpu globals too. But any else doesn't really make sense I think?
 - Add a cranelift code generation library.
 - Add an optimizer!
+- Explain the syntax of the IR:
+  - Globals and structs both use `%name` to differentiate them from other symbols.
 
 ## Features
 
