@@ -160,7 +160,11 @@ impl<'a> std::fmt::Display for TypeDisplayer<'a> {
         writer: &mut std::fmt::Formatter<'_>,
     ) -> std::result::Result<(), std::fmt::Error> {
         if self.ty.is_named_struct(self.library) {
-            write!(writer, "%{}", self.ty.get_name(self.library).get_displayer(self.library))
+            write!(
+                writer,
+                "%{}",
+                self.ty.get_name(self.library).get_displayer(self.library)
+            )
         } else if self.ty.is_void(self.library) {
             write!(writer, "void")
         } else if self.ty.is_boolean(self.library) {

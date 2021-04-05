@@ -1795,8 +1795,7 @@ impl<'a> Assembler<'a> {
             .unwrap()
             .create_named_struct_type(library, identifier, &elements, location);
 
-        self.structs
-            .insert(identifier, named_struct);
+        self.structs.insert(identifier, named_struct);
 
         Ok(())
     }
@@ -2048,11 +2047,7 @@ pub fn disassemble(library: &Library, mut writer: impl std::io::Write) -> std::i
 
             let name = named_struct.get_name(library).get_displayer(library);
 
-            write!(
-                writer,
-                "{} : {{",
-                name,
-            )?;
+            write!(writer, "{} : {{", name,)?;
 
             let len = named_struct.get_len(library);
 
@@ -2069,8 +2064,7 @@ pub fn disassemble(library: &Library, mut writer: impl std::io::Write) -> std::i
                     get_loc(library, &location)
                 )?;
 
-                if i != (len - 1)
-                {
+                if i != (len - 1) {
                     write!(writer, ", ")?;
                 }
             }

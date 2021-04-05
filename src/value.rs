@@ -25,9 +25,15 @@ impl<'a> std::fmt::Display for ValueDisplayer<'a> {
         writer: &mut std::fmt::Formatter<'_>,
     ) -> std::result::Result<(), std::fmt::Error> {
         if self.value.is_global(self.library) {
-            write!(writer, "{}", self.value.get_name(self.library).get_displayer(self.library))
+            write!(
+                writer,
+                "{}",
+                self.value
+                    .get_name(self.library)
+                    .get_displayer(self.library)
+            )
         } else {
-        write!(writer, "v{}", self.value.get_unique_index())
+            write!(writer, "v{}", self.value.get_unique_index())
         }
     }
 }
@@ -259,7 +265,10 @@ impl Value {
     }
 
     pub fn get_displayer<'a>(&self, library: &'a Library) -> ValueDisplayer<'a> {
-        ValueDisplayer { value: *self, library }
+        ValueDisplayer {
+            value: *self,
+            library,
+        }
     }
 
     pub fn get_inst_displayer<'a>(&self, library: &'a Library) -> InstructionDisplayer<'a> {
