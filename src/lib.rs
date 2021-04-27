@@ -452,6 +452,60 @@ impl Type {
         )
     }
 
+    /// Checks whether a type is an unsigned integer type, or a vector of it.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # use yair::*;
+    /// # let mut library = Library::new();
+    /// # let module = library.create_module().build();
+    /// # let u32_ty = library.get_uint_type(32);
+    /// # let vec_ty = library.get_vector_type(u32_ty, 4);
+    /// # let bool_ty = library.get_bool_type();
+    /// let is_int = u32_ty.is_uint_or_uint_vector(&library);
+    /// let is_vector_int = vec_ty.is_uint_or_uint_vector(&library);
+    /// # assert!(is_integral);
+    /// # assert!(is_vector_integral);
+    /// # assert!(!bool_ty.is_uint_or_uint_vector(&library));
+    /// ```
+    pub fn is_uint_or_uint_vector(&self, library: &Library) -> bool {
+        let mut ty = *self;
+
+        if ty.is_vector(library) {
+            ty = ty.get_element(library, 0);
+        }
+
+        ty.is_uint(library)
+    }
+
+    /// Checks whether a type is a signed integer type, or a vector of it.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # use yair::*;
+    /// # let mut library = Library::new();
+    /// # let module = library.create_module().build();
+    /// # let u32_ty = library.get_uint_type(32);
+    /// # let vec_ty = library.get_vector_type(u32_ty, 4);
+    /// # let bool_ty = library.get_bool_type();
+    /// let is_int = u32_ty.is_int_or_int_vector(&library);
+    /// let is_vector_int = vec_ty.is_int_or_int_vector(&library);
+    /// # assert!(is_integral);
+    /// # assert!(is_vector_integral);
+    /// # assert!(!bool_ty.is_int_or_int_vector(&library));
+    /// ```
+    pub fn is_int_or_int_vector(&self, library: &Library) -> bool {
+        let mut ty = *self;
+
+        if ty.is_vector(library) {
+            ty = ty.get_element(library, 0);
+        }
+
+        ty.is_int(library)
+    }
+
     /// Checks whether a type is an integral (signed or unsigned) type, or a vector of integral.
     ///
     /// # Examples

@@ -6,7 +6,7 @@ pub struct BlockPayload {
     pub(crate) instructions: Vec<Value>,
 }
 
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
 #[cfg_attr(feature = "io", derive(Serialize, Deserialize))]
 pub struct Block(pub(crate) generational_arena::Index);
 

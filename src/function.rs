@@ -31,7 +31,7 @@ pub(crate) struct FunctionPayload {
     pub(crate) location: Option<Location>,
 }
 
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
 #[cfg_attr(feature = "io", derive(Serialize, Deserialize))]
 pub struct Function(pub(crate) generational_arena::Index);
 
@@ -188,6 +188,13 @@ impl Function {
         let function = &library.functions[self.0];
 
         function.arguments.len()
+    }
+
+    /// Check if a block is the entry block of a function.
+    pub fn is_entry_block(&self, library: &Library, block: Block) -> bool {
+        let function = &library.functions[self.0];
+
+        function.blocks.len() == 0 || function.blocks[0] == block
     }
 
     /// Create a new block in a function.
