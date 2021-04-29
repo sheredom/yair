@@ -1,0 +1,14 @@
+version: 2
+updates:
+- package-ecosystem: cargo
+  directory: "/"
+  schedule:
+    interval: daily
+  open-pull-requests-limit: 10
+  ignore:
+  - dependency-name: codespan-reporting
+    versions:
+    - 0.11.0
+  - dependency-name: codespan
+    versions:
+    - 0.11.0
