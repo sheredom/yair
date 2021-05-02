@@ -4,12 +4,12 @@ use llvm_sys::core::*;
 use llvm_sys::prelude::*;
 use llvm_sys::*;
 use std::collections::HashMap;
-use std::ffi::CString;
+use std::ffi::{CStr, CString};
 use std::io::{Seek, Write};
 use std::path::Path;
 use std::ptr;
 
-const empty_name: *const libc::c_char = b"\0".as_ptr() as *const libc::c_char;
+const EMPTY_NAME: *const libc::c_char = b"\0".as_ptr() as *const libc::c_char;
 
 const DW_ATE_VOID: debuginfo::LLVMDWARFTypeEncoding = 0x00;
 const DW_ATE_BOOLEAN: debuginfo::LLVMDWARFTypeEncoding = 0x02;
@@ -19,45 +19,95 @@ const DW_ATE_UNSIGNED: debuginfo::LLVMDWARFTypeEncoding = 0x07;
 
 pub struct Llvm {
     context: LLVMContextRef,
+    module: LLVMModuleRef,
     dibuilder: LLVMDIBuilderRef,
     ditypes: HashMap<Type, LLVMMetadataRef>,
     types: HashMap<Type, LLVMTypeRef>,
     filenames: HashMap<Name, LLVMMetadataRef>,
-    current_module: LLVMModuleRef,
     function_map: HashMap<Function, LLVMValueRef>,
     block_map: HashMap<Block, LLVMBasicBlockRef>,
     value_map: HashMap<Value, LLVMValueRef>,
-    triple: *const libc::c_char,
-    target: target::LLVMTargetDataRef,
+    target_data: target::LLVMTargetDataRef,
+    target_machine: target_machine::LLVMTargetMachineRef,
 }
 
-pub enum Error {}
+#[derive(Debug)]
+pub enum Error {
+    Io(std::io::Error),
+    Llvm(CString),
+}
+
+impl From<std::io::Error> for Error {
+    fn from(io_error: std::io::Error) -> Self {
+        Error::Io(io_error)
+    }
+}
+
+impl Drop for Llvm {
+    fn drop(&mut self) {
+        unsafe { target::LLVMDisposeTargetData(self.target_data) };
+        unsafe { target_machine::LLVMDisposeTargetMachine(self.target_machine) };
+        unsafe { debuginfo::LLVMDisposeDIBuilder(self.dibuilder) };
+        unsafe { core::LLVMDisposeModule(self.module) };
+        unsafe { core::LLVMContextDispose(self.context) };
+    }
+}
 
 impl Llvm {
-    fn new(platform: CodeGenPlatform) -> Self {
+    fn new(platform: CodeGenPlatform) -> Result<Self, Error> {
         let context = unsafe { core::LLVMContextCreate() };
 
         let triple = match platform {
             CodeGenPlatform::MacOsAppleSilicon => b"aarch64-apple-darwin\0",
-            _ => panic!("Unknown platform"),
         }
         .as_ptr() as *const libc::c_char;
 
-        let target = unsafe { target::LLVMCreateTargetData(triple) };
+        let target_data = unsafe { target::LLVMCreateTargetData(triple) };
 
-        Self {
+        let mut target = ptr::null_mut();
+        let mut error_message = ptr::null_mut();
+
+        if unsafe {
+            target_machine::LLVMGetTargetFromTriple(triple, &mut target, &mut error_message)
+        } != 0
+        {
+            let cstr = unsafe { CStr::from_ptr(error_message) }.to_owned();
+            unsafe { LLVMDisposeMessage(error_message) };
+            return Err(Error::Llvm(cstr));
+        }
+
+        unsafe { LLVMDisposeMessage(error_message) };
+
+        let target_machine = unsafe {
+            target_machine::LLVMCreateTargetMachine(
+                target,
+                triple,
+                ptr::null_mut(),
+                ptr::null_mut(),
+                target_machine::LLVMCodeGenOptLevel::LLVMCodeGenLevelDefault,
+                target_machine::LLVMRelocMode::LLVMRelocPIC,
+                target_machine::LLVMCodeModel::LLVMCodeModelLarge,
+            )
+        };
+
+        let module = unsafe { core::LLVMModuleCreateWithNameInContext(EMPTY_NAME, context) };
+        unsafe { core::LLVMSetTarget(module, triple) };
+
+        let dibuilder = unsafe { debuginfo::LLVMCreateDIBuilder(module) };
+
+        Ok(Self {
             context,
-            dibuilder: std::ptr::null_mut(),
+            module,
+            dibuilder,
             ditypes: HashMap::new(),
             types: HashMap::new(),
             filenames: HashMap::new(),
-            current_module: ptr::null_mut(),
             function_map: HashMap::new(),
             block_map: HashMap::new(),
             value_map: HashMap::new(),
-            triple,
-            target,
-        }
+            target_data,
+            target_machine,
+        })
     }
 
     fn get_or_insert_filename(&mut self, library: &Library, name: Name) -> LLVMMetadataRef {
@@ -113,12 +163,13 @@ impl Llvm {
         }
     }
 
+    
     fn get_or_insert_debug_type(
         &mut self,
         library: &Library,
         ty: Type,
     ) -> Result<LLVMMetadataRef, Error> {
-        if !self.ditypes.contains_key(&ty) {
+        #[allow(clippy::map_entry)]if !self.ditypes.contains_key(&ty) {
             let llvm_dity = self.insert_debug_type(library, ty)?;
             self.ditypes.insert(ty, llvm_dity);
         }
@@ -148,12 +199,10 @@ impl Llvm {
 
             let name = ty.get_name(library).get_name(library);
             let size = unsafe {
-                target::LLVMABISizeOfType(self.target, self.get_or_insert_type(library, ty)?)
+                target::LLVMABISizeOfType(self.target_data, self.get_or_insert_type(library, ty)?)
             };
             let mut elements = Vec::new();
             let runtimelang = 0; // C/C++ will have to do for now
-
-            debug_assert!(false, "Need to get a target and the sizeof of the struct");
 
             Ok(unsafe {
                 debuginfo::LLVMDIBuilderCreateStructType(
@@ -254,7 +303,7 @@ impl Llvm {
             let domain = ty.get_domain(library);
             let name = domain.to_string();
             let size = unsafe {
-                target::LLVMABISizeOfType(self.target, self.get_or_insert_type(library, ty)?)
+                target::LLVMABISizeOfType(self.target_data, self.get_or_insert_type(library, ty)?)
             };
             let address_space = 0; // TODO: We should query this from the target!
 
@@ -380,9 +429,8 @@ impl Llvm {
         &mut self,
         library: &Library,
         function: Function,
+        llvm_module: LLVMModuleRef,
     ) -> Result<LLVMValueRef, Error> {
-        // TODO: I should really make this do the ABI transformation...
-
         let mut elements = Vec::new();
 
         for arg in function.get_args(library) {
@@ -403,7 +451,7 @@ impl Llvm {
         let name_cstr = CString::new(function.get_name(library).get_name(library)).unwrap();
         let name = name_cstr.as_ptr() as *const libc::c_char;
 
-        Ok(unsafe { core::LLVMAddFunction(self.current_module, name, function_type) })
+        Ok(unsafe { core::LLVMAddFunction(llvm_module, name, function_type) })
     }
 
     fn add_function_body(
@@ -416,7 +464,7 @@ impl Llvm {
 
         for block in function.get_blocks(library) {
             let llvm_block = unsafe {
-                core::LLVMAppendBasicBlockInContext(self.context, llvm_function, empty_name)
+                core::LLVMAppendBasicBlockInContext(self.context, llvm_function, EMPTY_NAME)
             };
 
             self.block_map.insert(block, llvm_block);
@@ -435,7 +483,7 @@ impl Llvm {
 
                     let llvm_ty = self.get_or_insert_type(library, argument.get_type(library))?;
 
-                    let llvm_phi = unsafe { core::LLVMBuildPhi(builder, llvm_ty, empty_name) };
+                    let llvm_phi = unsafe { core::LLVMBuildPhi(builder, llvm_ty, EMPTY_NAME) };
 
                     self.value_map.insert(argument, llvm_phi);
                 }
@@ -445,7 +493,7 @@ impl Llvm {
         for block in function.get_blocks(library) {
             let llvm_block = *self.block_map.get(&block).unwrap();
 
-            self.add_block_body(library, function, block, llvm_block, builder)?;
+            self.add_block_body(library, block, llvm_block, builder)?;
         }
 
         Ok(())
@@ -467,8 +515,6 @@ impl Llvm {
                         self.value_map.insert(value, llvm_value);
                     }
                     Constant::Composite(values, ty) => {
-                        let llvm_ty = self.get_or_insert_type(library, *ty)?;
-
                         let mut llvm_values = Vec::new();
 
                         for value in values {
@@ -543,11 +589,12 @@ impl Llvm {
     fn add_block_body(
         &mut self,
         library: &Library,
-        function: Function,
         block: Block,
         llvm_block: LLVMBasicBlockRef,
         builder: LLVMBuilderRef,
     ) -> Result<(), Error> {
+        unsafe { core::LLVMPositionBuilderAtEnd(builder, llvm_block) };
+
         for instruction in block.get_insts(library) {
             let instruction_name_cstr =
                 CString::new(format!("{}", instruction.get_displayer(library)).to_string())
@@ -629,7 +676,25 @@ impl Llvm {
                     unsafe { core::LLVMBuildBitCast(builder, llvm_x, llvm_ty, instruction_name) }
                 }
                 Instruction::Branch(block, arguments, _) => {
-                    todo!()
+                    for (argument, block_argument) in arguments.iter().zip(block.get_args(library))
+                    {
+                        let llvm_val = self.get_or_insert_value(library, *argument)?;
+                        let llvm_phi = self.get_or_insert_value(library, block_argument)?;
+
+                        let mut llvm_values = vec![llvm_val];
+                        let mut llvm_blocks = vec![llvm_block];
+
+                        unsafe {
+                            core::LLVMAddIncoming(
+                                llvm_phi,
+                                llvm_values.as_mut_ptr(),
+                                llvm_blocks.as_mut_ptr(),
+                                1,
+                            )
+                        };
+                    }
+
+                    unsafe { core::LLVMBuildBr(builder, *self.block_map.get(block).unwrap()) }
                 }
                 Instruction::Call(function, arguments, _) => {
                     let llvm_function = *self.function_map.get(function).unwrap();
@@ -651,7 +716,90 @@ impl Llvm {
                     }
                 }
                 Instruction::Cast(ty, x, _) => {
-                    todo!()
+                    let llvm_x = self.get_or_insert_value(library, *x)?;
+                    let llvm_ty = self.get_or_insert_type(library, *ty)?;
+
+                    let src_ty = x.get_type(library);
+
+                    let dst_is_float = ty.is_float_or_float_vector(library);
+                    let dst_is_int = ty.is_int_or_int_vector(library);
+                    let dst_is_uint = ty.is_uint_or_uint_vector(library);
+
+                    let src_is_float = src_ty.is_float_or_float_vector(library);
+                    let src_is_int = src_ty.is_int_or_int_vector(library);
+                    let src_is_uint = src_ty.is_uint_or_uint_vector(library);
+
+                    if dst_is_float {
+                        if src_is_float {
+                            unsafe {
+                                core::LLVMBuildFPCast(builder, llvm_x, llvm_ty, instruction_name)
+                            }
+                        } else if src_is_int {
+                            unsafe {
+                                core::LLVMBuildSIToFP(builder, llvm_x, llvm_ty, instruction_name)
+                            }
+                        } else {
+                            debug_assert!(src_is_uint);
+                            unsafe {
+                                core::LLVMBuildUIToFP(builder, llvm_x, llvm_ty, instruction_name)
+                            }
+                        }
+                    } else if dst_is_int {
+                        if src_is_float {
+                            unsafe {
+                                core::LLVMBuildFPToSI(builder, llvm_x, llvm_ty, instruction_name)
+                            }
+                        } else if src_is_int {
+                            unsafe {
+                                core::LLVMBuildIntCast2(
+                                    builder,
+                                    llvm_x,
+                                    llvm_ty,
+                                    1,
+                                    instruction_name,
+                                )
+                            }
+                        } else {
+                            debug_assert!(src_is_uint);
+                            unsafe {
+                                core::LLVMBuildIntCast2(
+                                    builder,
+                                    llvm_x,
+                                    llvm_ty,
+                                    0,
+                                    instruction_name,
+                                )
+                            }
+                        }
+                    } else {
+                        debug_assert!(dst_is_uint);
+                        if src_is_float {
+                            unsafe {
+                                core::LLVMBuildFPToUI(builder, llvm_x, llvm_ty, instruction_name)
+                            }
+                        } else if src_is_int {
+                            unsafe {
+                                core::LLVMBuildIntCast2(
+                                    builder,
+                                    llvm_x,
+                                    llvm_ty,
+                                    1,
+                                    instruction_name,
+                                )
+                            }
+                        } else {
+                            debug_assert!(src_is_uint);
+                            unsafe {
+                                core::LLVMBuildIntCast2(
+                                    builder,
+                                    llvm_x,
+                                    llvm_ty,
+                                    0,
+                                    instruction_name,
+                                )
+                            }
+                        }
+                    }
                 }
                 Instruction::Cmp(ty, op, x, y, _) => {
                     let llvm_x = self.get_or_insert_value(library, *x)?;
@@ -708,7 +856,262 @@ impl Llvm {
                         }
                     }
                 }
-                _ => todo!(),
+                Instruction::ConditionalBranch(
+                    condition,
+                    true_block,
+                    false_block,
+                    true_arguments,
+                    false_arguments,
+                    _,
+                ) => {
+                    let llvm_condition = self.get_or_insert_value(library, *condition)?;
+
+                    for (argument, block_argument) in
+                        true_arguments.iter().zip(true_block.get_args(library))
+                    {
+                        let llvm_val = self.get_or_insert_value(library, *argument)?;
+                        let llvm_phi = self.get_or_insert_value(library, block_argument)?;
+
+                        let mut llvm_values = vec![llvm_val];
+                        let mut llvm_blocks = vec![llvm_block];
+
+                        unsafe {
+                            core::LLVMAddIncoming(
+                                llvm_phi,
+                                llvm_values.as_mut_ptr(),
+                                llvm_blocks.as_mut_ptr(),
+                                1,
+                            )
+                        };
+                    }
+
+                    for (argument, block_argument) in
+                        false_arguments.iter().zip(false_block.get_args(library))
+                    {
+                        let llvm_val = self.get_or_insert_value(library, *argument)?;
+                        let llvm_phi = self.get_or_insert_value(library, block_argument)?;
+
+                        let mut llvm_values = vec![llvm_val];
+                        let mut llvm_blocks = vec![llvm_block];
+
+                        unsafe {
+                            core::LLVMAddIncoming(
+                                llvm_phi,
+                                llvm_values.as_mut_ptr(),
+                                llvm_blocks.as_mut_ptr(),
+                                1,
+                            )
+                        };
+                    }
+
+                    unsafe {
+                        core::LLVMBuildCondBr(
+                            builder,
+                            llvm_condition,
+                            *self.block_map.get(true_block).unwrap(),
+                            *self.block_map.get(false_block).unwrap(),
+                        )
+                    }
+                }
+                Instruction::Extract(x, index, _) => {
+                    let llvm_x = self.get_or_insert_value(library, *x)?;
+
+                    if x.get_type(library).is_vector(library) {
+                        let int_ty = unsafe { LLVMIntTypeInContext(self.context, 64) };
+                        let llvm_index =
+                            unsafe { core::LLVMConstInt(int_ty, *index as libc::c_ulonglong, 0) };
+
+                        unsafe {
+                            core::LLVMBuildExtractElement(
+                                builder,
+                                llvm_x,
+                                llvm_index,
+                                instruction_name,
+                            )
+                        }
+                    } else {
+                        unsafe {
+                            core::LLVMBuildExtractValue(
+                                builder,
+                                llvm_x,
+                                *index as libc::c_uint,
+                                instruction_name,
+                            )
+                        }
+                    }
+                }
+                Instruction::IndexInto(ty, ptr, indices, _) => {
+                    let llvm_ty = self.get_or_insert_type(library, *ty)?;
+                    let llvm_ptr = self.get_or_insert_value(library, *ptr)?;
+
+                    let llvm_ptr_ty = unsafe { core::LLVMPointerType(llvm_ty, 0) };
+
+                    let llvm_cast = unsafe {
+                        core::LLVMBuildBitCast(builder, llvm_ptr, llvm_ptr_ty, instruction_name)
+                    };
+
+                    let mut llvm_indices = Vec::new();
+
+                    for index in indices {
+                        llvm_indices.push(self.get_or_insert_value(library, *index)?);
+                    }
+
+                    let llvm_gep = unsafe {
+                        core::LLVMBuildInBoundsGEP2(
+                            builder,
+                            llvm_ty,
+                            llvm_cast,
+                            llvm_indices.as_mut_ptr(),
+                            llvm_indices.len() as libc::c_uint,
+                            instruction_name,
+                        )
+                    };
+
+                    unsafe {
+                        core::LLVMBuildBitCast(
+                            builder,
+                            llvm_gep,
+                            core::LLVMTypeOf(llvm_ptr),
+                            instruction_name,
+                        )
+                    }
+                }
+                Instruction::Insert(aggregate, x, index, _) => {
+                    let llvm_aggregate = self.get_or_insert_value(library, *aggregate)?;
+                    let llvm_x = self.get_or_insert_value(library, *x)?;
+
+                    if aggregate.get_type(library).is_vector(library) {
+                        let int_ty = unsafe { LLVMIntTypeInContext(self.context, 64) };
+                        let llvm_index =
+                            unsafe { core::LLVMConstInt(int_ty, *index as libc::c_ulonglong, 0) };
+
+                        unsafe {
+                            core::LLVMBuildInsertElement(
+                                builder,
+                                llvm_aggregate,
+                                llvm_x,
+                                llvm_index,
+                                instruction_name,
+                            )
+                        }
+                    } else {
+                        unsafe {
+                            core::LLVMBuildInsertValue(
+                                builder,
+                                llvm_aggregate,
+                                llvm_x,
+                                *index as libc::c_uint,
+                                instruction_name,
+                            )
+                        }
+                    }
+                }
+                Instruction::Load(ty, ptr, _) => {
+                    let llvm_ty = self.get_or_insert_type(library, *ty)?;
+                    let llvm_ptr = self.get_or_insert_value(library, *ptr)?;
+
+                    let llvm_ptr_ty = unsafe { core::LLVMPointerType(llvm_ty, 0) };
+
+                    let llvm_cast = unsafe {
+                        core::LLVMBuildBitCast(builder, llvm_ptr, llvm_ptr_ty, instruction_name)
+                    };
+
+                    unsafe {
+                        core::LLVMBuildLoad2(builder, llvm_ptr_ty, llvm_cast, instruction_name)
+                    }
+                }
+                Instruction::Return(_) => unsafe { core::LLVMBuildRetVoid(builder) },
+                Instruction::ReturnValue(_, x, _) => {
+                    let llvm_x = self.get_or_insert_value(library, *x)?;
+
+                    unsafe { core::LLVMBuildRet(builder, llvm_x) }
+                }
+                Instruction::Select(_, cond, x, y, _) => {
+                    let llvm_cond = self.get_or_insert_value(library, *cond)?;
+                    let llvm_x = self.get_or_insert_value(library, *x)?;
+                    let llvm_y = self.get_or_insert_value(library, *y)?;
+
+                    unsafe {
+                        core::LLVMBuildSelect(builder, llvm_cond, llvm_x, llvm_y, instruction_name)
+                    }
+                }
+                Instruction::StackAlloc(name, ty, _, _) => {
+                    let name = name.get_name(library);
+                    let len = name.len();
+                    let name_cstr = CString::new(name).unwrap();
+                    let name = name_cstr.as_ptr() as *const libc::c_char;
+
+                    let llvm_ty = self.get_or_insert_type(library, *ty)?;
+
+                    let alloca = unsafe { core::LLVMBuildAlloca(builder, llvm_ty, name) };
+
+                    let llvm_location = unsafe { core::LLVMGetCurrentDebugLocation2(builder) };
+
+                    let line_number = unsafe {
+                        core::LLVMGetDebugLocLine(core::LLVMGetCurrentDebugLocation(builder))
+                    };
+
+                    let llvm_scope = llvm_location;
+
+                    let llvm_variable = unsafe {
+                        debuginfo::LLVMDIBuilderCreateAutoVariable(
+                            self.dibuilder,
+                            llvm_scope,
+                            name,
+                            len as libc::size_t,
+                            llvm_location,
+                            line_number as libc::c_uint,
+                            self.get_or_insert_debug_type(library, *ty)?,
+                            0,
+                            0,
+                            0,
+                        )
+                    };
+
+                    unsafe {
+                        debuginfo::LLVMDIBuilderInsertDbgValueAtEnd(
+                            self.dibuilder,
+                            alloca,
+                            llvm_variable,
+                            debuginfo::LLVMDIBuilderCreateExpression(
+                                self.dibuilder,
+                                ptr::null_mut(),
+                                0,
+                            ),
+                            LLVMGetCurrentDebugLocation2(builder),
+                            llvm_block,
+                        )
+                    };
+
+                    todo!("Need a debug scope, which means subprograms and all that jazz");
+
+                    alloca
+                }
+                Instruction::Store(ty, ptr, val, _) => {
+                    let llvm_ty = self.get_or_insert_type(library, *ty)?;
+                    let llvm_ptr = self.get_or_insert_value(library, *ptr)?;
+                    let llvm_val = self.get_or_insert_value(library, *val)?;
+
+                    let llvm_ptr_ty = unsafe { core::LLVMPointerType(llvm_ty, 0) };
+
+                    let llvm_cast = unsafe {
+                        core::LLVMBuildBitCast(builder, llvm_ptr, llvm_ptr_ty, instruction_name)
+                    };
+
+                    unsafe { core::LLVMBuildStore(builder, llvm_val, llvm_cast) }
+                }
+                Instruction::Unary(_, op, x, _) => {
+                    let llvm_x = self.get_or_insert_value(library, *x)?;
+
+                    match op {
+                        Unary::Neg => unsafe {
+                            core::LLVMBuildNeg(builder, llvm_x, instruction_name)
+                        },
+                        Unary::Not => unsafe {
+                            core::LLVMBuildNot(builder, llvm_x, instruction_name)
+                        },
+                    }
+                }
             };
 
             unsafe { core::LLVMSetInstDebugLocation(builder, llvm_value) };
@@ -719,24 +1122,22 @@ impl Llvm {
         Ok(())
     }
 
-    fn make_module(&mut self, library: &Library) -> Result<LLVMModule, Error> {
+    fn make_module(&mut self, library: &Library) -> Result<(), Error> {
         for module in library.get_modules() {
-            let name_cstr = CString::new(module.get_name(library).get_name(library)).unwrap();
-            let name = name_cstr.as_ptr() as *const libc::c_char;
-
-            self.current_module =
-                unsafe { core::LLVMModuleCreateWithNameInContext(name, self.context) };
-
-            unsafe { core::LLVMSetTarget(self.current_module, self.triple) };
-
-            self.dibuilder = unsafe { debuginfo::LLVMCreateDIBuilder(self.current_module) };
-
             for global in module.get_globals(library) {
-                self.get_or_insert_type(library, global.get_type(library));
+                let name_cstr = CString::new(global.get_name(library).get_name(library)).unwrap();
+                let name = name_cstr.as_ptr() as *const libc::c_char;
+
+                let llvm_ty = self.get_or_insert_type(library, global.get_type(library))?;
+
+                let llvm_global = unsafe { core::LLVMAddGlobal(self.module, llvm_ty, name) };
+
+                self.value_map.insert(global, llvm_global);
             }
 
             for function in module.get_functions(library) {
-                let llvm_function = self.make_function_declaration(library, function)?;
+                let llvm_function =
+                    self.make_function_declaration(library, function, self.module)?;
                 self.function_map.insert(function, llvm_function);
             }
 
@@ -745,11 +1146,13 @@ impl Llvm {
                     library,
                     function,
                     *self.function_map.get(&function).unwrap(),
-                );
+                )?;
             }
         }
 
-        todo!();
+        unsafe { debuginfo::LLVMDisposeDIBuilder(self.dibuilder) };
+
+        Ok(())
     }
 }
 
@@ -759,12 +1162,85 @@ impl CodeGen for Llvm {
     fn generate<W: Seek + Write>(
         library: &Library,
         platform: CodeGenPlatform,
-        _writer: &mut W,
+        output: CodeGenOutput,
+        writer: &mut W,
     ) -> Result<(), Self::Error> {
-        let mut codegen = Self::new(platform);
+        let mut codegen = Self::new(platform)?;
 
-        let _llvm_module = codegen.make_module(library)?;
+        codegen.make_module(library)?;
 
-        todo!();
+        match output {
+            CodeGenOutput::Assembly => {
+                let mut error_message = ptr::null_mut();
+                let mut memory_buffer = ptr::null_mut();
+
+                if unsafe {
+                    target_machine::LLVMTargetMachineEmitToMemoryBuffer(
+                        codegen.target_machine,
+                        codegen.module,
+                        target_machine::LLVMCodeGenFileType::LLVMAssemblyFile,
+                        &mut error_message,
+                        &mut memory_buffer,
+                    )
+                } != 0
+                {
+                    let cstr = unsafe { CStr::from_ptr(error_message) }.to_owned();
+                    unsafe { LLVMDisposeMessage(error_message) };
+                    return Err(Error::Llvm(cstr));
+                }
+
+                let memory_buffer_start =
+                    unsafe { core::LLVMGetBufferStart(memory_buffer) } as *const u8;
+                let memory_buffer_size = unsafe { core::LLVMGetBufferSize(memory_buffer) };
+
+                writer.write_all(unsafe {
+                    std::slice::from_raw_parts(memory_buffer_start, memory_buffer_size)
+                })?;
+
+                unsafe { LLVMDisposeMemoryBuffer(memory_buffer) };
+                unsafe { LLVMDisposeMessage(error_message) };
+            }
+            CodeGenOutput::Intermediate => {
+                let module_string = unsafe { core::LLVMPrintModuleToString(codegen.module) };
+
+                let cstr = unsafe { CStr::from_ptr(module_string) };
+
+                write!(writer, "{:?}", cstr)?;
+
+                unsafe { LLVMDisposeMessage(module_string) };
+            }
+            CodeGenOutput::Object => {
+                let mut error_message = ptr::null_mut();
+                let mut memory_buffer = ptr::null_mut();
+
+                if unsafe {
+                    target_machine::LLVMTargetMachineEmitToMemoryBuffer(
+                        codegen.target_machine,
+                        codegen.module,
+                        target_machine::LLVMCodeGenFileType::LLVMObjectFile,
+                        &mut error_message,
+                        &mut memory_buffer,
+                    )
+                } != 0
+                {
+                    let cstr = unsafe { CStr::from_ptr(error_message) }.to_owned();
+                    unsafe { LLVMDisposeMessage(error_message) };
+                    return Err(Error::Llvm(cstr));
+                }
+
+                let memory_buffer_start =
+                    unsafe { core::LLVMGetBufferStart(memory_buffer) } as *const u8;
+                let memory_buffer_size = unsafe { core::LLVMGetBufferSize(memory_buffer) };
+
+                writer.write_all(unsafe {
+                    std::slice::from_raw_parts(memory_buffer_start, memory_buffer_size)
+                })?;
+
+                unsafe { LLVMDisposeMemoryBuffer(memory_buffer) };
+                unsafe { LLVMDisposeMessage(error_message) };
+            }
+        }
+
+        Ok(())
     }
 }

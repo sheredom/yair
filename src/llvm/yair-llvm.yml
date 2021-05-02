@@ -1,0 +1,30 @@
+name: yair-llvm
+version: "0.0.1"
+author: Neil Henning <sheredom@gmail.com>
+about: Compile a YAIR binary file (.yair) to LLVM.
+args:
+    - input:
+        help: The input .yair file (or - for stdin)
+        required: true
+        index: 1
+    - output:
+        short: o
+        long: output
+        value_name: FILE
+        help: Where to write the output assembled .yair file (or - for stdout)
+        takes_value: true
+        default_value: "-"
+    - type:
+        short: t
+        long: type
+        value_name: TYPE
+        help: What output file type to produce (object or assembly file)
+        takes_value: true
+        default_value: "Object"
+    - platform:
+        short: p
+        long: platform
+        value_name: PLATFORM
+        help: What platform to generate code for
+        takes_value: true
+        default_value: "MacOsAppleSilicon"

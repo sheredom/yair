@@ -194,7 +194,11 @@ impl Function {
     pub fn is_entry_block(&self, library: &Library, block: Block) -> bool {
         let function = &library.functions[self.0];
 
-        function.blocks.len() == 0 || function.blocks[0] == block
+        if function.blocks.is_empty() {
+            false
+        } else {
+            function.blocks[0] == block
+        }
     }
 
     /// Create a new block in a function.

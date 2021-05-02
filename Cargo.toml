@@ -49,6 +49,11 @@ path = "src/verifier/yair-verify.rs"
 required-features = ["io"]
 
 [[bin]]
+name = "yair-llvm"
+path = "src/llvm/yair-llvm.rs"
+required-features = ["llvm"]
+
+[[bin]]
 name = "test-lit-shell"
 path = "src/io/test-lit-shell.rs"
 required-features = ["io"]

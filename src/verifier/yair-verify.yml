@@ -7,10 +7,3 @@ args:
         help: The input .yair file (or - for stdin)
         required: true
         index: 1
-    - color:
-        long: color
-        value_name: COLOR
-        help: Whether to allow colored command line output
-        takes_value: true
-        default_value: "auto"
-        possible_values: [ "auto", "always", "ansi", "never" ]
