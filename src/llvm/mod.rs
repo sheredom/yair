@@ -55,14 +55,18 @@ impl Drop for Llvm {
 
 impl Llvm {
     fn new(platform: CodeGenPlatform) -> Result<Self, Error> {
+        unsafe {
+            target::LLVMInitializeAArch64Target();
+            target::LLVMInitializeAArch64TargetMC();
+            target::LLVMInitializeAArch64TargetInfo();
+        }
+
         let context = unsafe { core::LLVMContextCreate() };
 
         let triple = match platform {
             CodeGenPlatform::MacOsAppleSilicon => b"aarch64-apple-darwin\0",
         }
         .as_ptr() as *const libc::c_char;
-
-        let target_data = unsafe { target::LLVMCreateTargetData(triple) };
 
         let mut target = ptr::null_mut();
         let mut error_message = ptr::null_mut();
@@ -89,6 +93,8 @@ impl Llvm {
                 target_machine::LLVMCodeModel::LLVMCodeModelLarge,
             )
         };
+
+        let target_data = unsafe { target_machine::LLVMCreateTargetDataLayout(target_machine) };
 
         let module = unsafe { core::LLVMModuleCreateWithNameInContext(EMPTY_NAME, context) };
         unsafe { core::LLVMSetTarget(module, triple) };
@@ -163,13 +169,13 @@ impl Llvm {
         }
     }
 
-    
     fn get_or_insert_debug_type(
         &mut self,
         library: &Library,
         ty: Type,
     ) -> Result<LLVMMetadataRef, Error> {
-        #[allow(clippy::map_entry)]if !self.ditypes.contains_key(&ty) {
+        #[allow(clippy::map_entry)]
+        if !self.ditypes.contains_key(&ty) {
             let llvm_dity = self.insert_debug_type(library, ty)?;
             self.ditypes.insert(ty, llvm_dity);
         }

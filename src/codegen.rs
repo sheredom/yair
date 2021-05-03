@@ -11,8 +11,8 @@ impl FromStr for CodeGenPlatform {
 
     fn from_str(input: &str) -> Result<Self, Self::Err> {
         match input {
-            "MacOsAppleSilicon"  => Ok(CodeGenPlatform::MacOsAppleSilicon),
-            _      => Err(()),
+            "MacOsAppleSilicon" => Ok(CodeGenPlatform::MacOsAppleSilicon),
+            _ => Err(()),
         }
     }
 }
@@ -28,10 +28,10 @@ impl FromStr for CodeGenOutput {
 
     fn from_str(input: &str) -> Result<Self, Self::Err> {
         match input {
-            "Object"  => Ok(CodeGenOutput::Object),
-            "Assembly"  => Ok(CodeGenOutput::Assembly),
-            "Intermediate"  => Ok(CodeGenOutput::Intermediate),
-            _      => Err(()),
+            "Object" => Ok(CodeGenOutput::Object),
+            "Assembly" => Ok(CodeGenOutput::Assembly),
+            "Intermediate" => Ok(CodeGenOutput::Intermediate),
+            _ => Err(()),
         }
     }
 }
