@@ -29,6 +29,7 @@ fn link_in_llvm() {
 
     if cfg!(not(target_os = "windows")) {
         println!("cargo:rustc-link-lib=dylib=ncurses");
+        println!("cargo:rustc-link-lib=dylib=z");
     }
 
     println!("cargo:rustc-link-lib=static=LLVMAArch64AsmParser");

@@ -457,7 +457,14 @@ impl Llvm {
         let name_cstr = CString::new(function.get_name(library).get_name(library)).unwrap();
         let name = name_cstr.as_ptr() as *const libc::c_char;
 
-        Ok(unsafe { core::LLVMAddFunction(llvm_module, name, function_type) })
+        let llvm_function = unsafe { core::LLVMAddFunction(llvm_module, name, function_type) };
+
+        for (index, arg) in function.get_args(library).enumerate() {
+            let llvm_arg = unsafe { core::LLVMGetArgOperand(llvm_function, index as libc::c_uint) };
+            self.value_map.insert(arg, llvm_arg);
+        }
+
+        Ok(llvm_function)
     }
 
     fn add_function_body(
