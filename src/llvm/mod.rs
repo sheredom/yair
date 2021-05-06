@@ -58,12 +58,22 @@ impl Llvm {
         unsafe {
             target::LLVMInitializeAArch64Target();
             target::LLVMInitializeAArch64TargetMC();
+            target::LLVMInitializeAArch64AsmParser();
+            target::LLVMInitializeAArch64AsmPrinter();
             target::LLVMInitializeAArch64TargetInfo();
+            target::LLVMInitializeAArch64Disassembler();
+            target::LLVMInitializeX86Target();
+            target::LLVMInitializeX86TargetMC();
+            target::LLVMInitializeX86AsmParser();
+            target::LLVMInitializeX86AsmPrinter();
+            target::LLVMInitializeX86TargetInfo();
+            target::LLVMInitializeX86Disassembler();
         }
 
         let context = unsafe { core::LLVMContextCreate() };
 
         let triple = match platform {
+            CodeGenPlatform::Windows64Bit => b"x86_64-pc-win32-msvc\0",
             CodeGenPlatform::MacOsAppleSilicon => b"aarch64-apple-darwin\0",
         }
         .as_ptr() as *const libc::c_char;
@@ -460,7 +470,7 @@ impl Llvm {
         let llvm_function = unsafe { core::LLVMAddFunction(llvm_module, name, function_type) };
 
         for (index, arg) in function.get_args(library).enumerate() {
-            let llvm_arg = unsafe { core::LLVMGetArgOperand(llvm_function, index as libc::c_uint) };
+            let llvm_arg = unsafe { core::LLVMGetParam(llvm_function, index as libc::c_uint) };
             self.value_map.insert(arg, llvm_arg);
         }
 
@@ -626,14 +636,26 @@ impl Llvm {
                     let llvm_y = self.get_or_insert_value(library, *y)?;
 
                     match op {
-                        Binary::Add => unsafe {
-                            core::LLVMBuildAdd(builder, llvm_x, llvm_y, instruction_name)
-                        },
+                        Binary::Add => {
+                            if ty.is_float_or_float_vector(library) {
+                                unsafe {
+                                    core::LLVMBuildFAdd(builder, llvm_x, llvm_y, instruction_name)
+                                }
+                            } else {
+                                unsafe {
+                                    core::LLVMBuildAdd(builder, llvm_x, llvm_y, instruction_name)
+                                }
+                            }
+                        }
                         Binary::And => unsafe {
                             core::LLVMBuildAnd(builder, llvm_x, llvm_y, instruction_name)
                         },
                         Binary::Div => {
-                            if ty.is_int_or_int_vector(library) {
+                            if ty.is_float_or_float_vector(library) {
+                                unsafe {
+                                    core::LLVMBuildFDiv(builder, llvm_x, llvm_y, instruction_name)
+                                }
+                            } else if ty.is_int_or_int_vector(library) {
                                 unsafe {
                                     core::LLVMBuildSDiv(builder, llvm_x, llvm_y, instruction_name)
                                 }
@@ -643,14 +665,26 @@ impl Llvm {
                                 }
                             }
                         }
-                        Binary::Mul => unsafe {
-                            core::LLVMBuildMul(builder, llvm_x, llvm_y, instruction_name)
-                        },
+                        Binary::Mul => {
+                            if ty.is_float_or_float_vector(library) {
+                                unsafe {
+                                    core::LLVMBuildFMul(builder, llvm_x, llvm_y, instruction_name)
+                                }
+                            } else {
+                                unsafe {
+                                    core::LLVMBuildMul(builder, llvm_x, llvm_y, instruction_name)
+                                }
+                            }
+                        }
                         Binary::Or => unsafe {
                             core::LLVMBuildOr(builder, llvm_x, llvm_y, instruction_name)
                         },
                         Binary::Rem => {
-                            if ty.is_int_or_int_vector(library) {
+                            if ty.is_float_or_float_vector(library) {
+                                unsafe {
+                                    core::LLVMBuildFRem(builder, llvm_x, llvm_y, instruction_name)
+                                }
+                            } else if ty.is_int_or_int_vector(library) {
                                 unsafe {
                                     core::LLVMBuildSRem(builder, llvm_x, llvm_y, instruction_name)
                                 }
@@ -674,9 +708,17 @@ impl Llvm {
                                 }
                             }
                         }
-                        Binary::Sub => unsafe {
-                            core::LLVMBuildSub(builder, llvm_x, llvm_y, instruction_name)
-                        },
+                        Binary::Sub => {
+                            if ty.is_float_or_float_vector(library) {
+                                unsafe {
+                                    core::LLVMBuildFSub(builder, llvm_x, llvm_y, instruction_name)
+                                }
+                            } else {
+                                unsafe {
+                                    core::LLVMBuildSub(builder, llvm_x, llvm_y, instruction_name)
+                                }
+                            }
+                        }
                         Binary::Xor => unsafe {
                             core::LLVMBuildXor(builder, llvm_x, llvm_y, instruction_name)
                         },
@@ -1163,8 +1205,6 @@ impl Llvm {
             }
         }
 
-        unsafe { debuginfo::LLVMDisposeDIBuilder(self.dibuilder) };
-
         Ok(())
     }
 }
@@ -1218,7 +1258,7 @@ impl CodeGen for Llvm {
 
                 let cstr = unsafe { CStr::from_ptr(module_string) };
 
-                write!(writer, "{:?}", cstr)?;
+                write!(writer, "{:#?}", cstr)?;
 
                 unsafe { LLVMDisposeMessage(module_string) };
             }

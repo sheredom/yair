@@ -3,6 +3,7 @@ use std::io::{Seek, Write};
 use std::str::FromStr;
 
 pub enum CodeGenPlatform {
+    Windows64Bit,
     MacOsAppleSilicon,
 }
 
@@ -11,6 +12,7 @@ impl FromStr for CodeGenPlatform {
 
     fn from_str(input: &str) -> Result<Self, Self::Err> {
         match input {
+            "Windows64Bit" => Ok(CodeGenPlatform::Windows64Bit),
             "MacOsAppleSilicon" => Ok(CodeGenPlatform::MacOsAppleSilicon),
             _ => Err(()),
         }
