@@ -42,6 +42,14 @@ mod tests {
             .to_string()
     }
 
+    fn yair_llvm_exe() -> String {
+        bin_dir()
+            .join(format!("yair-llvm{}", env::consts::EXE_SUFFIX))
+            .to_str()
+            .unwrap()
+            .to_string()
+    }
+
     fn lit_shell_exe() -> String {
         bin_dir()
             .join(format!("test-lit-shell{}", env::consts::EXE_SUFFIX))
@@ -50,10 +58,22 @@ mod tests {
             .to_string()
     }
 
+    #[cfg(not(feature = "llvm"))]
+    fn add_yair_llvm(_: &mut lit::Config) {}
+
+    #[cfg(feature = "llvm")]
+    fn add_yair_llvm(config: &mut lit::Config) {
+        config.add_search_path("tests/llvm");
+
+        config
+            .constants
+            .insert("yair_llvm".to_owned(), yair_llvm_exe());
+    }
+
     #[test]
     fn lit() {
         lit::run::tests(lit::event_handler::Default::default(), |config| {
-            config.add_search_path("tests/lit");
+            config.add_search_path("tests/all");
             config.add_extension("ya");
 
             config.constants.insert("yair_as".to_owned(), yair_as_exe());
@@ -69,6 +89,8 @@ mod tests {
             config
                 .constants
                 .insert("os".to_owned(), consts::OS.to_owned());
+
+            add_yair_llvm(config);
 
             config.shell = lit_shell_exe();
         })

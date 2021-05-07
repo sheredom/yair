@@ -1,0 +1,12 @@
+// RUN: @yair_as @file | @yair_llvm - --platform MacOsAppleSilicon --type Assembly
+
+mod "😀" {
+  // CHECK: _foo:
+  fn foo(a : f32, b : f32) : f32 {
+    bar(a : f32, b : f32):
+      // CHECK: fadd[[ws:\s*]]s0, s0, s1
+      r = add a, b
+      // ret
+      ret r
+  }
+}

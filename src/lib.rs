@@ -463,10 +463,10 @@ impl Type {
     /// # let u32_ty = library.get_uint_type(32);
     /// # let vec_ty = library.get_vector_type(u32_ty, 4);
     /// # let bool_ty = library.get_bool_type();
-    /// let is_int = u32_ty.is_uint_or_uint_vector(&library);
-    /// let is_vector_int = vec_ty.is_uint_or_uint_vector(&library);
-    /// # assert!(is_integral);
-    /// # assert!(is_vector_integral);
+    /// let is_uint = u32_ty.is_uint_or_uint_vector(&library);
+    /// let is_vector_uint = vec_ty.is_uint_or_uint_vector(&library);
+    /// # assert!(is_uint);
+    /// # assert!(is_vector_uint);
     /// # assert!(!bool_ty.is_uint_or_uint_vector(&library));
     /// ```
     pub fn is_uint_or_uint_vector(&self, library: &Library) -> bool {
@@ -487,13 +487,13 @@ impl Type {
     /// # use yair::*;
     /// # let mut library = Library::new();
     /// # let module = library.create_module().build();
-    /// # let u32_ty = library.get_uint_type(32);
-    /// # let vec_ty = library.get_vector_type(u32_ty, 4);
+    /// # let i32_ty = library.get_int_type(32);
+    /// # let vec_ty = library.get_vector_type(i32_ty, 4);
     /// # let bool_ty = library.get_bool_type();
-    /// let is_int = u32_ty.is_int_or_int_vector(&library);
+    /// let is_int = i32_ty.is_int_or_int_vector(&library);
     /// let is_vector_int = vec_ty.is_int_or_int_vector(&library);
-    /// # assert!(is_integral);
-    /// # assert!(is_vector_integral);
+    /// # assert!(is_int);
+    /// # assert!(is_vector_int);
     /// # assert!(!bool_ty.is_int_or_int_vector(&library));
     /// ```
     pub fn is_int_or_int_vector(&self, library: &Library) -> bool {
