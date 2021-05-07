@@ -1258,7 +1258,7 @@ impl CodeGen for Llvm {
 
                 let cstr = unsafe { CStr::from_ptr(module_string) };
 
-                write!(writer, "{:#?}", cstr)?;
+                write!(writer, "{}", cstr.to_string_lossy())?;
 
                 unsafe { LLVMDisposeMessage(module_string) };
             }
