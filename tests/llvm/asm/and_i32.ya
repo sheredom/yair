@@ -1,0 +1,12 @@
+// RUN: @yair_as @file | @yair_llvm - --platform MacOsAppleSilicon --type Assembly
+
+mod "😀" {
+  // CHECK: "_😀::foo":
+  fn foo(a : i32, b : i32) : i32 {
+    bar(a : i32, b : i32):
+      // CHECK: and[[ws:\s*]]w[[r:\w+]], w[[a:\w+]], w[[b:\w+]]
+      r = and a, b
+      // ret
+      ret r
+  }
+}

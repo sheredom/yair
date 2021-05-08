@@ -446,6 +446,7 @@ impl Llvm {
         library: &Library,
         function: Function,
         llvm_module: LLVMModuleRef,
+        module_name: &String,
     ) -> Result<LLVMValueRef, Error> {
         let mut elements = Vec::new();
 
@@ -464,7 +465,9 @@ impl Llvm {
             )
         };
 
-        let name_cstr = CString::new(function.get_name(library).get_name(library)).unwrap();
+        let name_string = module_name.to_owned() + "::" + function.get_name(library).get_name(library);
+
+        let name_cstr = CString::new(name_string).unwrap();
         let name = name_cstr.as_ptr() as *const libc::c_char;
 
         let llvm_function = unsafe { core::LLVMAddFunction(llvm_module, name, function_type) };
@@ -760,13 +763,19 @@ impl Llvm {
                         llvm_values.push(self.get_or_insert_value(library, *argument)?);
                     }
 
+                    let used_instruction_name = if function.get_return_type(library).is_void(library) {
+                        ptr::null_mut()
+                    } else {
+                        instruction_name
+                    };
+
                     unsafe {
                         core::LLVMBuildCall(
                             builder,
                             llvm_function,
                             llvm_values.as_mut_ptr(),
                             llvm_values.len() as libc::c_uint,
-                            instruction_name,
+                            used_instruction_name,
                         )
                     }
                 }
@@ -1179,6 +1188,8 @@ impl Llvm {
 
     fn make_module(&mut self, library: &Library) -> Result<(), Error> {
         for module in library.get_modules() {
+            let module_name = module.get_name(library).get_name(library).to_owned();
+
             for global in module.get_globals(library) {
                 let name_cstr = CString::new(global.get_name(library).get_name(library)).unwrap();
                 let name = name_cstr.as_ptr() as *const libc::c_char;
@@ -1192,7 +1203,7 @@ impl Llvm {
 
             for function in module.get_functions(library) {
                 let llvm_function =
-                    self.make_function_declaration(library, function, self.module)?;
+                    self.make_function_declaration(library, function, self.module, &module_name)?;
                 self.function_map.insert(function, llvm_function);
             }
 

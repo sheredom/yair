@@ -1,0 +1,14 @@
+// RUN: @yair_as @file | @yair_llvm - --platform MacOsAppleSilicon --type Intermediate
+
+// CHECK: target triple = "aarch64-apple-darwin"
+
+mod "😀" {
+  // CHECK: define float @"\F0\9F\98\80::foo"(float %0, float %1)
+  fn foo(a : f32, b : f32) : f32 {
+    bar(a : f32, b : f32):
+      // CHECK: %v4 = fdiv float %0, %1
+      r = div a, b
+      // CHECK: ret float %v4
+      ret r
+  }
+}

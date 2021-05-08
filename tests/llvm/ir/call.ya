@@ -1,0 +1,15 @@
+// RUN: @yair_as @file | @yair_llvm - --platform MacOsAppleSilicon --type Intermediate
+
+mod "😀" {
+  fn bar() : void
+
+  // CHECK: fn foo() : void {
+  fn foo() : void {
+    // CHECK: b0():
+    bar():
+      // CHECK: [[result:\w+]] = call bar()
+      r = call bar()
+      // CHECK: ret
+      ret
+  }
+}

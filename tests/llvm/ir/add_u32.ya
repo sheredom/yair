@@ -3,12 +3,12 @@
 // CHECK: target triple = "aarch64-apple-darwin"
 
 mod "😀" {
-  // CHECK: define float @foo(float %0, float %1)
-  fn foo(a : f32, b : f32) : f32 {
-    bar(a : f32, b : f32):
-      // CHECK: %v4 = fadd float %0, %1
+  // CHECK: define i32 @"\F0\9F\98\80::foo"(i32 %0, i32 %1)
+  fn foo(a : u32, b : u32) : u32 {
+    bar(a : u32, b : u32):
+      // CHECK: %v4 = add i32 %0, %1
       r = add a, b
-      // CHECK: ret float %v4
+      // CHECK: ret i32 %v4
       ret r
   }
 }

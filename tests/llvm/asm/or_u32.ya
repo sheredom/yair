@@ -1,0 +1,12 @@
+// RUN: @yair_as @file | @yair_llvm - --platform MacOsAppleSilicon --type Assembly
+
+mod "😀" {
+  // CHECK: "_😀::foo":
+  fn foo(a : u32, b : u32) : u32 {
+    bar(a : u32, b : u32):
+      // CHECK: orr[[ws:\s*]]w[[r:\w+]], w[[a:\w+]], w[[b:\w+]]
+      r = or a, b
+      // ret
+      ret r
+  }
+}
