@@ -3,10 +3,10 @@
 // CHECK: target triple = "aarch64-apple-darwin"
 
 mod "😀" {
-  // CHECK: define i32 @"\F0\9F\98\80::foo"(i32 %0, i32 %1)
+  // CHECK: define i32 @"\F0\9F\98\80::foo"(i32 %a, i32 %b)
   fn foo(a : i32, b : i32) : i32 {
     bar(a : i32, b : i32):
-      // CHECK: %v4 = xor i32 %0, %1
+      // CHECK: %v4 = xor i32 %a, %b
       r = xor a, b
       // CHECK: ret i32 %v4
       ret r

@@ -473,7 +473,12 @@ impl Llvm {
         let llvm_function = unsafe { core::LLVMAddFunction(llvm_module, name, function_type) };
 
         for (index, arg) in function.get_args(library).enumerate() {
+            let arg_name_cstr = CString::new(arg.get_name(library).get_name(library)).unwrap();
+            let arg_name = arg_name_cstr.as_ptr() as *const libc::c_char;
+
             let llvm_arg = unsafe { core::LLVMGetParam(llvm_function, index as libc::c_uint) };
+
+            unsafe { core::LLVMSetValueName(llvm_arg, arg_name)};
             self.value_map.insert(arg, llvm_arg);
         }
 
