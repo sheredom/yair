@@ -465,7 +465,8 @@ impl Llvm {
             )
         };
 
-        let name_string = module_name.to_owned() + "::" + function.get_name(library).get_name(library);
+        let name_string =
+            module_name.to_owned() + "::" + function.get_name(library).get_name(library);
 
         let name_cstr = CString::new(name_string).unwrap();
         let name = name_cstr.as_ptr() as *const libc::c_char;
@@ -473,12 +474,17 @@ impl Llvm {
         let llvm_function = unsafe { core::LLVMAddFunction(llvm_module, name, function_type) };
 
         for (index, arg) in function.get_args(library).enumerate() {
-            let arg_name_cstr = CString::new(arg.get_name(library).get_name(library)).unwrap();
-            let arg_name = arg_name_cstr.as_ptr() as *const libc::c_char;
+            let arg_name = arg.get_name(library).get_name(library);
 
             let llvm_arg = unsafe { core::LLVMGetParam(llvm_function, index as libc::c_uint) };
 
-            unsafe { core::LLVMSetValueName(llvm_arg, arg_name)};
+            unsafe {
+                core::LLVMSetValueName2(
+                    llvm_arg,
+                    arg_name.as_ptr() as *const libc::c_char,
+                    arg_name.len() as libc::size_t,
+                )
+            };
             self.value_map.insert(arg, llvm_arg);
         }
 
@@ -768,11 +774,12 @@ impl Llvm {
                         llvm_values.push(self.get_or_insert_value(library, *argument)?);
                     }
 
-                    let used_instruction_name = if function.get_return_type(library).is_void(library) {
-                        ptr::null_mut()
-                    } else {
-                        instruction_name
-                    };
+                    let used_instruction_name =
+                        if function.get_return_type(library).is_void(library) {
+                            EMPTY_NAME
+                        } else {
+                            instruction_name
+                        };
 
                     unsafe {
                         core::LLVMBuildCall(
