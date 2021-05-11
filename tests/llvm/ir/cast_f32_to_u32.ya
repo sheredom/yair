@@ -1,0 +1,12 @@
+// RUN: @yair_as @file | @yair_llvm - --platform MacOsAppleSilicon --type Intermediate
+
+mod "😀" {
+  // CHECK: define i32 @"\F0\9F\98\80::foo"(float %a)
+  fn foo(a : f32) : u32 {
+    bar(a : f32):
+      // CHECK: %v2 = fptoui float %a to i32
+      r = cast a to u32
+      // CHECK: ret i32 %v2
+      ret r
+  }
+}

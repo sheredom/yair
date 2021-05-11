@@ -1,0 +1,12 @@
+// RUN: @yair_as @file | @yair_llvm - --platform MacOsAppleSilicon --type Intermediate
+
+mod "😀" {
+  // CHECK: define i32 @"\F0\9F\98\80::foo"(i32 %[[a:\w+]])
+  fn foo(a : u32) : u32 {
+    bar(a : u32):
+      // CHECK: %[[r:\w+]] = sub i32 0, %$$a
+      r = neg a
+      // CHECK: ret i32 %$$r
+      ret r
+  }
+}

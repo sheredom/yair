@@ -1,15 +1,15 @@
 // RUN: @yair_as @file | @yair_llvm - --platform MacOsAppleSilicon --type Intermediate
 
 mod "😀" {
+  // CHECK: declare void @"\F0\9F\98\80::bar"()
   fn bar() : void
 
-  // CHECK: fn foo() : void {
+  // CHECK: define void @"\F0\9F\98\80::foo"()
   fn foo() : void {
-    // CHECK: b0():
     bar():
-      // CHECK: [[result:\w+]] = call bar()
+      // CHECK: call void @"\F0\9F\98\80::bar"()
       r = call bar()
-      // CHECK: ret
+      // ret void
       ret
   }
 }

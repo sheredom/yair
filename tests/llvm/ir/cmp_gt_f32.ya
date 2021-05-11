@@ -1,0 +1,12 @@
+// RUN: @yair_as @file | @yair_llvm - --platform MacOsAppleSilicon --type Intermediate
+
+mod "😀" {
+  // CHECK: define i1 @"\F0\9F\98\80::foo"(float %a, float %b)
+  fn foo(a : f32, b : f32) : bool {
+    bar(a : f32, b : f32):
+      // CHECK: %v4 = fcmp ogt float %a, %b
+      r = cmp gt a, b
+      // CHECK: ret i1 %v4
+      ret r
+  }
+}

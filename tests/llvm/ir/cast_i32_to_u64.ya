@@ -1,0 +1,12 @@
+// RUN: @yair_as @file | @yair_llvm - --platform MacOsAppleSilicon --type Intermediate
+
+mod "😀" {
+  // CHECK: define i64 @"\F0\9F\98\80::foo"(i32 %a)
+  fn foo(a : i32) : u64 {
+    bar(a : i32):
+      // CHECK: %v2 = sext i32 %a to i64
+      r = cast a to u64
+      // CHECK: ret i64 %v2
+      ret r
+  }
+}

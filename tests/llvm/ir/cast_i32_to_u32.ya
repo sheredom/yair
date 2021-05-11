@@ -1,0 +1,12 @@
+// RUN: @yair_as @file | @yair_llvm - --platform MacOsAppleSilicon --type Intermediate
+
+mod "😀" {
+  // CHECK: define i32 @"\F0\9F\98\80::foo"(i32 %a)
+  fn foo(a : i32) : u32 {
+    bar(a : i32):
+      // CHECK: %v2 = call i32 @llvm.ssa.copy.i32(i32 %a)
+      r = cast a to u32
+      // CHECK: ret i32 %v2
+      ret r
+  }
+}

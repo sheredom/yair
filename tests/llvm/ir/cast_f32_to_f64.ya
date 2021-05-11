@@ -1,0 +1,12 @@
+// RUN: @yair_as @file | @yair_llvm - --platform MacOsAppleSilicon --type Intermediate
+
+mod "😀" {
+  // CHECK: define double @"\F0\9F\98\80::foo"(float %a)
+  fn foo(a : f32) : f64 {
+    bar(a : f32):
+      // CHECK: %v2 = fpext float %a to double
+      r = cast a to f64
+      // CHECK: ret double %v2
+      ret r
+  }
+}

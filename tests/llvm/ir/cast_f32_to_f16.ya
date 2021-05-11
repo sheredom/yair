@@ -1,0 +1,12 @@
+// RUN: @yair_as @file | @yair_llvm - --platform MacOsAppleSilicon --type Intermediate
+
+mod "😀" {
+  // CHECK: define half @"\F0\9F\98\80::foo"(float %a)
+  fn foo(a : f32) : f16 {
+    bar(a : f32):
+      // CHECK: %v2 = fptrunc float %a to half
+      r = cast a to f16
+      // CHECK: ret half %v2
+      ret r
+  }
+}

@@ -1,0 +1,12 @@
+// RUN: @yair_as @file | @yair_llvm - --platform MacOsAppleSilicon --type Intermediate
+
+mod "😀" {
+  // CHECK: define float @"\F0\9F\98\80::foo"(float %[[a:\w+]])
+  fn foo(a : f32) : f32 {
+    bar(a : f32):
+      // CHECK: %[[r:\w+]] = fneg float %$$a
+      r = neg a
+      // CHECK: ret float %$$r
+      ret r
+  }
+}

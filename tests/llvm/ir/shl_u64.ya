@@ -1,0 +1,12 @@
+// RUN: @yair_as @file | @yair_llvm - --platform MacOsAppleSilicon --type Intermediate
+
+mod "😀" {
+  // CHECK: define i64 @"\F0\9F\98\80::foo"(i64 %[[a:\w+]], i64 %[[b:\w+]])
+  fn foo(a : u64, b : u64) : u64 {
+    bar(a : u64, b : u64):
+      // CHECK: %[[result:\w+]] = shl i64 %$$a, %$$b
+      r = shl a, b
+      // CHECK: ret i64 %$$result
+      ret r
+  }
+}

@@ -1,0 +1,12 @@
+// RUN: @yair_as @file | @yair_llvm - --platform MacOsAppleSilicon --type Intermediate
+
+mod "😀" {
+  // CHECK: define i16 @"\F0\9F\98\80::foo"(i32 %a)
+  fn foo(a : i32) : u16 {
+    bar(a : i32):
+      // CHECK: %v2 = trunc i32 %a to i16
+      r = cast a to u16
+      // CHECK: ret i16 %v2
+      ret r
+  }
+}

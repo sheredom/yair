@@ -1,0 +1,13 @@
+// RUN: @yair_as @file | @yair_llvm - --platform MacOsAppleSilicon --type Intermediate
+
+mod "😀" {
+  // CHECK: define half @"\F0\9F\98\80::foo"(i8* %[[a:\w+]])
+  fn foo(a : *any) : f16 {
+    bar(a : *any):
+      // CHECK: %[[bitcast:\w+]] = bitcast i8* %$$a to half*
+      // CHECK: %[[load:\w+]] = load half, half* %$$bitcast, align 2
+      r = load f16, a
+      // CHECK: ret half %$$load
+      ret r
+  }
+}

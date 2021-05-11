@@ -1,0 +1,12 @@
+// RUN: @yair_as @file | @yair_llvm - --platform MacOsAppleSilicon --type Intermediate
+
+mod "😀" {
+  // CHECK: define <2 x i8> @"\F0\9F\98\80::foo"(i8 %[[a:\w+]], <2 x i8> %[[b:\w+]])
+  fn foo(a: u8, b: <u8, 2>) : <u8, 2> {
+    bar(a: u8, b: <u8, 2>):
+      // CHECK: %[[result:\w+]] = insertelement <2 x i8> %$$b, i8 %$$a, i64 1
+      c = insert b, a, 1
+      // CHECK: ret <2 x i8> %$$result
+      ret c
+  }
+}

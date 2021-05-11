@@ -1,0 +1,12 @@
+// RUN: @yair_as @file | @yair_llvm - --platform MacOsAppleSilicon --type Intermediate
+
+mod "😀" {
+  // CHECK: define i32 @"\F0\9F\98\80::foo"(i1 %[[cond:\w+]], i32 %[[a:\w+]], i32 %[[b:\w+]])
+  fn foo(cond : bool, a : i32, b : i32) : i32 {
+    bar(cond : bool, a : i32, b : i32):
+      // CHECK: %[[select:\w+]] = select i1 %$$cond, i32 %$$a, i32 %$$b
+      c = select cond, a, b
+      // CHECK: ret i32 %$$select
+      ret c
+  }
+}

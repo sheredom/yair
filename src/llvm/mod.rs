@@ -805,7 +805,42 @@ impl Llvm {
                     let src_is_int = src_ty.is_int_or_int_vector(library);
                     let src_is_uint = src_ty.is_uint_or_uint_vector(library);
 
-                    if dst_is_float {
+                    // If both inputs are integers that are the same size, the cast is a no-op.
+                    if (dst_is_int || dst_is_uint)
+                        && (src_is_int || src_is_uint)
+                        && src_ty.get_bits(library) == ty.get_bits(library)
+                    {
+                        let name = "llvm.ssa.copy";
+                        let llvm_intrinsic_id = unsafe {
+                            core::LLVMLookupIntrinsicID(
+                                name.as_ptr() as *const libc::c_char,
+                                name.len(),
+                            )
+                        };
+
+                        let mut llvm_types = vec![llvm_ty];
+
+                        let llvm_intrinsic = unsafe {
+                            core::LLVMGetIntrinsicDeclaration(
+                                self.module,
+                                llvm_intrinsic_id,
+                                llvm_types.as_mut_ptr(),
+                                llvm_types.len() as libc::size_t,
+                            )
+                        };
+
+                        let mut llvm_values = vec![llvm_x];
+
+                        unsafe {
+                            core::LLVMBuildCall(
+                                builder,
+                                llvm_intrinsic,
+                                llvm_values.as_mut_ptr(),
+                                llvm_values.len() as libc::c_uint,
+                                instruction_name,
+                            )
+                        }
+                    } else if dst_is_float {
                         if src_is_float {
                             unsafe {
                                 core::LLVMBuildFPCast(builder, llvm_x, llvm_ty, instruction_name)
@@ -877,11 +912,13 @@ impl Llvm {
                         }
                     }
                 }
-                Instruction::Cmp(ty, op, x, y, _) => {
+                Instruction::Cmp(_, op, x, y, _) => {
                     let llvm_x = self.get_or_insert_value(library, *x)?;
                     let llvm_y = self.get_or_insert_value(library, *y)?;
 
-                    if ty.is_float_or_float_vector(library) {
+                    let x_ty = x.get_type(library);
+
+                    if x_ty.is_float_or_float_vector(library) {
                         let predicate = match op {
                             Cmp::Eq => LLVMRealPredicate::LLVMRealOEQ,
                             Cmp::Ge => LLVMRealPredicate::LLVMRealOGE,
@@ -901,7 +938,7 @@ impl Llvm {
                             )
                         }
                     } else {
-                        let predicate = if ty.is_int_or_int_vector(library) {
+                        let predicate = if x_ty.is_int_or_int_vector(library) {
                             match op {
                                 Cmp::Eq => LLVMIntPredicate::LLVMIntEQ,
                                 Cmp::Ge => LLVMIntPredicate::LLVMIntSGE,
@@ -1092,9 +1129,7 @@ impl Llvm {
                         core::LLVMBuildBitCast(builder, llvm_ptr, llvm_ptr_ty, instruction_name)
                     };
 
-                    unsafe {
-                        core::LLVMBuildLoad2(builder, llvm_ptr_ty, llvm_cast, instruction_name)
-                    }
+                    unsafe { core::LLVMBuildLoad2(builder, llvm_ty, llvm_cast, instruction_name) }
                 }
                 Instruction::Return(_) => unsafe { core::LLVMBuildRetVoid(builder) },
                 Instruction::ReturnValue(_, x, _) => {
@@ -1180,9 +1215,14 @@ impl Llvm {
                     let llvm_x = self.get_or_insert_value(library, *x)?;
 
                     match op {
-                        Unary::Neg => unsafe {
-                            core::LLVMBuildNeg(builder, llvm_x, instruction_name)
-                        },
+                        Unary::Neg => {
+                            let x_ty = x.get_type(library);
+                            if x_ty.is_float_or_float_vector(library) {
+                                unsafe { core::LLVMBuildFNeg(builder, llvm_x, instruction_name) }
+                            } else {
+                                unsafe { core::LLVMBuildNeg(builder, llvm_x, instruction_name) }
+                            }
+                        }
                         Unary::Not => unsafe {
                             core::LLVMBuildNot(builder, llvm_x, instruction_name)
                         },

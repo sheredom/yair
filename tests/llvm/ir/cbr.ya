@@ -1,0 +1,18 @@
+// RUN: @yair_as @file | @yair_llvm - --platform MacOsAppleSilicon --type Intermediate
+
+mod "😀" {
+  // CHECK: define i32 @"\F0\9F\98\80::foo"(i1 %cond, i32 %a)
+  fn foo(cond : bool, a : i32) : i32 {
+    bar(cond : bool, a : i32):
+      // CHECK: br i1 %cond, label %1, label %3
+      cbr cond, haz(a), baz(a)
+    haz(a : i32):
+      // CHECK: %2 = phi i32 [ %a, %0 ]
+      // CHECK: ret i32 %2
+      ret a
+    baz(a : i32):
+      // CHECK: %4 = phi i32 [ %a, %0 ]
+      // CHECK: ret i32 %4
+      ret a
+  }
+}

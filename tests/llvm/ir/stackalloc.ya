@@ -1,12 +1,14 @@
-// RUN: @yair_as @file | @yair_llvm - --type Intermediate
+// RUN: @yair_as @file | @yair_dis -
 
+// CHECK: mod "😀"
 mod "😀" {
-  // CHECK: define void @"\F0\9F\98\80::foo"()
+  // CHECK: fn foo() : void {
   fn foo() : void {
+    // CHECK: b0():
     bar():
       // CHECK: [[result:\w+]] = stackalloc a, i8
       s = stackalloc a, i8
-      // CHECK: ret void
+      // CHECK: ret
       ret
   }
 }

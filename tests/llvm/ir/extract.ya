@@ -1,0 +1,12 @@
+// RUN: @yair_as @file | @yair_llvm - --platform MacOsAppleSilicon --type Intermediate
+
+mod "😀" {
+  // CHECK: define i8 @"\F0\9F\98\80::foo"(<2 x i8> %a)
+  fn foo(a: <u8, 2>) : u8 {
+    bar(a: <u8, 2>):
+      // CHECK: %v2 = extractelement <2 x i8> %a, i64 1
+      b = extract a, 1
+      // CHECK: ret i8 %v2
+      ret b
+  }
+}
