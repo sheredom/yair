@@ -446,7 +446,7 @@ impl Llvm {
         library: &Library,
         function: Function,
         llvm_module: LLVMModuleRef,
-        module_name: &String,
+        module_name: &str,
     ) -> Result<LLVMValueRef, Error> {
         let mut elements = Vec::new();
 
@@ -1156,45 +1156,47 @@ impl Llvm {
 
                     let alloca = unsafe { core::LLVMBuildAlloca(builder, llvm_ty, name) };
 
-                    let llvm_location = unsafe { core::LLVMGetCurrentDebugLocation2(builder) };
+                    if let Some(location) = instruction.get_location(library) {
+                        let line_number = location.get_line();
 
-                    let line_number = unsafe {
-                        core::LLVMGetDebugLocLine(core::LLVMGetCurrentDebugLocation(builder))
-                    };
+                        let llvm_location = unsafe { core::LLVMGetCurrentDebugLocation2(builder) };
 
-                    let llvm_scope = llvm_location;
+                        debug_assert!(!llvm_location.is_null());
 
-                    let llvm_variable = unsafe {
-                        debuginfo::LLVMDIBuilderCreateAutoVariable(
-                            self.dibuilder,
-                            llvm_scope,
-                            name,
-                            len as libc::size_t,
-                            llvm_location,
-                            line_number as libc::c_uint,
-                            self.get_or_insert_debug_type(library, *ty)?,
-                            0,
-                            0,
-                            0,
-                        )
-                    };
+                        let llvm_scope = llvm_location;
 
-                    unsafe {
-                        debuginfo::LLVMDIBuilderInsertDbgValueAtEnd(
-                            self.dibuilder,
-                            alloca,
-                            llvm_variable,
-                            debuginfo::LLVMDIBuilderCreateExpression(
+                        let llvm_variable = unsafe {
+                            debuginfo::LLVMDIBuilderCreateAutoVariable(
                                 self.dibuilder,
-                                ptr::null_mut(),
+                                llvm_scope,
+                                name,
+                                len as libc::size_t,
+                                llvm_location,
+                                line_number as libc::c_uint,
+                                self.get_or_insert_debug_type(library, *ty)?,
                                 0,
-                            ),
-                            LLVMGetCurrentDebugLocation2(builder),
-                            llvm_block,
-                        )
-                    };
+                                0,
+                                0,
+                            )
+                        };
 
-                    todo!("Need a debug scope, which means subprograms and all that jazz");
+                        unsafe {
+                            debuginfo::LLVMDIBuilderInsertDbgValueAtEnd(
+                                self.dibuilder,
+                                alloca,
+                                llvm_variable,
+                                debuginfo::LLVMDIBuilderCreateExpression(
+                                    self.dibuilder,
+                                    ptr::null_mut(),
+                                    0,
+                                ),
+                                LLVMGetCurrentDebugLocation2(builder),
+                                llvm_block,
+                            )
+                        };
+
+                        todo!("Need a debug scope, which means subprograms and all that jazz");
+                    }
 
                     alloca
                 }

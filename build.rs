@@ -51,7 +51,7 @@ fn link_in_llvm() {
     println!("cargo:rustc-link-lib=static=LLVMDebugInfoDWARF");
     println!("cargo:rustc-link-lib=static=LLVMDebugInfoGSYM");
     println!("cargo:rustc-link-lib=static=LLVMDebugInfoMSF");
-    println!("cargo:rustc-link-lib=static=LLVMDebugInfoPDB");
+    //println!("cargo:rustc-link-lib=static=LLVMDebugInfoPDB");
     println!("cargo:rustc-link-lib=static=LLVMDemangle");
     println!("cargo:rustc-link-lib=static=LLVMGlobalISel");
     println!("cargo:rustc-link-lib=static=LLVMMC");
