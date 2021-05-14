@@ -1,0 +1,13 @@
+// RUN: @yair_as @file | @yair_llvm - --type Intermediate
+
+mod "😀" {
+  // CHECK: define void @"\F0\9F\98\80::foo"(i8* %[[a:\w+]], half %[[b:\w+]])
+  fn foo(a : *any, b : f16) : void {
+    bar(a : *any, b: f16):
+      // CHECK: %[[bitcast:\w+]] = bitcast i8* %$$a to half*
+      // CHECK: store half %$$b, half* %$$bitcast, align 2
+      store f16, a, b
+      // CHECK: ret void
+      ret
+  }
+}

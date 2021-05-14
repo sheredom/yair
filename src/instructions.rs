@@ -1232,13 +1232,13 @@ impl<'a> InstructionBuilder<'a> {
     /// # let mut library = Library::new();
     /// # let module = library.create_module().build();
     /// # let u32_ty = library.get_uint_type(32);
-    /// # let u32_stack_ptr_ty = library.get_pointer_type(Domain::Stack);
+    /// # let stack_ptr_ty = library.get_pointer_type(Domain::Stack);
     /// # let function = module.create_function(&mut library).with_name("func").with_return_type(u32_ty).build();
     /// # let block = function.create_block(&mut library).build();
     /// # let mut instruction_builder = block.create_instructions(&mut library);
     /// # let location = None;
     /// let stack_alloc = instruction_builder.stack_alloc("a", u32_ty, location);
-    /// # assert_eq!(stack_alloc.get_type(&library), u32_stack_ptr_ty);
+    /// # assert_eq!(stack_alloc.get_type(&library), stack_ptr_ty);
     /// ```
     pub fn stack_alloc(&mut self, name: &str, ty: Type, location: Option<Location>) -> Value {
         let ptr_ty = self.library.get_pointer_type(Domain::Stack);
