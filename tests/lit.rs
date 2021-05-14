@@ -42,14 +42,6 @@ mod tests {
             .to_string()
     }
 
-    fn yair_llvm_exe() -> String {
-        bin_dir()
-            .join(format!("yair-llvm{}", env::consts::EXE_SUFFIX))
-            .to_str()
-            .unwrap()
-            .to_string()
-    }
-
     fn lit_shell_exe() -> String {
         bin_dir()
             .join(format!("test-lit-shell{}", env::consts::EXE_SUFFIX))
@@ -63,11 +55,17 @@ mod tests {
 
     #[cfg(feature = "llvm")]
     fn add_yair_llvm(config: &mut lit::Config) {
+        let yair_llvm_exe = bin_dir()
+            .join(format!("yair-llvm{}", env::consts::EXE_SUFFIX))
+            .to_str()
+            .unwrap()
+            .to_string();
+
         config.add_search_path("tests/llvm");
 
         config
             .constants
-            .insert("yair_llvm".to_owned(), yair_llvm_exe());
+            .insert("yair_llvm".to_owned(), yair_llvm_exe);
     }
 
     #[test]
