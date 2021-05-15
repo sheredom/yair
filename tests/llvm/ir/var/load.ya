@@ -1,0 +1,15 @@
+// RUN: @yair_as @file | @yair_llvm - --type Intermediate
+
+mod "😀" {
+  // @my_var = external global double
+  var my_var : cpu, f64
+
+  // define f64 @"\F0\9F\98\80::foo"()
+  fn foo() : f64 {
+    bar():
+      // CHECK: %[[result:\w+]] = load double, double* @my_var, align 8
+      r = load f64, my_var
+      // CHECK: ret double %$$result
+      ret r
+  }
+}

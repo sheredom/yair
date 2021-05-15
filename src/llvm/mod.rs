@@ -1248,11 +1248,16 @@ impl Llvm {
                 let name_cstr = CString::new(global.get_name(library).get_name(library)).unwrap();
                 let name = name_cstr.as_ptr() as *const libc::c_char;
 
-                let llvm_ty = self.get_or_insert_type(library, global.get_type(library))?;
+                let llvm_ty =
+                    self.get_or_insert_type(library, global.get_global_backing_type(library))?;
 
                 let llvm_global = unsafe { core::LLVMAddGlobal(self.module, llvm_ty, name) };
 
-                self.value_map.insert(global, llvm_global);
+                let llvm_ptr_ty = self.get_or_insert_type(library, global.get_type(library))?;
+
+                let llvm_bitcast = unsafe { core::LLVMConstBitCast(llvm_global, llvm_ptr_ty) };
+
+                self.value_map.insert(global, llvm_bitcast);
             }
 
             for function in module.get_functions(library) {

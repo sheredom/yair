@@ -19,7 +19,7 @@ pub(crate) struct Global {
 }
 
 impl Named for Global {
-    /// Get the type of a global.
+    /// Get the name of a global.
     ///
     /// # Examples
     ///
@@ -28,9 +28,8 @@ impl Named for Global {
     /// # let mut library = Library::new();
     /// # let module = library.create_module().build();
     /// # let global = module.create_global(&mut library).with_name("var").build();
-    /// let ty = global.get_type(&library);
-    /// # let void_ty = library.get_void_type();
-    /// # assert_eq!(ty, library.get_pointer_type(Domain::CrossDevice));
+    /// let name = global.get_name(&library);
+    /// # assert_eq!(name.get_name(&library), "var");
     /// ```
     fn get_name(&self, _: &Library) -> Name {
         self.name

@@ -1,0 +1,6 @@
+// RUN: @yair_as @file | @yair_llvm - --type Intermediate
+
+mod "😀" {
+  // CHECK: declare void @"\F0\9F\98\80::foo"(<{}>)
+  fn [job, export] foo(self : {}) : void
+}
