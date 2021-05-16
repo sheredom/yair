@@ -20,7 +20,7 @@ impl Named for Argument {
     /// # let function = module.create_function(&mut library).with_name("func").with_arg("😀", int_ty).build();
     /// # let arg = function.get_arg(&library, 0);
     /// let name = arg.get_name(&library);
-    /// # assert_eq!(name.get_name(&library), "😀");
+    /// # assert_eq!(name.as_str(&library), "😀");
     /// ```
     fn get_name(&self, _: &Library) -> Name {
         self.name

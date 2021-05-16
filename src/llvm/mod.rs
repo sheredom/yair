@@ -130,7 +130,7 @@ impl Llvm {
         if let Some(filename) = self.filenames.get(&name) {
             *filename
         } else {
-            let name_str = name.get_name(library);
+            let name_str = name.as_str(library);
 
             let filename = Path::new(name_str).file_name().unwrap().to_str().unwrap();
             let directory = name_str.strip_suffix(filename).unwrap();
@@ -213,7 +213,7 @@ impl Llvm {
                 ptr::null_mut()
             };
 
-            let name = ty.get_name(library).get_name(library);
+            let name = ty.get_name(library).as_str(library);
             let size = unsafe {
                 target::LLVMABISizeOfType(self.target_data, self.get_or_insert_type(library, ty)?)
             };
@@ -379,7 +379,7 @@ impl Llvm {
 
     fn make_type(&mut self, library: &Library, ty: Type) -> Result<LLVMTypeRef, Error> {
         if ty.is_named_struct(library) {
-            let name_cstr = CString::new(ty.get_name(library).get_name(library)).unwrap();
+            let name_cstr = CString::new(ty.get_name(library).as_str(library)).unwrap();
             let name = name_cstr.as_ptr() as *const libc::c_char;
 
             let struct_type = unsafe { core::LLVMStructCreateNamed(self.context, name) };
@@ -466,7 +466,7 @@ impl Llvm {
         };
 
         let name_string =
-            module_name.to_owned() + "::" + function.get_name(library).get_name(library);
+            module_name.to_owned() + "::" + function.get_name(library).as_str(library);
 
         let name_cstr = CString::new(name_string).unwrap();
         let name = name_cstr.as_ptr() as *const libc::c_char;
@@ -474,7 +474,7 @@ impl Llvm {
         let llvm_function = unsafe { core::LLVMAddFunction(llvm_module, name, function_type) };
 
         for (index, arg) in function.get_args(library).enumerate() {
-            let arg_name = arg.get_name(library).get_name(library);
+            let arg_name = arg.get_name(library).as_str(library);
 
             let llvm_arg = unsafe { core::LLVMGetParam(llvm_function, index as libc::c_uint) };
 
@@ -1147,7 +1147,7 @@ impl Llvm {
                     }
                 }
                 Instruction::StackAlloc(name, ty, _, _) => {
-                    let name = name.get_name(library);
+                    let name = name.as_str(library);
                     let len = name.len();
                     let name_cstr = CString::new(name).unwrap();
                     let name = name_cstr.as_ptr() as *const libc::c_char;
@@ -1242,10 +1242,10 @@ impl Llvm {
 
     fn make_module(&mut self, library: &Library) -> Result<(), Error> {
         for module in library.get_modules() {
-            let module_name = module.get_name(library).get_name(library).to_owned();
+            let module_name = module.get_name(library).as_str(library).to_owned();
 
             for global in module.get_globals(library) {
-                let name_cstr = CString::new(global.get_name(library).get_name(library)).unwrap();
+                let name_cstr = CString::new(global.get_name(library).as_str(library)).unwrap();
                 let name = name_cstr.as_ptr() as *const libc::c_char;
 
                 let llvm_ty =

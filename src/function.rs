@@ -115,7 +115,7 @@ impl Function {
     /// # let module = library.create_module().build();
     /// # let function = module.create_function(&mut library).with_name("foo").build();
     /// let name = function.get_name(&library);
-    /// # assert_eq!(name.get_name(&library), "foo");
+    /// # assert_eq!(name.as_str(&library), "foo");
     /// ```
     pub fn get_name(&self, library: &Library) -> Name {
         let function = &library.functions[self.0];

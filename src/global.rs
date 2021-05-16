@@ -29,7 +29,7 @@ impl Named for Global {
     /// # let module = library.create_module().build();
     /// # let global = module.create_global(&mut library).with_name("var").build();
     /// let name = global.get_name(&library);
-    /// # assert_eq!(name.get_name(&library), "var");
+    /// # assert_eq!(name.as_str(&library), "var");
     /// ```
     fn get_name(&self, _: &Library) -> Name {
         self.name

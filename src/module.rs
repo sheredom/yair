@@ -103,8 +103,8 @@ impl Module {
     /// let global_a = module.create_global(&mut library).with_name("a").with_type(u32_ty).build();
     /// let global_b = module.create_global(&mut library).with_name("b").with_type(u32_ty).build();
     /// let mut globals = module.get_globals(&library);
-    /// assert_eq!(globals.nth(0).unwrap().get_name(&library).get_name(&library), "a");
-    /// assert_eq!(globals.nth(0).unwrap().get_name(&library).get_name(&library), "b");
+    /// assert_eq!(globals.nth(0).unwrap().get_name(&library).as_str(&library), "a");
+    /// assert_eq!(globals.nth(0).unwrap().get_name(&library).as_str(&library), "b");
     /// ```
     pub fn get_globals(&self, library: &Library) -> GlobalIterator {
         let module = &library.modules[self.0];
@@ -122,8 +122,8 @@ impl Module {
     /// let function_a = module.create_function(&mut library).with_name("a").build();
     /// let function_b = module.create_function(&mut library).with_name("b").build();
     /// let mut functions = module.get_functions(&library);
-    /// assert_eq!(functions.nth(0).unwrap().get_name(&library).get_name(&library), "a");
-    /// assert_eq!(functions.nth(0).unwrap().get_name(&library).get_name(&library), "b");
+    /// assert_eq!(functions.nth(0).unwrap().get_name(&library).as_str(&library), "a");
+    /// assert_eq!(functions.nth(0).unwrap().get_name(&library).as_str(&library), "b");
     /// ```
     pub fn get_functions(&self, library: &Library) -> FunctionIterator {
         let module = &library.modules[self.0];

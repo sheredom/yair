@@ -434,7 +434,7 @@ impl Named for Instruction {
     /// # let instruction = instruction_builder.stack_alloc("😀", u32_ty, None);
     /// # instruction_builder.ret(None);
     /// let name = instruction.get_name(&library);
-    /// # assert_eq!(name.get_name(&library), "😀");
+    /// # assert_eq!(name.as_str(&library), "😀");
     /// ```
     fn get_name(&self, _: &Library) -> Name {
         match self {

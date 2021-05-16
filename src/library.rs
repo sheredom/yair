@@ -97,8 +97,8 @@ impl Library {
     /// let module_a = library.create_module().with_name("a").build();
     /// let module_b = library.create_module().with_name("b").build();
     /// let mut modules = library.get_modules();
-    /// assert_eq!(modules.nth(0).unwrap().get_name(&library).get_name(&library), "a");
-    /// assert_eq!(modules.nth(0).unwrap().get_name(&library).get_name(&library), "b");
+    /// assert_eq!(modules.nth(0).unwrap().get_name(&library).as_str(&library), "a");
+    /// assert_eq!(modules.nth(0).unwrap().get_name(&library).as_str(&library), "b");
     /// ```
     pub fn get_modules(&self) -> ModuleIterator {
         ModuleIterator::new(&self.modules)

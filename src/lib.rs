@@ -102,7 +102,7 @@ impl Default for TypePayload {
 pub struct Name(pub(crate) generational_arena::Index);
 
 impl Name {
-    pub fn get_name<'a>(&self, library: &'a Library) -> &'a str {
+    pub fn as_str<'a>(&self, library: &'a Library) -> &'a str {
         &library.names[self.0]
     }
 
@@ -124,7 +124,7 @@ impl<'a> std::fmt::Display for NameDisplayer<'a> {
         &self,
         writer: &mut std::fmt::Formatter<'_>,
     ) -> std::result::Result<(), std::fmt::Error> {
-        let name = self.name.get_name(self.library);
+        let name = self.name.as_str(self.library);
         if name.chars().all(|c| c.is_ascii_alphanumeric() || c == '_') {
             write!(writer, "{}", name)
         } else {
