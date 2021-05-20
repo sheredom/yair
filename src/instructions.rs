@@ -253,9 +253,12 @@ impl<'a> std::fmt::Display for InstructionDisplayer<'a> {
             Instruction::Call(func, args, loc) => {
                 write!(
                     writer,
-                    "{} = call {}(",
+                    "{} = call {} from {} (",
                     self.value.get_displayer(self.library),
-                    func.get_name(self.library).get_displayer(self.library)
+                    func.get_name(self.library).get_displayer(self.library),
+                    func.get_module(self.library)
+                        .get_name(self.library)
+                        .get_displayer(self.library)
                 )?;
 
                 for arg in args.iter().take(1) {

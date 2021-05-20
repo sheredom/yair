@@ -8,7 +8,7 @@ mod "😀" {
   fn foo() : void {
     // CHECK: b0():
     bar():
-      // CHECK: [[result:\w+]] = call bar()
+      // CHECK: [[result:\w+]] = call bar from "😀" ()
       r = call bar()
       // CHECK: ret
       ret

@@ -11,7 +11,7 @@ mod "😀" {
     bar():
       a = const bool true
 
-      // CHECK: [[v:\w+]] = call v([[a:\w+]])
+      // CHECK: [[v:\w+]] = call v from "😀" ([[a:\w+]])
       // CHECK: And:
       // CHECK: fn v(a : i8) : void
       v = call v(a)

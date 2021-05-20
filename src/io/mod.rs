@@ -200,14 +200,7 @@ impl<'a> Assembler<'a> {
 
         let end = self.offset;
 
-        if identifier.is_empty() {
-            Err(Diagnostic::new_error(
-                "Expected string identifier",
-                Label::new(self.file, self.single_char_span(), "missing identifier"),
-            ))
-        } else {
-            Ok((identifier, self.make_span(start, end)))
-        }
+        Ok((identifier, self.make_span(start, end)))
     }
 
     fn parse_identifier(&mut self) -> Result<&'a str, Diagnostic> {
@@ -1330,7 +1323,22 @@ impl<'a> Assembler<'a> {
                 } else if self.pop_if_next_symbol("call")? {
                     let name = self.parse_identifier()?;
 
-                    let key = (name, self.current_module.unwrap());
+                    let module = if self.pop_if_next_symbol("from")? {
+                        let module_name = self.parse_identifier()?;
+
+                        if !self.modules.contains_key(&module_name) {
+                            return Err(Diagnostic::new_error(
+                                "Unknown module",
+                                Label::new(self.file, self.single_char_span(), "here"),
+                            ));
+                        }
+
+                        *self.modules.get(module_name).unwrap()
+                    } else {
+                        self.current_module.unwrap()
+                    };
+
+                    let key = (name, module);
 
                     if !self.functions.contains_key(&key) {
                         return Err(Diagnostic::new_error(
@@ -1870,7 +1878,6 @@ impl<'a> Assembler<'a> {
 
         // And reset the current module when exiting.
         self.current_module = None;
-        self.functions.clear();
         self.structs.clear();
         self.variables.clear();
 

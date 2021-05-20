@@ -23,6 +23,7 @@ pub type FunctionAttributes = EnumSet<FunctionAttribute>;
 
 #[cfg_attr(feature = "io", derive(Serialize, Deserialize))]
 pub(crate) struct FunctionPayload {
+    pub(crate) module: Module,
     pub(crate) name: Name,
     pub(crate) function_type: Type,
     pub(crate) arguments: Vec<Value>,
@@ -105,6 +106,23 @@ impl<'a> std::fmt::Display for FunctionDisplayer<'a> {
 }
 
 impl Function {
+    /// Get the module a function belongs to.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # use yair::*;
+    /// # let mut library = Library::new();
+    /// # let original_module = library.create_module().build();
+    /// # let function = original_module.create_function(&mut library).with_name("foo").build();
+    /// let module = function.get_module(&library);
+    /// # assert_eq!(original_module, module);
+    /// ```
+    pub fn get_module(&self, library: &Library) -> Module {
+        let function = &library.functions[self.0];
+        function.module
+    }
+
     /// Get the name of the function.
     ///
     /// # Examples
@@ -119,7 +137,6 @@ impl Function {
     /// ```
     pub fn get_name(&self, library: &Library) -> Name {
         let function = &library.functions[self.0];
-
         function.name
     }
 
@@ -439,6 +456,7 @@ impl<'a> FunctionBuilder<'a> {
             .get_function_type(self.return_type, &self.argument_types);
 
         let mut function = FunctionPayload {
+            module: self.module,
             name: self.library.get_name(self.name),
             function_type,
             arguments: Vec::new(),

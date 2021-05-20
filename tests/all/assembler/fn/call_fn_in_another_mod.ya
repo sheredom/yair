@@ -1,0 +1,13 @@
+// RUN: @yair_as @file | @yair_dis -
+
+mod "💨" {
+    fn some_c_func() : void
+}
+
+mod "😀" {
+  fn call_c_func() : void {
+      entry():
+        r = call some_c_func()
+        ret
+  }
+}

@@ -465,8 +465,12 @@ impl Llvm {
             )
         };
 
-        let name_string =
-            module_name.to_owned() + "::" + function.get_name(library).as_str(library);
+        let name_string = if module_name.is_empty() {
+            // We have an empty module name, so this is the global namespace.
+            function.get_name(library).as_str(library).to_string()
+        } else {
+            module_name.to_owned() + "::" + function.get_name(library).as_str(library)
+        };
 
         let name_cstr = CString::new(name_string).unwrap();
         let name = name_cstr.as_ptr() as *const libc::c_char;

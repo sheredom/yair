@@ -1,0 +1,17 @@
+// RUN: @yair_as @file | @yair_llvm - --type Intermediate
+
+mod "" {
+    // CHECK: declare void @some_c_func()
+    fn some_c_func() : void
+}
+
+mod "😀" {
+  // CHECK: define void @"\F0\9F\98\80::call_c_func"()
+  fn call_c_func() : void {
+      entry():
+        // CHECK: call void @some_c_func()
+        r = call some_c_func from ""()
+        // CHECK: ret void
+        ret
+  }
+}
