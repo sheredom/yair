@@ -3,16 +3,22 @@ extern crate test;
 #[cfg(test)]
 mod tests {
     use super::*;
-    use test::Bencher;
-    use crate::*;
     use crate::llvm::Llvm;
+    use crate::*;
     use std::io::Cursor;
+    use test::Bencher;
 
     fn splat_adds() -> Library {
         let mut library = Library::new();
         let module = library.create_module().build();
         let u32_ty = library.get_uint_type(32);
-        let function = module.create_function(&mut library).with_name("func").with_return_type(u32_ty).with_arg("a", u32_ty).with_arg("b", u32_ty).build();
+        let function = module
+            .create_function(&mut library)
+            .with_name("func")
+            .with_return_type(u32_ty)
+            .with_arg("a", u32_ty)
+            .with_arg("b", u32_ty)
+            .build();
         let block = function.create_block(&mut library).build();
         let x = function.get_arg(&library, 0);
         let y = function.get_arg(&library, 1);
@@ -37,8 +43,10 @@ mod tests {
 
         let code_gen_platform = CodeGenPlatform::MacOsAppleSilicon;
         let code_gen_output = CodeGenOutput::Object;
-        
-        b.iter(|| Llvm::generate(&library, code_gen_platform, code_gen_output, &mut cursor)
-        .expect("Could not write data"));
+
+        b.iter(|| {
+            Llvm::generate(&library, code_gen_platform, code_gen_output, &mut cursor)
+                .expect("Could not write data")
+        });
     }
 }
