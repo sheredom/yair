@@ -1,0 +1,12 @@
+// RUN: @yair_as @file | @yair_llvm - --type Intermediate
+
+mod "😀" {
+  // CHECK: %"\F0\9F\A6\89" = type { %contained_struct }
+  struct contained_struct : {a : i32, b: f32}
+
+  // CHECK: %contained_struct = type { i32, float }
+  struct "🦉" : {a : %contained_struct}
+
+  // CHECK: declare %"\F0\9F\A6\89" @"\F0\9F\98\80::foo"()
+  fn foo() : %"🦉"
+}

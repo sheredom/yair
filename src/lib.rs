@@ -1,3 +1,5 @@
+#![cfg_attr(feature = "nightly", feature(test))]
+
 extern crate enumset;
 extern crate generational_arena;
 extern crate radix_trie;
@@ -755,65 +757,5 @@ impl Type {
 
     pub fn get_displayer<'a>(&self, library: &'a Library) -> TypeDisplayer<'a> {
         TypeDisplayer { ty: *self, library }
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    #[should_panic]
-    fn bad_int_ty() {
-        let mut library = Library::new();
-        let _ = library.get_int_type(31);
-    }
-
-    #[test]
-    #[should_panic]
-    fn bad_uint_ty() {
-        let mut library = Library::new();
-        let _ = library.get_uint_type(13);
-    }
-
-    #[test]
-    #[should_panic]
-    fn bad_vec_ty_element() {
-        let mut library = Library::new();
-        let void_ty = library.get_void_type();
-        let _ = library.get_vector_type(void_ty, 4);
-    }
-
-    #[test]
-    #[should_panic]
-    fn bad_vec_ty_width() {
-        let mut library = Library::new();
-        let u32_ty = library.get_uint_type(32);
-        let _ = library.get_vector_type(u32_ty, 1);
-    }
-
-    #[test]
-    #[should_panic]
-    fn bad_get_bits() {
-        let mut library = Library::new();
-        let ptr_ty = library.get_pointer_type(Domain::Cpu);
-        let _ = ptr_ty.get_bits(&library);
-    }
-
-    #[test]
-    #[should_panic]
-    fn bad_get_element_index() {
-        let mut library = Library::new();
-        let u32_ty = library.get_uint_type(32);
-        let vec_ty = library.get_vector_type(u32_ty, 4);
-        vec_ty.get_element(&library, 5);
-    }
-
-    #[test]
-    #[should_panic]
-    fn bad_get_element_type() {
-        let mut library = Library::new();
-        let u32_ty = library.get_uint_type(32);
-        u32_ty.get_element(&library, 0);
     }
 }

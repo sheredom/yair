@@ -255,34 +255,3 @@ impl<'a> BlockBuilder<'a> {
         block
     }
 }
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    #[should_panic]
-    fn bad_arg_index() {
-        let mut library = Library::new();
-        let module = library.create_module().build();
-        let function = module
-            .create_function(&mut library)
-            .with_name("func")
-            .build();
-        let block = function.create_block(&mut library).build();
-        let _ = block.get_arg(&library, 0);
-    }
-
-    #[test]
-    fn first_had_args() {
-        let mut library = Library::new();
-        let module = library.create_module().build();
-        let u32_ty = library.get_uint_type(32);
-        let function = module
-            .create_function(&mut library)
-            .with_arg("a", u32_ty)
-            .with_name("func")
-            .build();
-        let _ = function.create_block(&mut library).with_arg(u32_ty).build();
-    }
-}

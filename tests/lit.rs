@@ -61,7 +61,7 @@ mod tests {
             .unwrap()
             .to_string();
 
-        config.add_search_path("tests/llvm");
+        config.add_search_path("tests/lit/llvm");
 
         config
             .constants
@@ -71,7 +71,7 @@ mod tests {
     #[test]
     fn lit() {
         lit::run::tests(lit::event_handler::Default::default(), |config| {
-            config.add_search_path("tests/all");
+            config.add_search_path("tests/lit/all");
             config.add_extension("ya");
 
             config.constants.insert("yair_as".to_owned(), yair_as_exe());

@@ -9,6 +9,9 @@ use std::io::{Seek, Write};
 use std::path::Path;
 use std::ptr;
 
+#[cfg(feature = "nightly")]
+mod benchmarks;
+
 const EMPTY_NAME: *const libc::c_char = b"\0".as_ptr() as *const libc::c_char;
 
 const DW_ATE_VOID: debuginfo::LLVMDWARFTypeEncoding = 0x00;
@@ -394,7 +397,7 @@ impl Llvm {
                     struct_type,
                     elements.as_mut_ptr(),
                     elements.len() as c_uint,
-                    true as LLVMBool,
+                    false as LLVMBool,
                 );
             }
 

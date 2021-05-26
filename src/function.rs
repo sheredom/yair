@@ -483,23 +483,6 @@ impl<'a> FunctionBuilder<'a> {
     }
 }
 
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    #[should_panic]
-    fn bad_arg_index() {
-        let mut library = Library::new();
-        let module = library.create_module().build();
-        let function = module
-            .create_function(&mut library)
-            .with_name("func")
-            .build();
-        let _ = function.get_arg(&library, 0);
-    }
-}
-
 pub struct BlockIterator {
     vec: Vec<Block>,
     next: usize,

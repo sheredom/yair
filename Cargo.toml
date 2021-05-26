@@ -31,6 +31,7 @@ lit = "1.0.3"
 [features]
 io = ["clap", "codespan", "codespan-reporting", "duct", "rmp-serde"]
 llvm = ["llvm-sys", "libc"]
+nightly = []
 default = ["io"]
 
 [[bin]]

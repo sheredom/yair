@@ -2,6 +2,7 @@ use crate::Library;
 use std::io::{Seek, Write};
 use std::str::FromStr;
 
+#[derive(Copy, Clone)]
 pub enum CodeGenPlatform {
     Windows64Bit,
     MacOsAppleSilicon,
@@ -19,6 +20,7 @@ impl FromStr for CodeGenPlatform {
     }
 }
 
+#[derive(Copy, Clone)]
 pub enum CodeGenOutput {
     Object,
     Assembly,
