@@ -1,0 +1,17 @@
+// RUN: @yair_as @file | @yair_llvm - --type Assembly
+
+mod "" {
+    fn some_c_func() : void
+}
+
+mod "😀" {
+  // CHECK: "_😀::call_c_func":
+  fn call_c_func() : void {
+      entry():
+        // CHECK: ldr[[ws:\s*]]x8, [x8, _some_c_func@GOTPAGEOFF]
+        // CHECK: blr[[ws:\s*]]x8
+        r = call some_c_func from ""()
+        // CHECK: ret
+        ret
+  }
+}

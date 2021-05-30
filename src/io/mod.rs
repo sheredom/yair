@@ -2,6 +2,9 @@ extern crate codespan;
 extern crate rmp_serde;
 extern crate serde;
 
+#[cfg(feature = "nightly")]
+mod benchmarks;
+
 use crate::*;
 use codespan::{FileId, Span};
 use codespan_reporting::diagnostic::{Diagnostic, Label};
@@ -705,17 +708,13 @@ impl<'a> Assembler<'a> {
 
         loop {
             if self.pop_if_next_symbol("ret")? {
-                if func_ret_is_void {
-                    let paused = builder.pause_building();
-                    let loc = self.parse_loc(library)?;
-                    builder = InstructionBuilder::resume_building(library, paused);
+                let paused = builder.pause_building();
+                let loc = self.parse_loc(library)?;
+                builder = InstructionBuilder::resume_building(library, paused);
 
+                if func_ret_is_void {
                     builder.ret(loc);
                 } else {
-                    let paused = builder.pause_building();
-                    let loc = self.parse_loc(library)?;
-                    builder = InstructionBuilder::resume_building(library, paused);
-
                     builder.ret_val(self.parse_value()?, loc);
                 }
 
