@@ -9,7 +9,7 @@ use std::fs::File;
 use std::io::{self, Cursor, Write};
 use std::str::FromStr;
 use yair::llvm::Llvm;
-use yair::{CodeGen, CodeGenOutput, CodeGenPlatform, Library};
+use yair::{CodeGen, CodeGenOutput, Library};
 
 fn main() {
     let yaml = load_yaml!("yair-llvm.yml");
@@ -27,13 +27,12 @@ fn main() {
 
     let output = matches.value_of("output").unwrap();
 
-    let code_gen_platform =
-        CodeGenPlatform::from_str(matches.value_of("platform").unwrap()).unwrap();
+    let triple_triple = matches.value_of("target").unwrap();
     let code_gen_output = CodeGenOutput::from_str(matches.value_of("type").unwrap()).unwrap();
 
     if output == "-" {
         let mut cursor = Cursor::new(Vec::new());
-        Llvm::generate(&library, code_gen_platform, code_gen_output, &mut cursor)
+        Llvm::generate(&library, triple_triple, code_gen_output, &mut cursor)
             .expect("Could not write data");
 
         io::stdout()
@@ -41,7 +40,7 @@ fn main() {
             .expect("Could not write data");
     } else {
         let mut file = File::create(output).unwrap();
-        Llvm::generate(&library, code_gen_platform, code_gen_output, &mut file)
+        Llvm::generate(&library, triple_triple, code_gen_output, &mut file)
             .expect("Could not write data");
     }
 }

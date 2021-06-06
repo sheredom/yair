@@ -1,6 +1,5 @@
-// RUN: @yair_as @file | @yair_llvm - --platform MacOsAppleSilicon --type Intermediate
+// RUN: @yair_as @file | @yair_llvm - --type Intermediate
 
-// CHECK: target triple = "aarch64-apple-darwin"
 
 mod "😀" {
   // CHECK: define i32 @"\F0\9F\98\80::foo"(float %a)

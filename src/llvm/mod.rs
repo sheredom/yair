@@ -57,7 +57,7 @@ impl Drop for Llvm {
 }
 
 impl Llvm {
-    fn new(platform: CodeGenPlatform) -> Result<Self, Error> {
+    fn new(triple: &str) -> Result<Self, Error> {
         unsafe {
             target::LLVMInitializeAArch64Target();
             target::LLVMInitializeAArch64TargetMC();
@@ -75,11 +75,7 @@ impl Llvm {
 
         let context = unsafe { core::LLVMContextCreate() };
 
-        let triple = match platform {
-            CodeGenPlatform::Windows64Bit => b"x86_64-pc-win32-msvc\0",
-            CodeGenPlatform::MacOsAppleSilicon => b"aarch64-apple-darwin\0",
-        }
-        .as_ptr() as *const libc::c_char;
+        let triple = triple.as_ptr() as *const libc::c_char;
 
         let mut target = ptr::null_mut();
         let mut error_message = ptr::null_mut();
@@ -1291,11 +1287,11 @@ impl CodeGen for Llvm {
 
     fn generate<W: Seek + Write>(
         library: &Library,
-        platform: CodeGenPlatform,
+        triple: &str,
         output: CodeGenOutput,
         writer: &mut W,
     ) -> Result<(), Self::Error> {
-        let mut codegen = Self::new(platform)?;
+        let mut codegen = Self::new(triple)?;
 
         codegen.make_module(library)?;
 

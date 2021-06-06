@@ -21,10 +21,9 @@ args:
         help: What output file type to produce (object or assembly file)
         takes_value: true
         default_value: "Object"
-    - platform:
-        short: p
-        long: platform
-        value_name: PLATFORM
-        help: What platform to generate code for
+    - target:
+        long: target
+        value_name: TARGET
+        help: What target triple to generate code for
         takes_value: true
-        default_value: "MacOsAppleSilicon"
+        default_value: "aarch64-apple-darwin"

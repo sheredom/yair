@@ -1,4 +1,4 @@
-// RUN: @yair_as @file | @yair_llvm - --platform MacOsAppleSilicon --type Intermediate
+// RUN: @yair_as @file | @yair_llvm - --type Intermediate
 
 mod "😀" {
   // CHECK: define i64 @"\F0\9F\98\80::foo"(i64 %[[a:\w+]], i64 %[[b:\w+]])

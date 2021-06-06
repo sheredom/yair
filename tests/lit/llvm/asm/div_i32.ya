@@ -1,4 +1,4 @@
-// RUN: @yair_as @file | @yair_llvm - --platform MacOsAppleSilicon --type Assembly
+// RUN: @yair_as @file | @yair_llvm - --type Assembly
 
 mod "😀" {
   // CHECK: "_😀::foo":
