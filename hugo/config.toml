@@ -1,0 +1,24 @@
+baseURL = "https://sheredom.github.io/yair/"
+languageCode = "en-us"
+title = "YAIR"
+publishDir = ".."
+theme = "redgood"
+
+disableKinds = "taxonomyTerm"
+
+[params]
+    author = "Neil Henning"
+    description = "test test"
+    
+    [params.theme]
+
+    [params.about]
+        profileImage = "yarly.jpg"
+        narrative = "Yet Another Intermediate Representation"
+    
+    [params.social]
+       # email = "url": "#", "icon": "bi bi-envelope-fill"
+  #    "linkedin": { "url": "#", "icon": "bi bi-linkedin" },
+   #   "fb": { "url": "#", "icon": "bi bi-facebook" },
+   #   "twitter": { "url": "#", "icon": "bi bi-twitter" },
+   #   "github": { "url": "#", "icon": "bi bi-github" }

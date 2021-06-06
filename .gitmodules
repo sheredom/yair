@@ -1,0 +1,6 @@
+[submodule "hugo/themes/hugo-refresh"]
+	path = hugo/themes/hugo-refresh
+	url = https://github.com/PippoRJ/hugo-refresh.git
+[submodule "hugo/themes/redgood"]
+	path = hugo/themes/redgood
+	url = https://github.com/urjaacharya/redgood.git

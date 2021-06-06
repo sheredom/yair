@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes"?>
+<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">
+  <channel>
+    <title>YAIR</title>
+    <link>https://sheredom.github.io/yair/</link>
+    <description>Recent content on YAIR</description>
+    <generator>Hugo -- gohugo.io</generator>
+    <language>en-us</language><atom:link href="https://sheredom.github.io/yair/index.xml" rel="self" type="application/rss+xml" />
+  </channel>
+</rss>
