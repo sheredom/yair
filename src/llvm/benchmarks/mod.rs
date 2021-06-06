@@ -41,11 +41,11 @@ mod tests {
 
         let mut cursor = Cursor::new(Vec::new());
 
-        let code_gen_platform = CodeGenPlatform::MacOsAppleSilicon;
+        let target_triple = "aarch64-apple-darwin";
         let code_gen_output = CodeGenOutput::Object;
 
         b.iter(|| {
-            Llvm::generate(&library, code_gen_platform, code_gen_output, &mut cursor)
+            Llvm::generate(&library, target_triple, code_gen_output, &mut cursor)
                 .expect("Could not write data")
         });
     }
