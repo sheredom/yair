@@ -25,76 +25,6 @@ jobs:
     - run: cargo install cargo-deny --locked
     - run: cargo deny check
 
-  windows:
-    name: Build with LLVM on Windows
-    runs-on: windows-latest
-    steps:
-    - uses: actions/checkout@v2
-    - run: powershell.exe -NoP -NonI -Command "Invoke-WebRequest https://github.com/WAVM/WAVM-LLVM/releases/download/11.x/Win64_Release.zip -O Win64_Release.zip"
-    - run: powershell.exe -NoP -NonI -Command "Expand-Archive '.\Win64_Release.zip' '.\llvm\'"
-    - run: cargo test --features llvm
-      env:
-        YAIR_LLVM_INSTALL_DIR: llvm
-
-  linux:
-    name: Build with LLVM on Linux
-    runs-on: ubuntu-16.04
-    steps:
-    - uses: actions/checkout@v2
-    - run: wget https://github.com/WAVM/WAVM-LLVM/releases/download/11.x/Ubuntu1604_Release.zip
-    - run: unzip -d llvm Ubuntu1604_Release.zip
-    - run: cargo test --features llvm
-      env:
-        YAIR_LLVM_INSTALL_DIR: llvm
-
-  mac:
-    name: Build with LLVM on macOS
-    runs-on: macOS-latest
-    steps:
-    - uses: actions/checkout@v2
-    - run: wget https://github.com/WAVM/WAVM-LLVM/releases/download/11.x/MacOS_Release.zip
-    - run: unzip -d llvm MacOS_Release.zip
-    - run: cargo test --features llvm
-      env:
-        YAIR_LLVM_INSTALL_DIR: llvm
-      
-  test-no-default-features:
-    strategy:
-      matrix:
-        os: [ubuntu-latest, windows-latest, macOS-latest]
-    runs-on: ${{ matrix.os }}
-    steps:
-    - uses: actions/checkout@v2
-    - name: Test
-      run: cargo test --no-default-features
-
-  benchmark:
-    name: Benchmark on Linux
-    runs-on: ubuntu-16.04
-    steps:
-      - uses: actions/checkout@v2
-      - run: wget https://github.com/WAVM/WAVM-LLVM/releases/download/11.x/Ubuntu1604_Release.zip
-      - run: unzip -d llvm Ubuntu1604_Release.zip
-      - run: rustup toolchain install nightly
-      # The sed here is to remove double : which rhysd's action doesn't account for it seems!
-      - run: cargo +nightly bench --features llvm,nightly | sed 's/::/__/g' | tee benchmark_output.txt
-        env:
-          YAIR_LLVM_INSTALL_DIR: llvm
-      - name: Store benchmark result
-        uses: rhysd/github-action-benchmark@v1
-        with:
-          name: Rust Benchmark
-          tool: 'cargo'
-          output-file-path: benchmark_output.txt
-          # Use personal access token instead of GITHUB_TOKEN due to https://github.community/t5/GitHub-Actions/Github-action-not-triggering-gh-pages-upon-push/td-p/26869/highlight/false
-          github-token: ${{ secrets.PERSONAL_GITHUB_TOKEN }}
-          auto-push: true
-          # Show alert with commit comment on detecting possible performance regression
-          alert-threshold: '200%'
-          comment-on-alert: true
-          fail-on-alert: true
-          alert-comment-cc-users: '@sheredom'
-
   publish-check:
     name: Publish Check
     runs-on: ubuntu-latest
@@ -113,3 +43,102 @@ jobs:
         with:
           command: publish
           args: --dry-run
+
+  test-no-default-features:
+    strategy:
+      matrix:
+        os: [ubuntu-latest, windows-latest, macOS-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+    - uses: actions/checkout@v2
+    - name: Test
+      run: cargo test --no-default-features
+
+  test-llvm-feature:
+    strategy:
+      matrix:
+        os: [ubuntu-16.04, windows-latest, macOS-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+    - uses: actions/checkout@v2
+    - if: matrix.os == 'windows-latest'
+      run: powershell.exe -NoP -NonI -Command "Invoke-WebRequest https://github.com/WAVM/WAVM-LLVM/releases/download/11.x/Win64_Release.zip -O Win64_Release.zip"
+    - if: matrix.os == 'windows-latest'
+      run: powershell.exe -NoP -NonI -Command "Expand-Archive '.\Win64_Release.zip' '.\llvm\'"
+    - if: matrix.os == 'ubuntu-16.04'
+      run: wget https://github.com/WAVM/WAVM-LLVM/releases/download/11.x/Ubuntu1604_Release.zip
+    - if: matrix.os == 'ubuntu-16.04'
+      run: unzip -d llvm Ubuntu1604_Release.zip
+    - if: matrix.os == 'macOS-latest'
+      run: wget https://github.com/WAVM/WAVM-LLVM/releases/download/11.x/MacOS_Release.zip
+    - if: matrix.os == 'macOS-latest'
+      run: unzip -d llvm MacOS_Release.zip
+    - run: cargo test --features llvm
+      env:
+        YAIR_LLVM_INSTALL_DIR: llvm
+
+  benchmark-on-windows:
+    name: Benchmark LLVM on Windows
+    runs-on: windows-latest
+    steps:
+    - uses: actions/checkout@v2
+    - run: powershell.exe -NoP -NonI -Command "Invoke-WebRequest https://github.com/WAVM/WAVM-LLVM/releases/download/11.x/Win64_Release.zip -O Win64_Release.zip"
+    - run: powershell.exe -NoP -NonI -Command "Expand-Archive '.\Win64_Release.zip' '.\llvm\'"
+    - run: rustup toolchain install nightly
+      # The sed here is to remove double : which rhysd's action doesn't account for it seems!
+    - run: cargo +nightly bench --features llvm,nightly | sed 's/::/__/g' | tee benchmark_output.txt
+      env:
+        YAIR_LLVM_INSTALL_DIR: llvm
+    - name: Store benchmark result
+      uses: rhysd/github-action-benchmark@v1
+      with:
+        name: Rust Benchmark on Windows
+        tool: 'cargo'
+        output-file-path: benchmark_output.txt
+        # Use personal access token instead of GITHUB_TOKEN due to https://github.community/t5/GitHub-Actions/Github-action-not-triggering-gh-pages-upon-push/td-p/26869/highlight/false
+        github-token: ${{ secrets.PERSONAL_GITHUB_TOKEN }}
+        auto-push: true
+
+  benchmark-on-linux:
+    name: Benchmark on Linux
+    runs-on: ubuntu-16.04
+    steps:
+      - uses: actions/checkout@v2
+      - run: wget https://github.com/WAVM/WAVM-LLVM/releases/download/11.x/Ubuntu1604_Release.zip
+      - run: unzip -d llvm Ubuntu1604_Release.zip
+      - run: rustup toolchain install nightly
+      # The sed here is to remove double : which rhysd's action doesn't account for it seems!
+      - run: cargo +nightly bench --features llvm,nightly | sed 's/::/__/g' | tee benchmark_output.txt
+        env:
+          YAIR_LLVM_INSTALL_DIR: llvm
+      - name: Store benchmark result
+        uses: rhysd/github-action-benchmark@v1
+        with:
+          name: Rust Benchmark on Linux
+          tool: 'cargo'
+          output-file-path: benchmark_output.txt
+          # Use personal access token instead of GITHUB_TOKEN due to https://github.community/t5/GitHub-Actions/Github-action-not-triggering-gh-pages-upon-push/td-p/26869/highlight/false
+          github-token: ${{ secrets.PERSONAL_GITHUB_TOKEN }}
+          auto-push: true
+  
+  benchmark-on-mac:
+    name: Benchmark on macOS
+    runs-on: macOS-latest
+    steps:
+      - uses: actions/checkout@v2
+      - run: wget https://github.com/WAVM/WAVM-LLVM/releases/download/11.x/MacOS_Release.zip
+      - run: unzip -d llvm MacOS_Release.zip
+      - run: rustup toolchain install nightly
+      # The sed here is to remove double : which rhysd's action doesn't account for it seems!
+      - run: cargo +nightly bench --features llvm,nightly | sed 's/::/__/g' | tee benchmark_output.txt
+        env:
+          YAIR_LLVM_INSTALL_DIR: llvm
+      - name: Store benchmark result
+        uses: rhysd/github-action-benchmark@v1
+        with:
+          name: Rust Benchmark on macOS
+          tool: 'cargo'
+          output-file-path: benchmark_output.txt
+          # Use personal access token instead of GITHUB_TOKEN due to https://github.community/t5/GitHub-Actions/Github-action-not-triggering-gh-pages-upon-push/td-p/26869/highlight/false
+          github-token: ${{ secrets.PERSONAL_GITHUB_TOKEN }}
+          auto-push: true
