@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1623182195277,
+  "lastUpdate": 1623333645316,
   "repoUrl": "https://github.com/sheredom/yair",
   "entries": {
     "Rust Benchmark": [
@@ -641,6 +641,48 @@ window.BENCHMARK_DATA = {
             "name": "llvm__benchmarks__tests__bench_splat_adds",
             "value": 3174508,
             "range": "± 887264",
+            "unit": "ns/iter"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "611171+sheredom@users.noreply.github.com",
+            "name": "Neil Henning",
+            "username": "sheredom"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "047e1e5cd7f3a9f7ad16f1cf28fccdedf1a9b97e",
+          "message": "Merge pull request #16 from sheredom/benchmark-more-platforms\n\nCombine the benchmarks too.",
+          "timestamp": "2021-06-10T14:58:05+01:00",
+          "tree_id": "19d6719d6da347b916fd3f6bc7b6a4570094d936",
+          "url": "https://github.com/sheredom/yair/commit/047e1e5cd7f3a9f7ad16f1cf28fccdedf1a9b97e"
+        },
+        "date": 1623333644589,
+        "tool": "cargo",
+        "benches": [
+          {
+            "name": "io__benchmarks__tests__create_block",
+            "value": 42,
+            "range": "± 8",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "io__benchmarks__tests__create_function",
+            "value": 138,
+            "range": "± 11",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "io__benchmarks__tests__create_global",
+            "value": 133,
+            "range": "± 38",
             "unit": "ns/iter"
           }
         ]
