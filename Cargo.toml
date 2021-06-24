@@ -31,6 +31,7 @@ lit = "1.0.3"
 [features]
 io = ["clap", "codespan", "codespan-reporting", "duct", "rmp-serde"]
 llvm = ["llvm-sys", "libc"]
+lld = ["llvm"]
 nightly = []
 default = ["io"]
 
@@ -47,6 +48,11 @@ required-features = ["io"]
 [[bin]]
 name = "yair-verify"
 path = "src/verifier/yair-verify.rs"
+required-features = ["io"]
+
+[[bin]]
+name = "yair-jit"
+path = "src/jit/yair-jit.rs"
 required-features = ["io"]
 
 [[bin]]

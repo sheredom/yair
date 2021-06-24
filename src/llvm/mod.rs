@@ -1,3 +1,4 @@
+use crate::jitgen::{JitFn, JitGen};
 use crate::*;
 use libc::*;
 use llvm_sys::core::*;
@@ -6,6 +7,7 @@ use llvm_sys::*;
 use std::collections::HashMap;
 use std::ffi::{CStr, CString};
 use std::io::{Seek, Write};
+use std::marker::PhantomData;
 use std::path::Path;
 use std::ptr;
 
@@ -21,7 +23,48 @@ const DW_ATE_SIGNED: debuginfo::LLVMDWARFTypeEncoding = 0x05;
 const DW_ATE_UNSIGNED: debuginfo::LLVMDWARFTypeEncoding = 0x07;
 
 pub struct Llvm {
+    triple: CString,
     context: LLVMContextRef,
+    target_data: target::LLVMTargetDataRef,
+    target_machine: target_machine::LLVMTargetMachineRef,
+}
+
+#[derive(Debug)]
+pub enum Error {
+    Io(std::io::Error),
+    Nul(std::ffi::NulError),
+    Llvm(CString),
+}
+
+impl From<std::io::Error> for Error {
+    fn from(error: std::io::Error) -> Self {
+        Error::Io(error)
+    }
+}
+
+impl From<std::ffi::NulError> for Error {
+    fn from(error: std::ffi::NulError) -> Self {
+        Error::Nul(error)
+    }
+}
+
+impl Drop for Llvm {
+    fn drop(&mut self) {
+        unsafe { target::LLVMDisposeTargetData(self.target_data) };
+        unsafe { target_machine::LLVMDisposeTargetMachine(self.target_machine) };
+        unsafe { core::LLVMContextDispose(self.context) };
+    }
+}
+
+impl<'a> Drop for Helpers<'a> {
+    fn drop(&mut self) {
+        unsafe { debuginfo::LLVMDisposeDIBuilder(self.dibuilder) };
+    }
+}
+
+struct Helpers<'a> {
+    codegen: &'a Llvm,
+    library: &'a Library,
     module: LLVMModuleRef,
     dibuilder: LLVMDIBuilderRef,
     ditypes: HashMap<Type, LLVMMetadataRef>,
@@ -30,88 +73,19 @@ pub struct Llvm {
     function_map: HashMap<Function, LLVMValueRef>,
     block_map: HashMap<Block, LLVMBasicBlockRef>,
     value_map: HashMap<Value, LLVMValueRef>,
-    target_data: target::LLVMTargetDataRef,
-    target_machine: target_machine::LLVMTargetMachineRef,
 }
 
-#[derive(Debug)]
-pub enum Error {
-    Io(std::io::Error),
-    Llvm(CString),
-}
-
-impl From<std::io::Error> for Error {
-    fn from(io_error: std::io::Error) -> Self {
-        Error::Io(io_error)
-    }
-}
-
-impl Drop for Llvm {
-    fn drop(&mut self) {
-        unsafe { target::LLVMDisposeTargetData(self.target_data) };
-        unsafe { target_machine::LLVMDisposeTargetMachine(self.target_machine) };
-        unsafe { debuginfo::LLVMDisposeDIBuilder(self.dibuilder) };
-        unsafe { core::LLVMDisposeModule(self.module) };
-        unsafe { core::LLVMContextDispose(self.context) };
-    }
-}
-
-impl Llvm {
-    fn new(triple: &str) -> Result<Self, Error> {
-        unsafe {
-            target::LLVMInitializeAArch64Target();
-            target::LLVMInitializeAArch64TargetMC();
-            target::LLVMInitializeAArch64AsmParser();
-            target::LLVMInitializeAArch64AsmPrinter();
-            target::LLVMInitializeAArch64TargetInfo();
-            target::LLVMInitializeAArch64Disassembler();
-            target::LLVMInitializeX86Target();
-            target::LLVMInitializeX86TargetMC();
-            target::LLVMInitializeX86AsmParser();
-            target::LLVMInitializeX86AsmPrinter();
-            target::LLVMInitializeX86TargetInfo();
-            target::LLVMInitializeX86Disassembler();
-        }
-
-        let context = unsafe { core::LLVMContextCreate() };
-
-        let triple = triple.as_ptr() as *const libc::c_char;
-
-        let mut target = ptr::null_mut();
-        let mut error_message = ptr::null_mut();
-
-        if unsafe {
-            target_machine::LLVMGetTargetFromTriple(triple, &mut target, &mut error_message)
-        } != 0
-        {
-            let cstr = unsafe { CStr::from_ptr(error_message) }.to_owned();
-            unsafe { LLVMDisposeMessage(error_message) };
-            return Err(Error::Llvm(cstr));
-        }
-
-        unsafe { LLVMDisposeMessage(error_message) };
-
-        let target_machine = unsafe {
-            target_machine::LLVMCreateTargetMachine(
-                target,
-                triple,
-                ptr::null_mut(),
-                ptr::null_mut(),
-                target_machine::LLVMCodeGenOptLevel::LLVMCodeGenLevelDefault,
-                target_machine::LLVMRelocMode::LLVMRelocPIC,
-                target_machine::LLVMCodeModel::LLVMCodeModelLarge,
-            )
-        };
-
-        let target_data = unsafe { target_machine::LLVMCreateTargetDataLayout(target_machine) };
-
-        let module = unsafe { core::LLVMModuleCreateWithNameInContext(EMPTY_NAME, context) };
-        unsafe { core::LLVMSetTarget(module, triple) };
+impl<'a> Helpers<'a> {
+    fn new(codegen: &'a Llvm, library: &'a Library) -> Result<Self, Error> {
+        let module =
+            unsafe { core::LLVMModuleCreateWithNameInContext(EMPTY_NAME, codegen.context) };
+        unsafe { core::LLVMSetTarget(module, codegen.triple.as_ptr() as *const libc::c_char) };
 
         let dibuilder = unsafe { debuginfo::LLVMCreateDIBuilder(module) };
 
         Ok(Self {
-            context,
+            codegen,
+            library,
             module,
             dibuilder,
             ditypes: HashMap::new(),
@@ -120,8 +94,6 @@ impl Llvm {
             function_map: HashMap::new(),
             block_map: HashMap::new(),
             value_map: HashMap::new(),
-            target_data,
-            target_machine,
         })
     }
 
@@ -158,7 +130,7 @@ impl Llvm {
 
         unsafe {
             debuginfo::LLVMDIBuilderCreateDebugLocation(
-                self.context,
+                self.codegen.context,
                 line,
                 column,
                 filename,
@@ -214,7 +186,10 @@ impl Llvm {
 
             let name = ty.get_name(library).as_str(library);
             let size = unsafe {
-                target::LLVMABISizeOfType(self.target_data, self.get_or_insert_type(library, ty)?)
+                target::LLVMABISizeOfType(
+                    self.codegen.target_data,
+                    self.get_or_insert_type(library, ty)?,
+                )
             };
             let mut elements = Vec::new();
             let runtimelang = 0; // C/C++ will have to do for now
@@ -318,7 +293,10 @@ impl Llvm {
             let domain = ty.get_domain(library);
             let name = domain.to_string();
             let size = unsafe {
-                target::LLVMABISizeOfType(self.target_data, self.get_or_insert_type(library, ty)?)
+                target::LLVMABISizeOfType(
+                    self.codegen.target_data,
+                    self.get_or_insert_type(library, ty)?,
+                )
             };
             let address_space = 0; // TODO: We should query this from the target!
 
@@ -381,7 +359,7 @@ impl Llvm {
             let name_cstr = CString::new(ty.get_name(library).as_str(library)).unwrap();
             let name = name_cstr.as_ptr() as *const libc::c_char;
 
-            let struct_type = unsafe { core::LLVMStructCreateNamed(self.context, name) };
+            let struct_type = unsafe { core::LLVMStructCreateNamed(self.codegen.context, name) };
 
             let mut elements = Vec::new();
             for i in 0..ty.get_len(library) {
@@ -399,20 +377,22 @@ impl Llvm {
 
             Ok(struct_type)
         } else if ty.is_void(library) {
-            Ok(unsafe { LLVMVoidTypeInContext(self.context) })
+            Ok(unsafe { LLVMVoidTypeInContext(self.codegen.context) })
         } else if ty.is_boolean(library) {
-            Ok(unsafe { LLVMInt1TypeInContext(self.context) })
+            Ok(unsafe { LLVMInt1TypeInContext(self.codegen.context) })
         } else if ty.is_int(library) || ty.is_uint(library) {
-            Ok(unsafe { LLVMIntTypeInContext(self.context, ty.get_bits(library) as c_uint) })
+            Ok(unsafe {
+                LLVMIntTypeInContext(self.codegen.context, ty.get_bits(library) as c_uint)
+            })
         } else if ty.is_float(library) {
             match ty.get_bits(library) {
-                16 => Ok(unsafe { LLVMHalfTypeInContext(self.context) }),
-                32 => Ok(unsafe { LLVMFloatTypeInContext(self.context) }),
-                64 => Ok(unsafe { LLVMDoubleTypeInContext(self.context) }),
+                16 => Ok(unsafe { LLVMHalfTypeInContext(self.codegen.context) }),
+                32 => Ok(unsafe { LLVMFloatTypeInContext(self.codegen.context) }),
+                64 => Ok(unsafe { LLVMDoubleTypeInContext(self.codegen.context) }),
                 _ => unreachable!(),
             }
         } else if ty.is_pointer(library) {
-            Ok(unsafe { LLVMPointerType(LLVMInt8TypeInContext(self.context), 0) })
+            Ok(unsafe { LLVMPointerType(LLVMInt8TypeInContext(self.codegen.context), 0) })
         } else if ty.is_array(library) {
             let len = ty.get_len(library);
             let element = self.get_or_insert_type(library, ty.get_element(library, 0))?;
@@ -429,7 +409,7 @@ impl Llvm {
 
             Ok(unsafe {
                 core::LLVMStructTypeInContext(
-                    self.context,
+                    self.codegen.context,
                     elements.as_mut_ptr(),
                     elements.len() as c_uint,
                     true as LLVMBool,
@@ -496,32 +476,33 @@ impl Llvm {
 
     fn add_function_body(
         &mut self,
-        library: &Library,
         function: Function,
         llvm_function: LLVMValueRef,
     ) -> Result<(), Error> {
-        let builder = unsafe { core::LLVMCreateBuilderInContext(self.context) };
+        let builder = unsafe { core::LLVMCreateBuilderInContext(self.codegen.context) };
 
-        for block in function.get_blocks(library) {
+        for block in function.get_blocks(self.library) {
             let llvm_block = unsafe {
-                core::LLVMAppendBasicBlockInContext(self.context, llvm_function, EMPTY_NAME)
+                core::LLVMAppendBasicBlockInContext(self.codegen.context, llvm_function, EMPTY_NAME)
             };
 
             self.block_map.insert(block, llvm_block);
 
-            if function.is_entry_block(library, block) {
-                for (function_argument, block_argument) in
-                    function.get_args(library).zip(block.get_args(library))
+            if function.is_entry_block(self.library, block) {
+                for (function_argument, block_argument) in function
+                    .get_args(self.library)
+                    .zip(block.get_args(self.library))
                 {
                     let llvm_function_argument = *self.value_map.get(&function_argument).unwrap();
                     self.value_map
                         .insert(block_argument, llvm_function_argument);
                 }
             } else {
-                for argument in block.get_args(library) {
+                for argument in block.get_args(self.library) {
                     unsafe { core::LLVMPositionBuilderAtEnd(builder, llvm_block) };
 
-                    let llvm_ty = self.get_or_insert_type(library, argument.get_type(library))?;
+                    let llvm_ty =
+                        self.get_or_insert_type(self.library, argument.get_type(self.library))?;
 
                     let llvm_phi = unsafe { core::LLVMBuildPhi(builder, llvm_ty, EMPTY_NAME) };
 
@@ -530,10 +511,10 @@ impl Llvm {
             }
         }
 
-        for block in function.get_blocks(library) {
+        for block in function.get_blocks(self.library) {
             let llvm_block = *self.block_map.get(&block).unwrap();
 
-            self.add_block_body(library, block, llvm_block, builder)?;
+            self.add_block_body(self.module, self.library, block, llvm_block, builder)?;
         }
 
         Ok(())
@@ -628,6 +609,7 @@ impl Llvm {
 
     fn add_block_body(
         &mut self,
+        module: LLVMModuleRef,
         library: &Library,
         block: Block,
         llvm_block: LLVMBasicBlockRef,
@@ -825,7 +807,7 @@ impl Llvm {
 
                         let llvm_intrinsic = unsafe {
                             core::LLVMGetIntrinsicDeclaration(
-                                self.module,
+                                module,
                                 llvm_intrinsic_id,
                                 llvm_types.as_mut_ptr(),
                                 llvm_types.len() as libc::size_t,
@@ -1033,7 +1015,7 @@ impl Llvm {
                     let llvm_x = self.get_or_insert_value(library, *x)?;
 
                     if x.get_type(library).is_vector(library) {
-                        let int_ty = unsafe { LLVMIntTypeInContext(self.context, 64) };
+                        let int_ty = unsafe { LLVMIntTypeInContext(self.codegen.context, 64) };
                         let llvm_index =
                             unsafe { core::LLVMConstInt(int_ty, *index as libc::c_ulonglong, 0) };
 
@@ -1097,7 +1079,7 @@ impl Llvm {
                     let llvm_x = self.get_or_insert_value(library, *x)?;
 
                     if aggregate.get_type(library).is_vector(library) {
-                        let int_ty = unsafe { LLVMIntTypeInContext(self.context, 64) };
+                        let int_ty = unsafe { LLVMIntTypeInContext(self.codegen.context, 64) };
                         let llvm_index =
                             unsafe { core::LLVMConstInt(int_ty, *index as libc::c_ulonglong, 0) };
 
@@ -1243,7 +1225,10 @@ impl Llvm {
         Ok(())
     }
 
-    fn make_module(&mut self, library: &Library) -> Result<(), Error> {
+    fn make_module(&mut self) -> Result<LLVMModuleRef, Error> {
+        let llvm_module = self.module;
+        let library = self.library;
+
         for module in library.get_modules() {
             let module_name = module.get_name(library).as_str(library).to_owned();
 
@@ -1254,7 +1239,7 @@ impl Llvm {
                 let llvm_ty =
                     self.get_or_insert_type(library, global.get_global_backing_type(library))?;
 
-                let llvm_global = unsafe { core::LLVMAddGlobal(self.module, llvm_ty, name) };
+                let llvm_global = unsafe { core::LLVMAddGlobal(llvm_module, llvm_ty, name) };
 
                 let llvm_ptr_ty = self.get_or_insert_type(library, global.get_type(library))?;
 
@@ -1265,20 +1250,78 @@ impl Llvm {
 
             for function in module.get_functions(library) {
                 let llvm_function =
-                    self.make_function_declaration(library, function, self.module, &module_name)?;
+                    self.make_function_declaration(library, function, llvm_module, &module_name)?;
                 self.function_map.insert(function, llvm_function);
             }
 
             for function in module.get_functions(library) {
-                self.add_function_body(
-                    library,
-                    function,
-                    *self.function_map.get(&function).unwrap(),
-                )?;
+                self.add_function_body(function, *self.function_map.get(&function).unwrap())?;
             }
         }
 
-        Ok(())
+        Ok(llvm_module)
+    }
+}
+
+impl Llvm {
+    pub fn new(triple: &str) -> Result<Self, Error> {
+        unsafe {
+            target::LLVMInitializeAArch64Target();
+            target::LLVMInitializeAArch64TargetMC();
+            target::LLVMInitializeAArch64AsmParser();
+            target::LLVMInitializeAArch64AsmPrinter();
+            target::LLVMInitializeAArch64TargetInfo();
+            target::LLVMInitializeAArch64Disassembler();
+            target::LLVMInitializeX86Target();
+            target::LLVMInitializeX86TargetMC();
+            target::LLVMInitializeX86AsmParser();
+            target::LLVMInitializeX86AsmPrinter();
+            target::LLVMInitializeX86TargetInfo();
+            target::LLVMInitializeX86Disassembler();
+        }
+
+        let context = unsafe { core::LLVMContextCreate() };
+
+        let triple = CString::new(triple)?;
+
+        let mut target = ptr::null_mut();
+        let mut error_message = ptr::null_mut();
+
+        if unsafe {
+            target_machine::LLVMGetTargetFromTriple(
+                triple.as_ptr() as *const libc::c_char,
+                &mut target,
+                &mut error_message,
+            )
+        } != 0
+        {
+            let cstr = unsafe { CStr::from_ptr(error_message) }.to_owned();
+            unsafe { LLVMDisposeMessage(error_message) };
+            return Err(Error::Llvm(cstr));
+        }
+
+        unsafe { LLVMDisposeMessage(error_message) };
+
+        let target_machine = unsafe {
+            target_machine::LLVMCreateTargetMachine(
+                target,
+                triple.as_ptr() as *const libc::c_char,
+                ptr::null_mut(),
+                ptr::null_mut(),
+                target_machine::LLVMCodeGenOptLevel::LLVMCodeGenLevelDefault,
+                target_machine::LLVMRelocMode::LLVMRelocPIC,
+                target_machine::LLVMCodeModel::LLVMCodeModelLarge,
+            )
+        };
+
+        let target_data = unsafe { target_machine::LLVMCreateTargetDataLayout(target_machine) };
+
+        Ok(Self {
+            triple,
+            context,
+            target_data,
+            target_machine,
+        })
     }
 }
 
@@ -1291,9 +1334,11 @@ impl CodeGen for Llvm {
         output: CodeGenOutput,
         writer: &mut W,
     ) -> Result<(), Self::Error> {
-        let mut codegen = Self::new(triple)?;
+        let codegen = Self::new(triple)?;
 
-        codegen.make_module(library)?;
+        let mut helpers = Helpers::new(&codegen, library)?;
+
+        let module = helpers.make_module()?;
 
         match output {
             CodeGenOutput::Assembly => {
@@ -1303,7 +1348,7 @@ impl CodeGen for Llvm {
                 if unsafe {
                     target_machine::LLVMTargetMachineEmitToMemoryBuffer(
                         codegen.target_machine,
-                        codegen.module,
+                        module,
                         target_machine::LLVMCodeGenFileType::LLVMAssemblyFile,
                         &mut error_message,
                         &mut memory_buffer,
@@ -1327,7 +1372,7 @@ impl CodeGen for Llvm {
                 unsafe { LLVMDisposeMessage(error_message) };
             }
             CodeGenOutput::Intermediate => {
-                let module_string = unsafe { core::LLVMPrintModuleToString(codegen.module) };
+                let module_string = unsafe { core::LLVMPrintModuleToString(module) };
 
                 let cstr = unsafe { CStr::from_ptr(module_string) };
 
@@ -1342,7 +1387,7 @@ impl CodeGen for Llvm {
                 if unsafe {
                     target_machine::LLVMTargetMachineEmitToMemoryBuffer(
                         codegen.target_machine,
-                        codegen.module,
+                        module,
                         target_machine::LLVMCodeGenFileType::LLVMObjectFile,
                         &mut error_message,
                         &mut memory_buffer,
@@ -1367,6 +1412,77 @@ impl CodeGen for Llvm {
             }
         }
 
+        unsafe { LLVMDisposeModule(module) };
+
         Ok(())
+    }
+}
+
+struct LLVMJitFn<Args, Output> {
+    engine: execution_engine::LLVMExecutionEngineRef,
+    addr: u64,
+    phantom_args: PhantomData<Args>,
+    phantom_output: PhantomData<Output>,
+}
+
+impl<Args, Output> JitFn<Args, Output> for LLVMJitFn<Args, Output> {
+    fn run(&self, a: Args) -> Output {
+        let fn_ptr =
+            unsafe { std::mem::transmute::<u64, unsafe extern "C" fn(Args) -> Output>(self.addr) };
+
+        println!("Running func {:?}", self.addr);
+
+        unsafe { fn_ptr(a) }
+    }
+}
+
+impl<Args, Output> LLVMJitFn<Args, Output> {
+    fn new(engine: execution_engine::LLVMExecutionEngineRef, addr: u64) -> Self {
+        Self {
+            engine,
+            addr,
+            phantom_args: PhantomData,
+            phantom_output: PhantomData,
+        }
+    }
+}
+
+impl JitGen for Llvm {
+    type Error = Error;
+
+    fn build_jit_fn<'a, Args: 'static, Output: 'static>(
+        &'a self,
+        library: &'a Library,
+        entry_point: &str,
+    ) -> Result<Box<dyn JitFn<Args, Output>>, Self::Error> {
+        let mut helpers = Helpers::new(&self, library)?;
+
+        let module = helpers.make_module()?;
+
+        let mut execution_engine = ptr::null_mut();
+        let mut error_message = ptr::null_mut();
+
+        if 0 != unsafe {
+            execution_engine::LLVMCreateExecutionEngineForModule(
+                &mut execution_engine,
+                module,
+                &mut error_message,
+            )
+        } {
+            let cstr = unsafe { CStr::from_ptr(error_message) }.to_owned();
+            unsafe { LLVMDisposeMessage(error_message) };
+            return Err(Error::Llvm(cstr));
+        }
+
+        let entry_point_cstr = CString::new(entry_point).unwrap();
+        let entry_point = entry_point_cstr.as_ptr() as *const libc::c_char;
+
+        let addr =
+            unsafe { execution_engine::LLVMGetFunctionAddress(execution_engine, entry_point) };
+
+        Ok(Box::new(LLVMJitFn::<Args, Output>::new(
+            execution_engine,
+            addr,
+        )))
     }
 }

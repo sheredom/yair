@@ -53,6 +53,7 @@ fn link_in_llvm() {
     println!("cargo:rustc-link-lib=static=LLVMDebugInfoMSF");
     //println!("cargo:rustc-link-lib=static=LLVMDebugInfoPDB");
     println!("cargo:rustc-link-lib=static=LLVMDemangle");
+    println!("cargo:rustc-link-lib=static=LLVMExecutionEngine");
     println!("cargo:rustc-link-lib=static=LLVMGlobalISel");
     println!("cargo:rustc-link-lib=static=LLVMMC");
     println!("cargo:rustc-link-lib=static=LLVMMCDisassembler");
@@ -79,6 +80,23 @@ fn link_in_llvm() {
     }
 }
 
+#[cfg(not(feature = "lld"))]
+fn link_in_lld() {}
+
+#[cfg(feature = "lld")]
+fn link_in_lld() {
+    // Since LLD depends on the LLVM feature, we can assume all the correct LLVM
+    // bits have been pulled in.
+    println!("cargo:rustc-link-lib=static=LLVMOption");
+    println!("cargo:rustc-link-lib=static=lldCOFF");
+    println!("cargo:rustc-link-lib=static=lldCommon");
+    println!("cargo:rustc-link-lib=static=lldCore");
+    println!("cargo:rustc-link-lib=static=lldDriver");
+    println!("cargo:rustc-link-lib=static=lldELF");
+    println!("cargo:rustc-link-lib=static=lldMacho");
+}
+
 fn main() {
     link_in_llvm();
+    link_in_lld();
 }
