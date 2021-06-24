@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1623333870233,
+  "lastUpdate": 1624560460918,
   "repoUrl": "https://github.com/sheredom/yair",
   "entries": {
     "Rust Benchmark": [
@@ -683,6 +683,68 @@ window.BENCHMARK_DATA = {
             "name": "io__benchmarks__tests__create_global",
             "value": 133,
             "range": "± 38",
+            "unit": "ns/iter"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "sheredom",
+            "username": "sheredom"
+          },
+          "committer": {
+            "name": "sheredom",
+            "username": "sheredom"
+          },
+          "id": "c0c8eb1aa170a6d04b2dabaa2b958869da3be3dc",
+          "message": "Add jit",
+          "timestamp": "2021-06-11T03:13:28Z",
+          "url": "https://github.com/sheredom/yair/pull/17/commits/c0c8eb1aa170a6d04b2dabaa2b958869da3be3dc"
+        },
+        "date": 1624560459637,
+        "tool": "cargo",
+        "benches": [
+          {
+            "name": "io__benchmarks__tests__create_block",
+            "value": 52,
+            "range": "± 13",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "io__benchmarks__tests__create_function",
+            "value": 162,
+            "range": "± 68",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "io__benchmarks__tests__create_global",
+            "value": 155,
+            "range": "± 20",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "io__benchmarks__tests__create_instruction",
+            "value": 48,
+            "range": "± 28",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "io__benchmarks__tests__create_library",
+            "value": 437,
+            "range": "± 115",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "io__benchmarks__tests__create_module",
+            "value": 41,
+            "range": "± 18",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "llvm__benchmarks__tests__bench_splat_adds",
+            "value": 3170420,
+            "range": "± 287494",
             "unit": "ns/iter"
           }
         ]
