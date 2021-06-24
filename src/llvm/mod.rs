@@ -1425,12 +1425,16 @@ struct LLVMJitFn<Args, Output> {
     phantom_output: PhantomData<Output>,
 }
 
+impl<Args, Output> Drop for LLVMJitFn<Args, Output> {
+    fn drop(&mut self) {
+        unsafe { execution_engine::LLVMDisposeExecutionEngine(self.engine) };
+    }
+}
+
 impl<Args, Output> JitFn<Args, Output> for LLVMJitFn<Args, Output> {
     fn run(&self, a: Args) -> Output {
         let fn_ptr =
             unsafe { std::mem::transmute::<u64, unsafe extern "C" fn(Args) -> Output>(self.addr) };
-
-        println!("Running func {:?}", self.addr);
 
         unsafe { fn_ptr(a) }
     }

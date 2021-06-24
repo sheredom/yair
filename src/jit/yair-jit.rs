@@ -6,14 +6,15 @@ extern crate yair;
 
 use clap::App;
 use std::fs::File;
-use std::io::{self, Cursor, Write};
-use std::str::FromStr;
+use std::io;
 
 #[cfg(feature = "llvm")]
 use yair::llvm::Llvm;
 
-use yair::FunctionAttribute;
-use yair::{CodeGen, CodeGenOutput, Function, JitGen, Library};
+#[cfg(feature = "llvm")]
+use yair::JitGen;
+
+use yair::Library;
 
 #[cfg(feature = "llvm")]
 fn run_with_llvm(library: &Library, job: &str) {
@@ -21,6 +22,9 @@ fn run_with_llvm(library: &Library, job: &str) {
 
     codegen.build_jit_fn(library, job).unwrap().run(())
 }
+
+#[cfg(not(feature = "llvm"))]
+fn run_with_llvm(_: &Library, _: &str) {}
 
 fn main() {
     let yaml = load_yaml!("yair-jit.yml");
