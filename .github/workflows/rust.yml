@@ -62,15 +62,15 @@ jobs:
     steps:
     - uses: actions/checkout@v2
     - if: matrix.os == 'windows-latest'
-      run: powershell.exe -NoP -NonI -Command "Invoke-WebRequest https://github.com/WAVM/WAVM-LLVM/releases/download/11.x/Win64_Release.zip -O Win64_Release.zip"
+      run: powershell.exe -NoP -NonI -Command "Invoke-WebRequest https://github.com/WAVM/WAVM-LLVM/releases/download/12.x/Win64_Release.zip -O Win64_Release.zip"
     - if: matrix.os == 'windows-latest'
       run: powershell.exe -NoP -NonI -Command "Expand-Archive '.\Win64_Release.zip' '.\llvm\'"
     - if: matrix.os == 'ubuntu-16.04'
-      run: wget https://github.com/WAVM/WAVM-LLVM/releases/download/11.x/Ubuntu1604_Release.zip
+      run: wget https://github.com/WAVM/WAVM-LLVM/releases/download/12.x/Ubuntu1604_Release.zip
     - if: matrix.os == 'ubuntu-16.04'
       run: unzip -d llvm Ubuntu1604_Release.zip
     - if: matrix.os == 'macOS-latest'
-      run: wget https://github.com/WAVM/WAVM-LLVM/releases/download/11.x/MacOS_Release.zip
+      run: wget https://github.com/WAVM/WAVM-LLVM/releases/download/12.x/MacOS_Release.zip
     - if: matrix.os == 'macOS-latest'
       run: unzip -d llvm MacOS_Release.zip
     - run: cargo test --features llvm
@@ -85,15 +85,15 @@ jobs:
     steps:
     - uses: actions/checkout@v2
     - if: matrix.os == 'windows-latest'
-      run: powershell.exe -NoP -NonI -Command "Invoke-WebRequest https://github.com/WAVM/WAVM-LLVM/releases/download/11.x/Win64_Release.zip -O Win64_Release.zip"
+      run: powershell.exe -NoP -NonI -Command "Invoke-WebRequest https://github.com/WAVM/WAVM-LLVM/releases/download/12.x/Win64_Release.zip -O Win64_Release.zip"
     - if: matrix.os == 'windows-latest'
       run: powershell.exe -NoP -NonI -Command "Expand-Archive '.\Win64_Release.zip' '.\llvm\'"
     - if: matrix.os == 'ubuntu-16.04'
-      run: wget https://github.com/WAVM/WAVM-LLVM/releases/download/11.x/Ubuntu1604_Release.zip
+      run: wget https://github.com/WAVM/WAVM-LLVM/releases/download/12.x/Ubuntu1604_Release.zip
     - if: matrix.os == 'ubuntu-16.04'
       run: unzip -d llvm Ubuntu1604_Release.zip
     - if: matrix.os == 'macOS-latest'
-      run: wget https://github.com/WAVM/WAVM-LLVM/releases/download/11.x/MacOS_Release.zip
+      run: wget https://github.com/WAVM/WAVM-LLVM/releases/download/12.x/MacOS_Release.zip
     - if: matrix.os == 'macOS-latest'
       run: unzip -d llvm MacOS_Release.zip
     - run: rustup toolchain install nightly
