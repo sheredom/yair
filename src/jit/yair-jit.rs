@@ -44,43 +44,7 @@ fn main() {
 
     let job = matches.value_of("job").unwrap();
 
-    let mut found_function = None;
-
-    for module in library.get_modules() {
-        for function in module.get_functions(&library) {
-            if function.get_name(&library).as_str(&library) == job {
-                if !function
-                    .get_attributes(&library)
-                    .contains(FunctionAttribute::Job)
-                {
-                    panic!("Function requested to be ran '{}' is not a job", job);
-                }
-
-                if !function
-                    .get_attributes(&library)
-                    .contains(FunctionAttribute::Export)
-                {
-                    panic!(
-                        "Function requested to be ran '{}' is not marked for export",
-                        job
-                    );
-                }
-
-                found_function = Some(function);
-                break;
-            }
-        }
-
-        if found_function.is_some() {
-            break;
-        }
-    }
-
-    if found_function.is_none() {
-        panic!("Could not find the job '{}' for execution", job);
-    }
-
-    if !cfg!(feature = "llvm") && backend == "LLVM" {
+    if backend == "LLVM" {
         run_with_llvm(&library, job);
     }
 }

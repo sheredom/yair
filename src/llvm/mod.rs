@@ -1455,6 +1455,8 @@ impl JitGen for Llvm {
         library: &'a Library,
         entry_point: &str,
     ) -> Result<Box<dyn JitFn<Args, Output>>, Self::Error> {
+        unsafe { execution_engine::LLVMLinkInMCJIT() };
+
         let mut helpers = Helpers::new(&self, library)?;
 
         let module = helpers.make_module()?;
@@ -1473,6 +1475,8 @@ impl JitGen for Llvm {
             unsafe { LLVMDisposeMessage(error_message) };
             return Err(Error::Llvm(cstr));
         }
+
+        unsafe { execution_engine::LLVMAddModule(execution_engine, module) };
 
         let entry_point_cstr = CString::new(entry_point).unwrap();
         let entry_point = entry_point_cstr.as_ptr() as *const libc::c_char;

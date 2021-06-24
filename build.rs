@@ -53,7 +53,6 @@ fn link_in_llvm() {
     println!("cargo:rustc-link-lib=static=LLVMDebugInfoMSF");
     //println!("cargo:rustc-link-lib=static=LLVMDebugInfoPDB");
     println!("cargo:rustc-link-lib=static=LLVMDemangle");
-    println!("cargo:rustc-link-lib=static=LLVMExecutionEngine");
     println!("cargo:rustc-link-lib=static=LLVMGlobalISel");
     println!("cargo:rustc-link-lib=static=LLVMMC");
     println!("cargo:rustc-link-lib=static=LLVMMCDisassembler");
@@ -72,6 +71,13 @@ fn link_in_llvm() {
     println!("cargo:rustc-link-lib=static=LLVMX86Desc");
     println!("cargo:rustc-link-lib=static=LLVMX86Disassembler");
     println!("cargo:rustc-link-lib=static=LLVMX86Info");
+
+    // For JIT
+    println!("cargo:rustc-link-lib=static=LLVMExecutionEngine");
+    println!("cargo:rustc-link-lib=static=LLVMRuntimeDyld");
+    println!("cargo:rustc-link-lib=static=LLVMMCJIT");
+    println!("cargo:rustc-link-lib=static=LLVMOrcShared");
+    println!("cargo:rustc-link-lib=static=LLVMOrcTargetProcess");
 
     if cfg!(target_os = "macos") {
         println!("cargo:rustc-link-lib=dylib=c++");
