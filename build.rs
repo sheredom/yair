@@ -72,6 +72,13 @@ fn link_in_llvm() {
     println!("cargo:rustc-link-lib=static=LLVMX86Disassembler");
     println!("cargo:rustc-link-lib=static=LLVMX86Info");
 
+    // For JIT
+    println!("cargo:rustc-link-lib=static=LLVMExecutionEngine");
+    println!("cargo:rustc-link-lib=static=LLVMRuntimeDyld");
+    println!("cargo:rustc-link-lib=static=LLVMMCJIT");
+    println!("cargo:rustc-link-lib=static=LLVMOrcShared");
+    println!("cargo:rustc-link-lib=static=LLVMOrcTargetProcess");
+
     if cfg!(target_os = "macos") {
         println!("cargo:rustc-link-lib=dylib=c++");
     } else if cfg!(target_os = "linux") {
@@ -79,6 +86,23 @@ fn link_in_llvm() {
     }
 }
 
+#[cfg(not(feature = "lld"))]
+fn link_in_lld() {}
+
+#[cfg(feature = "lld")]
+fn link_in_lld() {
+    // Since LLD depends on the LLVM feature, we can assume all the correct LLVM
+    // bits have been pulled in.
+    println!("cargo:rustc-link-lib=static=LLVMOption");
+    println!("cargo:rustc-link-lib=static=lldCOFF");
+    println!("cargo:rustc-link-lib=static=lldCommon");
+    println!("cargo:rustc-link-lib=static=lldCore");
+    println!("cargo:rustc-link-lib=static=lldDriver");
+    println!("cargo:rustc-link-lib=static=lldELF");
+    println!("cargo:rustc-link-lib=static=lldMacho");
+}
+
 fn main() {
     link_in_llvm();
+    link_in_lld();
 }

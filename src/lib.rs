@@ -19,7 +19,9 @@ mod constant;
 mod function;
 mod global;
 mod instructions;
+mod jitgen;
 mod library;
+mod linkgen;
 mod location;
 mod module;
 mod value;
@@ -31,6 +33,9 @@ pub mod io;
 #[cfg(feature = "llvm")]
 pub mod llvm;
 
+#[cfg(feature = "lld")]
+pub mod lld;
+
 pub use argument::*;
 pub use block::*;
 pub use codegen::*;
@@ -38,6 +43,7 @@ pub use constant::*;
 pub use function::*;
 pub use global::*;
 pub use instructions::*;
+pub use jitgen::*;
 pub use library::*;
 pub use location::*;
 pub use module::*;

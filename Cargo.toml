@@ -12,6 +12,7 @@ enumset = { version = "1.0.6", features = ["serde"] }
 generational-arena = { version = "0.2.7", features = ["serde"] }
 radix_trie = { version = "0.2.1", features = ["serde"] }
 serde = { version = "1.0.104", features = ["derive"] }
+embedded-triple = "0.1.0"
 
 clap = { version = "2.33.3", features = ["yaml"], optional = true }
 codespan = { version = "0.7.0", optional = true }
@@ -31,6 +32,7 @@ lit = "1.0.3"
 [features]
 io = ["clap", "codespan", "codespan-reporting", "duct", "rmp-serde"]
 llvm = ["llvm-sys", "libc"]
+lld = ["llvm"]
 nightly = []
 default = ["io"]
 
@@ -47,6 +49,11 @@ required-features = ["io"]
 [[bin]]
 name = "yair-verify"
 path = "src/verifier/yair-verify.rs"
+required-features = ["io"]
+
+[[bin]]
+name = "yair-jit"
+path = "src/jit/yair-jit.rs"
 required-features = ["io"]
 
 [[bin]]
