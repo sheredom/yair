@@ -1,5 +1,6 @@
 #[macro_use]
 extern crate clap;
+extern crate embedded_triple;
 extern crate rmp_serde;
 extern crate serde;
 extern crate yair;
@@ -18,9 +19,11 @@ use yair::Library;
 
 #[cfg(feature = "llvm")]
 fn run_with_llvm(library: &Library, job: &str) {
-    let codegen = Llvm::new("aarch64-apple-darwin").unwrap();
+    let codegen = Llvm::new(embedded_triple::get()).unwrap();
 
-    codegen.build_jit_fn(library, job).unwrap().run(())
+    let jit_fn = codegen.build_jit_fn(library, job).unwrap();
+
+    jit_fn.run(())
 }
 
 #[cfg(not(feature = "llvm"))]

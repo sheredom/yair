@@ -1,4 +1,4 @@
-// RUN: @yair_as @file | @yair_jit - --backend LLVM --job foo
+// RUN: @yair_as @file | @yair_jit - --backend LLVM --job "😀::foo"
 
 mod "😀" {
   fn [job, export] foo() : void {
