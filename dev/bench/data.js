@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1626934719505,
+  "lastUpdate": 1626934792494,
   "repoUrl": "https://github.com/sheredom/yair",
   "entries": {
     "Rust Benchmark": [
@@ -1823,6 +1823,68 @@ window.BENCHMARK_DATA = {
             "name": "llvm__benchmarks__tests__bench_splat_adds",
             "value": 4352565,
             "range": "± 528384",
+            "unit": "ns/iter"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "sheredom",
+            "username": "sheredom"
+          },
+          "committer": {
+            "name": "sheredom",
+            "username": "sheredom"
+          },
+          "id": "7511e64109e42773d84071efd666ff19e383bc8f",
+          "message": "Update llvm-sys requirement from 110.0.1 to 120.1.0",
+          "timestamp": "2021-07-16T23:37:28Z",
+          "url": "https://github.com/sheredom/yair/pull/18/commits/7511e64109e42773d84071efd666ff19e383bc8f"
+        },
+        "date": 1626934787869,
+        "tool": "cargo",
+        "benches": [
+          {
+            "name": "io__benchmarks__tests__create_block",
+            "value": 54,
+            "range": "± 9",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "io__benchmarks__tests__create_function",
+            "value": 223,
+            "range": "± 28",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "io__benchmarks__tests__create_global",
+            "value": 220,
+            "range": "± 29",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "io__benchmarks__tests__create_instruction",
+            "value": 50,
+            "range": "± 8",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "io__benchmarks__tests__create_library",
+            "value": 612,
+            "range": "± 95",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "io__benchmarks__tests__create_module",
+            "value": 49,
+            "range": "± 6",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "llvm__benchmarks__tests__bench_splat_adds",
+            "value": 4415795,
+            "range": "± 576978",
             "unit": "ns/iter"
           }
         ]
