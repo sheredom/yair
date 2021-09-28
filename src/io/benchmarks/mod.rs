@@ -9,27 +9,27 @@ mod tests {
     #[bench]
     fn create_library(b: &mut Bencher) {
         b.iter(|| {
-            let _ = Library::new();
+            let _ = context::new();
         });
     }
 
     #[bench]
     fn create_module(b: &mut Bencher) {
-        let mut library = Library::new();
+        let mut context = Context::new();
 
         b.iter(|| {
-            let _ = library.create_module().build();
+            let _ = context.create_module().build();
         });
     }
 
     #[bench]
     fn create_function(b: &mut Bencher) {
-        let mut library = Library::new();
-        let module = library.create_module().build();
+        let mut context = Context::new();
+        let module = context.create_module().build();
 
         b.iter(|| {
             let _ = module
-                .create_function(&mut library)
+                .create_function(&mut context)
                 .with_name("func")
                 .build();
         });
@@ -37,12 +37,12 @@ mod tests {
 
     #[bench]
     fn create_global(b: &mut Bencher) {
-        let mut library = Library::new();
-        let module = library.create_module().build();
+        let mut context = Context::new();
+        let module = context.create_module().build();
 
         b.iter(|| {
             let _ = module
-                .create_global(&mut library)
+                .create_global(&mut context)
                 .with_name("global")
                 .build();
         });
@@ -50,30 +50,30 @@ mod tests {
 
     #[bench]
     fn create_block(b: &mut Bencher) {
-        let mut library = Library::new();
-        let module = library.create_module().build();
+        let mut context = Context::new();
+        let module = context.create_module().build();
         let function = module
-            .create_function(&mut library)
+            .create_function(&mut context)
             .with_name("func")
             .build();
 
         b.iter(|| {
-            let _ = function.create_block(&mut library).build();
+            let _ = function.create_block(&mut context).build();
         });
     }
 
     #[bench]
     fn create_instruction(b: &mut Bencher) {
-        let mut library = Library::new();
-        let module = library.create_module().build();
+        let mut context = Context::new();
+        let module = context.create_module().build();
         let function = module
-            .create_function(&mut library)
+            .create_function(&mut context)
             .with_name("func")
             .build();
-        let block = function.create_block(&mut library).build();
+        let block = function.create_block(&mut context).build();
 
         b.iter(|| {
-            let instruction_builder = block.create_instructions(&mut library);
+            let instruction_builder = block.create_instructions(&mut context);
             instruction_builder.ret(None);
         });
     }

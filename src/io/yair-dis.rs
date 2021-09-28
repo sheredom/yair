@@ -8,7 +8,7 @@ use clap::App;
 use std::fs::File;
 use std::io::{self};
 use yair::io::disassemble;
-use yair::Library;
+use yair::Context;
 
 fn main() {
     let yaml = load_yaml!("yair-dis.yml");
@@ -16,7 +16,7 @@ fn main() {
 
     let input = matches.value_of("input").unwrap();
 
-    let library: Library = if input == "-" {
+    let context: Context = if input == "-" {
         rmp_serde::from_read(io::stdin())
     } else {
         let file = File::open(input).unwrap();
@@ -27,10 +27,10 @@ fn main() {
     let output = matches.value_of("output").unwrap();
 
     if output == "-" {
-        disassemble(&library, io::stdout().lock())
+        disassemble(&context, io::stdout().lock())
     } else {
         let file = File::create(output).unwrap();
-        disassemble(&library, file)
+        disassemble(&context, file)
     }
     .expect("Could not write data");
 }

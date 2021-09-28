@@ -64,7 +64,7 @@ impl<'a> Drop for Helpers<'a> {
 
 struct Helpers<'a> {
     codegen: &'a Llvm,
-    library: &'a Library,
+    context: &'a Context,
     module: LLVMModuleRef,
     dibuilder: LLVMDIBuilderRef,
     ditypes: HashMap<Type, LLVMMetadataRef>,
@@ -76,7 +76,7 @@ struct Helpers<'a> {
 }
 
 impl<'a> Helpers<'a> {
-    fn new(codegen: &'a Llvm, library: &'a Library) -> Result<Self, Error> {
+    fn new(codegen: &'a Llvm, context: &'a Context) -> Result<Self, Error> {
         let module =
             unsafe { core::LLVMModuleCreateWithNameInContext(EMPTY_NAME, codegen.context) };
         unsafe { core::LLVMSetTarget(module, codegen.triple.as_ptr() as *const libc::c_char) };
@@ -85,7 +85,7 @@ impl<'a> Helpers<'a> {
 
         Ok(Self {
             codegen,
-            library,
+            context,
             module,
             dibuilder,
             ditypes: HashMap::new(),
@@ -97,11 +97,11 @@ impl<'a> Helpers<'a> {
         })
     }
 
-    fn get_or_insert_filename(&mut self, library: &Library, name: Name) -> LLVMMetadataRef {
+    fn get_or_insert_filename(&mut self, context: &Context, name: Name) -> LLVMMetadataRef {
         if let Some(filename) = self.filenames.get(&name) {
             *filename
         } else {
-            let name_str = name.as_str(library);
+            let name_str = name.as_str(context);
 
             let filename = Path::new(name_str).file_name().unwrap().to_str().unwrap();
             let directory = name_str.strip_suffix(filename).unwrap();
@@ -122,11 +122,11 @@ impl<'a> Helpers<'a> {
         }
     }
 
-    fn make_location(&mut self, library: &Library, location: Location) -> LLVMMetadataRef {
+    fn make_location(&mut self, context: &Context, location: Location) -> LLVMMetadataRef {
         let line = location.get_line() as libc::c_uint;
         let column = location.get_column() as libc::c_uint;
 
-        let filename = self.get_or_insert_filename(library, location.get_name(library));
+        let filename = self.get_or_insert_filename(context, location.get_name(context));
 
         unsafe {
             debuginfo::LLVMDIBuilderCreateDebugLocation(
@@ -139,11 +139,11 @@ impl<'a> Helpers<'a> {
         }
     }
 
-    fn get_or_insert_type(&mut self, library: &Library, ty: Type) -> Result<LLVMTypeRef, Error> {
+    fn get_or_insert_type(&mut self, context: &Context, ty: Type) -> Result<LLVMTypeRef, Error> {
         if let Some(t) = self.types.get(&ty) {
             Ok(*t)
         } else {
-            let llvm_ty = self.make_type(library, ty)?;
+            let llvm_ty = self.make_type(context, ty)?;
             self.types.insert(ty, llvm_ty);
 
             Ok(llvm_ty)
@@ -152,43 +152,43 @@ impl<'a> Helpers<'a> {
 
     fn get_or_insert_debug_type(
         &mut self,
-        library: &Library,
+        context: &Context,
         ty: Type,
     ) -> Result<LLVMMetadataRef, Error> {
         #[allow(clippy::map_entry)]
         if !self.ditypes.contains_key(&ty) {
-            let llvm_dity = self.insert_debug_type(library, ty)?;
+            let llvm_dity = self.insert_debug_type(context, ty)?;
             self.ditypes.insert(ty, llvm_dity);
         }
 
         Ok(*self.ditypes.get(&ty).unwrap())
     }
 
-    fn insert_debug_type(&mut self, library: &Library, ty: Type) -> Result<LLVMMetadataRef, Error> {
-        if ty.is_named_struct(library) {
-            let filename = if let Some(location) = ty.get_location(library) {
-                self.get_or_insert_filename(library, location.get_name(library))
+    fn insert_debug_type(&mut self, context: &Context, ty: Type) -> Result<LLVMMetadataRef, Error> {
+        if ty.is_named_struct(context) {
+            let filename = if let Some(location) = ty.get_location(context) {
+                self.get_or_insert_filename(context, location.get_name(context))
             } else {
                 ptr::null_mut()
             };
 
-            let line = if let Some(location) = ty.get_location(library) {
+            let line = if let Some(location) = ty.get_location(context) {
                 location.get_line()
             } else {
                 0
             };
 
-            let location = if let Some(location) = ty.get_location(library) {
-                self.make_location(library, location)
+            let location = if let Some(location) = ty.get_location(context) {
+                self.make_location(context, location)
             } else {
                 ptr::null_mut()
             };
 
-            let name = ty.get_name(library).as_str(library);
+            let name = ty.get_name(context).as_str(context);
             let size = unsafe {
                 target::LLVMABISizeOfType(
                     self.codegen.target_data,
-                    self.get_or_insert_type(library, ty)?,
+                    self.get_or_insert_type(context, ty)?,
                 )
             };
             let mut elements = Vec::new();
@@ -214,7 +214,7 @@ impl<'a> Helpers<'a> {
                     0,
                 )
             })
-        } else if ty.is_void(library) {
+        } else if ty.is_void(context) {
             let name = "void";
             Ok(unsafe {
                 debuginfo::LLVMDIBuilderCreateBasicType(
@@ -226,7 +226,7 @@ impl<'a> Helpers<'a> {
                     0,
                 )
             })
-        } else if ty.is_boolean(library) {
+        } else if ty.is_boolean(context) {
             let name = "bool";
             Ok(unsafe {
                 debuginfo::LLVMDIBuilderCreateBasicType(
@@ -238,8 +238,8 @@ impl<'a> Helpers<'a> {
                     0,
                 )
             })
-        } else if ty.is_int(library) {
-            let bits = ty.get_bits(library);
+        } else if ty.is_int(context) {
+            let bits = ty.get_bits(context);
             let name = "i".to_owned() + &bits.to_string();
             Ok(unsafe {
                 debuginfo::LLVMDIBuilderCreateBasicType(
@@ -251,8 +251,8 @@ impl<'a> Helpers<'a> {
                     0,
                 )
             })
-        } else if ty.is_uint(library) {
-            let bits = ty.get_bits(library);
+        } else if ty.is_uint(context) {
+            let bits = ty.get_bits(context);
             let name = "i".to_owned() + &bits.to_string();
             Ok(unsafe {
                 debuginfo::LLVMDIBuilderCreateBasicType(
@@ -264,8 +264,8 @@ impl<'a> Helpers<'a> {
                     0,
                 )
             })
-        } else if ty.is_float(library) {
-            let bits = ty.get_bits(library);
+        } else if ty.is_float(context) {
+            let bits = ty.get_bits(context);
             let name = "f".to_owned() + &bits.to_string();
             Ok(unsafe {
                 debuginfo::LLVMDIBuilderCreateBasicType(
@@ -277,7 +277,7 @@ impl<'a> Helpers<'a> {
                     0,
                 )
             })
-        } else if ty.is_pointer(library) {
+        } else if ty.is_pointer(context) {
             let name = "void";
             let void_ty = unsafe {
                 debuginfo::LLVMDIBuilderCreateBasicType(
@@ -290,12 +290,12 @@ impl<'a> Helpers<'a> {
                 )
             };
 
-            let domain = ty.get_domain(library);
+            let domain = ty.get_domain(context);
             let name = domain.to_string();
             let size = unsafe {
                 target::LLVMABISizeOfType(
                     self.codegen.target_data,
-                    self.get_or_insert_type(library, ty)?,
+                    self.get_or_insert_type(context, ty)?,
                 )
             };
             let address_space = 0; // TODO: We should query this from the target!
@@ -311,9 +311,9 @@ impl<'a> Helpers<'a> {
                     name.len(),
                 )
             })
-        } else if ty.is_array(library) {
-            let len = ty.get_len(library);
-            let element_ty = ty.get_element(library, 0);
+        } else if ty.is_array(context) {
+            let len = ty.get_len(context);
+            let element_ty = ty.get_element(context, 0);
 
             let mut subscripts = Vec::new();
 
@@ -324,14 +324,14 @@ impl<'a> Helpers<'a> {
                     self.dibuilder,
                     len as u64,
                     1,
-                    self.get_or_insert_debug_type(library, element_ty)?,
+                    self.get_or_insert_debug_type(context, element_ty)?,
                     subscripts.as_mut_ptr(),
                     subscripts.len() as u32,
                 )
             })
-        } else if ty.is_vector(library) {
-            let len = ty.get_len(library);
-            let element_ty = ty.get_element(library, 0);
+        } else if ty.is_vector(context) {
+            let len = ty.get_len(context);
+            let element_ty = ty.get_element(context, 0);
 
             let mut subscripts = Vec::new();
 
@@ -342,28 +342,28 @@ impl<'a> Helpers<'a> {
                     self.dibuilder,
                     len as u64,
                     1,
-                    self.get_or_insert_debug_type(library, element_ty)?,
+                    self.get_or_insert_debug_type(context, element_ty)?,
                     subscripts.as_mut_ptr(),
                     subscripts.len() as u32,
                 )
             })
-        } else if ty.is_struct(library) {
+        } else if ty.is_struct(context) {
             panic!("Implement structs");
         } else {
             panic!("Unknown type!");
         }
     }
 
-    fn make_type(&mut self, library: &Library, ty: Type) -> Result<LLVMTypeRef, Error> {
-        if ty.is_named_struct(library) {
-            let name_cstr = CString::new(ty.get_name(library).as_str(library)).unwrap();
+    fn make_type(&mut self, context: &Context, ty: Type) -> Result<LLVMTypeRef, Error> {
+        if ty.is_named_struct(context) {
+            let name_cstr = CString::new(ty.get_name(context).as_str(context)).unwrap();
             let name = name_cstr.as_ptr() as *const libc::c_char;
 
             let struct_type = unsafe { core::LLVMStructCreateNamed(self.codegen.context, name) };
 
             let mut elements = Vec::new();
-            for i in 0..ty.get_len(library) {
-                elements.push(self.get_or_insert_type(library, ty.get_element(library, i))?);
+            for i in 0..ty.get_len(context) {
+                elements.push(self.get_or_insert_type(context, ty.get_element(context, i))?);
             }
 
             unsafe {
@@ -376,35 +376,35 @@ impl<'a> Helpers<'a> {
             }
 
             Ok(struct_type)
-        } else if ty.is_void(library) {
+        } else if ty.is_void(context) {
             Ok(unsafe { LLVMVoidTypeInContext(self.codegen.context) })
-        } else if ty.is_boolean(library) {
+        } else if ty.is_boolean(context) {
             Ok(unsafe { LLVMInt1TypeInContext(self.codegen.context) })
-        } else if ty.is_int(library) || ty.is_uint(library) {
+        } else if ty.is_int(context) || ty.is_uint(context) {
             Ok(unsafe {
-                LLVMIntTypeInContext(self.codegen.context, ty.get_bits(library) as c_uint)
+                LLVMIntTypeInContext(self.codegen.context, ty.get_bits(context) as c_uint)
             })
-        } else if ty.is_float(library) {
-            match ty.get_bits(library) {
+        } else if ty.is_float(context) {
+            match ty.get_bits(context) {
                 16 => Ok(unsafe { LLVMHalfTypeInContext(self.codegen.context) }),
                 32 => Ok(unsafe { LLVMFloatTypeInContext(self.codegen.context) }),
                 64 => Ok(unsafe { LLVMDoubleTypeInContext(self.codegen.context) }),
                 _ => unreachable!(),
             }
-        } else if ty.is_pointer(library) {
+        } else if ty.is_pointer(context) {
             Ok(unsafe { LLVMPointerType(LLVMInt8TypeInContext(self.codegen.context), 0) })
-        } else if ty.is_array(library) {
-            let len = ty.get_len(library);
-            let element = self.get_or_insert_type(library, ty.get_element(library, 0))?;
+        } else if ty.is_array(context) {
+            let len = ty.get_len(context);
+            let element = self.get_or_insert_type(context, ty.get_element(context, 0))?;
             Ok(unsafe { core::LLVMArrayType(element, len as c_uint) })
-        } else if ty.is_vector(library) {
-            let len = ty.get_len(library);
-            let element = self.get_or_insert_type(library, ty.get_element(library, 0))?;
+        } else if ty.is_vector(context) {
+            let len = ty.get_len(context);
+            let element = self.get_or_insert_type(context, ty.get_element(context, 0))?;
             Ok(unsafe { core::LLVMVectorType(element, len as c_uint) })
-        } else if ty.is_struct(library) {
+        } else if ty.is_struct(context) {
             let mut elements = Vec::new();
-            for i in 0..ty.get_len(library) {
-                elements.push(self.get_or_insert_type(library, ty.get_element(library, i))?);
+            for i in 0..ty.get_len(context) {
+                elements.push(self.get_or_insert_type(context, ty.get_element(context, i))?);
             }
 
             Ok(unsafe {
@@ -422,18 +422,18 @@ impl<'a> Helpers<'a> {
 
     fn make_function_declaration(
         &mut self,
-        library: &Library,
+        context: &Context,
         function: Function,
         llvm_module: LLVMModuleRef,
         module_name: &str,
     ) -> Result<LLVMValueRef, Error> {
         let mut elements = Vec::new();
 
-        for arg in function.get_args(library) {
-            elements.push(self.get_or_insert_type(library, arg.get_type(library))?);
+        for arg in function.get_args(context) {
+            elements.push(self.get_or_insert_type(context, arg.get_type(context))?);
         }
 
-        let return_type = self.get_or_insert_type(library, function.get_return_type(library))?;
+        let return_type = self.get_or_insert_type(context, function.get_return_type(context))?;
 
         let function_type = unsafe {
             core::LLVMFunctionType(
@@ -446,9 +446,9 @@ impl<'a> Helpers<'a> {
 
         let name_string = if module_name.is_empty() {
             // We have an empty module name, so this is the global namespace.
-            function.get_name(library).as_str(library).to_string()
+            function.get_name(context).as_str(context).to_string()
         } else {
-            module_name.to_owned() + "::" + function.get_name(library).as_str(library)
+            module_name.to_owned() + "::" + function.get_name(context).as_str(context)
         };
 
         let name_cstr = CString::new(name_string).unwrap();
@@ -456,8 +456,8 @@ impl<'a> Helpers<'a> {
 
         let llvm_function = unsafe { core::LLVMAddFunction(llvm_module, name, function_type) };
 
-        for (index, arg) in function.get_args(library).enumerate() {
-            let arg_name = arg.get_name(library).as_str(library);
+        for (index, arg) in function.get_args(context).enumerate() {
+            let arg_name = arg.get_name(context).as_str(context);
 
             let llvm_arg = unsafe { core::LLVMGetParam(llvm_function, index as libc::c_uint) };
 
@@ -481,28 +481,28 @@ impl<'a> Helpers<'a> {
     ) -> Result<(), Error> {
         let builder = unsafe { core::LLVMCreateBuilderInContext(self.codegen.context) };
 
-        for block in function.get_blocks(self.library) {
+        for block in function.get_blocks(self.context) {
             let llvm_block = unsafe {
                 core::LLVMAppendBasicBlockInContext(self.codegen.context, llvm_function, EMPTY_NAME)
             };
 
             self.block_map.insert(block, llvm_block);
 
-            if function.is_entry_block(self.library, block) {
+            if function.is_entry_block(self.context, block) {
                 for (function_argument, block_argument) in function
-                    .get_args(self.library)
-                    .zip(block.get_args(self.library))
+                    .get_args(self.context)
+                    .zip(block.get_args(self.context))
                 {
                     let llvm_function_argument = *self.value_map.get(&function_argument).unwrap();
                     self.value_map
                         .insert(block_argument, llvm_function_argument);
                 }
             } else {
-                for argument in block.get_args(self.library) {
+                for argument in block.get_args(self.context) {
                     unsafe { core::LLVMPositionBuilderAtEnd(builder, llvm_block) };
 
                     let llvm_ty =
-                        self.get_or_insert_type(self.library, argument.get_type(self.library))?;
+                        self.get_or_insert_type(self.context, argument.get_type(self.context))?;
 
                     let llvm_phi = unsafe { core::LLVMBuildPhi(builder, llvm_ty, EMPTY_NAME) };
 
@@ -511,10 +511,10 @@ impl<'a> Helpers<'a> {
             }
         }
 
-        for block in function.get_blocks(self.library) {
+        for block in function.get_blocks(self.context) {
             let llvm_block = *self.block_map.get(&block).unwrap();
 
-            self.add_block_body(self.module, self.library, block, llvm_block, builder)?;
+            self.add_block_body(self.module, self.context, block, llvm_block, builder)?;
         }
 
         Ok(())
@@ -522,14 +522,14 @@ impl<'a> Helpers<'a> {
 
     fn get_or_insert_value(
         &mut self,
-        library: &Library,
+        context: &Context,
         value: Value,
     ) -> Result<LLVMValueRef, Error> {
         if !self.value_map.contains_key(&value) {
-            if value.is_constant(library) {
-                match value.get_constant(library) {
+            if value.is_constant(context) {
+                match value.get_constant(context) {
                     Constant::Bool(constant, ty) => {
-                        let llvm_ty = self.get_or_insert_type(library, *ty)?;
+                        let llvm_ty = self.get_or_insert_type(context, *ty)?;
                         let llvm_value = unsafe {
                             core::LLVMConstInt(llvm_ty, *constant as libc::c_ulonglong, 1)
                         };
@@ -539,12 +539,12 @@ impl<'a> Helpers<'a> {
                         let mut llvm_values = Vec::new();
 
                         for value in values {
-                            llvm_values.push(self.get_or_insert_value(library, *value)?);
+                            llvm_values.push(self.get_or_insert_value(context, *value)?);
                         }
 
-                        let llvm_value = if ty.is_array(library) {
-                            let element_ty = ty.get_element(library, 0);
-                            let llvm_element_ty = self.get_or_insert_type(library, element_ty)?;
+                        let llvm_value = if ty.is_array(context) {
+                            let element_ty = ty.get_element(context, 0);
+                            let llvm_element_ty = self.get_or_insert_type(context, element_ty)?;
                             unsafe {
                                 core::LLVMConstArray(
                                     llvm_element_ty,
@@ -552,14 +552,14 @@ impl<'a> Helpers<'a> {
                                     llvm_values.len() as libc::c_uint,
                                 )
                             }
-                        } else if ty.is_vector(library) {
+                        } else if ty.is_vector(context) {
                             unsafe {
                                 core::LLVMConstVector(
                                     llvm_values.as_mut_ptr(),
                                     llvm_values.len() as libc::c_uint,
                                 )
                             }
-                        } else if ty.is_struct(library) {
+                        } else if ty.is_struct(context) {
                             unsafe {
                                 core::LLVMConstStruct(
                                     llvm_values.as_mut_ptr(),
@@ -574,25 +574,25 @@ impl<'a> Helpers<'a> {
                         self.value_map.insert(value, llvm_value);
                     }
                     Constant::Float(constant, ty) => {
-                        let llvm_ty = self.get_or_insert_type(library, *ty)?;
+                        let llvm_ty = self.get_or_insert_type(context, *ty)?;
                         let llvm_value =
                             unsafe { core::LLVMConstReal(llvm_ty, *constant as libc::c_double) };
                         self.value_map.insert(value, llvm_value);
                     }
                     Constant::Int(constant, ty) => {
-                        let llvm_ty = self.get_or_insert_type(library, *ty)?;
+                        let llvm_ty = self.get_or_insert_type(context, *ty)?;
                         let llvm_value = unsafe {
                             core::LLVMConstInt(llvm_ty, *constant as libc::c_ulonglong, 1)
                         };
                         self.value_map.insert(value, llvm_value);
                     }
                     Constant::Pointer(ty) => {
-                        let llvm_ty = self.get_or_insert_type(library, *ty)?;
+                        let llvm_ty = self.get_or_insert_type(context, *ty)?;
                         let llvm_value = unsafe { core::LLVMConstPointerNull(llvm_ty) };
                         self.value_map.insert(value, llvm_value);
                     }
                     Constant::UInt(constant, ty) => {
-                        let llvm_ty = self.get_or_insert_type(library, *ty)?;
+                        let llvm_ty = self.get_or_insert_type(context, *ty)?;
                         let llvm_value = unsafe {
                             core::LLVMConstInt(llvm_ty, *constant as libc::c_ulonglong, 0)
                         };
@@ -610,33 +610,33 @@ impl<'a> Helpers<'a> {
     fn add_block_body(
         &mut self,
         module: LLVMModuleRef,
-        library: &Library,
+        context: &Context,
         block: Block,
         llvm_block: LLVMBasicBlockRef,
         builder: LLVMBuilderRef,
     ) -> Result<(), Error> {
         unsafe { core::LLVMPositionBuilderAtEnd(builder, llvm_block) };
 
-        for instruction in block.get_insts(library) {
+        for instruction in block.get_insts(context) {
             let instruction_name_cstr =
-                CString::new(format!("{}", instruction.get_displayer(library)).to_string())
+                CString::new(format!("{}", instruction.get_displayer(context)).to_string())
                     .unwrap();
             let instruction_name = instruction_name_cstr.as_ptr() as *const libc::c_char;
 
-            if let Some(location) = instruction.get_location(library) {
-                let llvm_location = self.make_location(library, location);
+            if let Some(location) = instruction.get_location(context) {
+                let llvm_location = self.make_location(context, location);
 
                 unsafe { core::LLVMSetCurrentDebugLocation2(builder, llvm_location) };
             }
 
-            let llvm_value = match instruction.get_inst(library) {
+            let llvm_value = match instruction.get_inst(context) {
                 Instruction::Binary(ty, op, x, y, _) => {
-                    let llvm_x = self.get_or_insert_value(library, *x)?;
-                    let llvm_y = self.get_or_insert_value(library, *y)?;
+                    let llvm_x = self.get_or_insert_value(context, *x)?;
+                    let llvm_y = self.get_or_insert_value(context, *y)?;
 
                     match op {
                         Binary::Add => {
-                            if ty.is_float_or_float_vector(library) {
+                            if ty.is_float_or_float_vector(context) {
                                 unsafe {
                                     core::LLVMBuildFAdd(builder, llvm_x, llvm_y, instruction_name)
                                 }
@@ -650,11 +650,11 @@ impl<'a> Helpers<'a> {
                             core::LLVMBuildAnd(builder, llvm_x, llvm_y, instruction_name)
                         },
                         Binary::Div => {
-                            if ty.is_float_or_float_vector(library) {
+                            if ty.is_float_or_float_vector(context) {
                                 unsafe {
                                     core::LLVMBuildFDiv(builder, llvm_x, llvm_y, instruction_name)
                                 }
-                            } else if ty.is_int_or_int_vector(library) {
+                            } else if ty.is_int_or_int_vector(context) {
                                 unsafe {
                                     core::LLVMBuildSDiv(builder, llvm_x, llvm_y, instruction_name)
                                 }
@@ -665,7 +665,7 @@ impl<'a> Helpers<'a> {
                             }
                         }
                         Binary::Mul => {
-                            if ty.is_float_or_float_vector(library) {
+                            if ty.is_float_or_float_vector(context) {
                                 unsafe {
                                     core::LLVMBuildFMul(builder, llvm_x, llvm_y, instruction_name)
                                 }
@@ -679,11 +679,11 @@ impl<'a> Helpers<'a> {
                             core::LLVMBuildOr(builder, llvm_x, llvm_y, instruction_name)
                         },
                         Binary::Rem => {
-                            if ty.is_float_or_float_vector(library) {
+                            if ty.is_float_or_float_vector(context) {
                                 unsafe {
                                     core::LLVMBuildFRem(builder, llvm_x, llvm_y, instruction_name)
                                 }
-                            } else if ty.is_int_or_int_vector(library) {
+                            } else if ty.is_int_or_int_vector(context) {
                                 unsafe {
                                     core::LLVMBuildSRem(builder, llvm_x, llvm_y, instruction_name)
                                 }
@@ -697,7 +697,7 @@ impl<'a> Helpers<'a> {
                             core::LLVMBuildShl(builder, llvm_x, llvm_y, instruction_name)
                         },
                         Binary::Shr => {
-                            if ty.is_int_or_int_vector(library) {
+                            if ty.is_int_or_int_vector(context) {
                                 unsafe {
                                     core::LLVMBuildAShr(builder, llvm_x, llvm_y, instruction_name)
                                 }
@@ -708,7 +708,7 @@ impl<'a> Helpers<'a> {
                             }
                         }
                         Binary::Sub => {
-                            if ty.is_float_or_float_vector(library) {
+                            if ty.is_float_or_float_vector(context) {
                                 unsafe {
                                     core::LLVMBuildFSub(builder, llvm_x, llvm_y, instruction_name)
                                 }
@@ -724,16 +724,16 @@ impl<'a> Helpers<'a> {
                     }
                 }
                 Instruction::BitCast(ty, x, _) => {
-                    let llvm_ty = self.get_or_insert_type(library, *ty)?;
-                    let llvm_x = self.get_or_insert_value(library, *x)?;
+                    let llvm_ty = self.get_or_insert_type(context, *ty)?;
+                    let llvm_x = self.get_or_insert_value(context, *x)?;
 
                     unsafe { core::LLVMBuildBitCast(builder, llvm_x, llvm_ty, instruction_name) }
                 }
                 Instruction::Branch(block, arguments, _) => {
-                    for (argument, block_argument) in arguments.iter().zip(block.get_args(library))
+                    for (argument, block_argument) in arguments.iter().zip(block.get_args(context))
                     {
-                        let llvm_val = self.get_or_insert_value(library, *argument)?;
-                        let llvm_phi = self.get_or_insert_value(library, block_argument)?;
+                        let llvm_val = self.get_or_insert_value(context, *argument)?;
+                        let llvm_phi = self.get_or_insert_value(context, block_argument)?;
 
                         let mut llvm_values = vec![llvm_val];
                         let mut llvm_blocks = vec![llvm_block];
@@ -756,11 +756,11 @@ impl<'a> Helpers<'a> {
                     let mut llvm_values = Vec::new();
 
                     for argument in arguments {
-                        llvm_values.push(self.get_or_insert_value(library, *argument)?);
+                        llvm_values.push(self.get_or_insert_value(context, *argument)?);
                     }
 
                     let used_instruction_name =
-                        if function.get_return_type(library).is_void(library) {
+                        if function.get_return_type(context).is_void(context) {
                             EMPTY_NAME
                         } else {
                             instruction_name
@@ -777,23 +777,23 @@ impl<'a> Helpers<'a> {
                     }
                 }
                 Instruction::Cast(ty, x, _) => {
-                    let llvm_x = self.get_or_insert_value(library, *x)?;
-                    let llvm_ty = self.get_or_insert_type(library, *ty)?;
+                    let llvm_x = self.get_or_insert_value(context, *x)?;
+                    let llvm_ty = self.get_or_insert_type(context, *ty)?;
 
-                    let src_ty = x.get_type(library);
+                    let src_ty = x.get_type(context);
 
-                    let dst_is_float = ty.is_float_or_float_vector(library);
-                    let dst_is_int = ty.is_int_or_int_vector(library);
-                    let dst_is_uint = ty.is_uint_or_uint_vector(library);
+                    let dst_is_float = ty.is_float_or_float_vector(context);
+                    let dst_is_int = ty.is_int_or_int_vector(context);
+                    let dst_is_uint = ty.is_uint_or_uint_vector(context);
 
-                    let src_is_float = src_ty.is_float_or_float_vector(library);
-                    let src_is_int = src_ty.is_int_or_int_vector(library);
-                    let src_is_uint = src_ty.is_uint_or_uint_vector(library);
+                    let src_is_float = src_ty.is_float_or_float_vector(context);
+                    let src_is_int = src_ty.is_int_or_int_vector(context);
+                    let src_is_uint = src_ty.is_uint_or_uint_vector(context);
 
                     // If both inputs are integers that are the same size, the cast is a no-op.
                     if (dst_is_int || dst_is_uint)
                         && (src_is_int || src_is_uint)
-                        && src_ty.get_bits(library) == ty.get_bits(library)
+                        && src_ty.get_bits(context) == ty.get_bits(context)
                     {
                         let name = "llvm.ssa.copy";
                         let llvm_intrinsic_id = unsafe {
@@ -898,12 +898,12 @@ impl<'a> Helpers<'a> {
                     }
                 }
                 Instruction::Cmp(_, op, x, y, _) => {
-                    let llvm_x = self.get_or_insert_value(library, *x)?;
-                    let llvm_y = self.get_or_insert_value(library, *y)?;
+                    let llvm_x = self.get_or_insert_value(context, *x)?;
+                    let llvm_y = self.get_or_insert_value(context, *y)?;
 
-                    let x_ty = x.get_type(library);
+                    let x_ty = x.get_type(context);
 
-                    if x_ty.is_float_or_float_vector(library) {
+                    if x_ty.is_float_or_float_vector(context) {
                         let predicate = match op {
                             Cmp::Eq => LLVMRealPredicate::LLVMRealOEQ,
                             Cmp::Ge => LLVMRealPredicate::LLVMRealOGE,
@@ -923,7 +923,7 @@ impl<'a> Helpers<'a> {
                             )
                         }
                     } else {
-                        let predicate = if x_ty.is_int_or_int_vector(library) {
+                        let predicate = if x_ty.is_int_or_int_vector(context) {
                             match op {
                                 Cmp::Eq => LLVMIntPredicate::LLVMIntEQ,
                                 Cmp::Ge => LLVMIntPredicate::LLVMIntSGE,
@@ -962,13 +962,13 @@ impl<'a> Helpers<'a> {
                     false_arguments,
                     _,
                 ) => {
-                    let llvm_condition = self.get_or_insert_value(library, *condition)?;
+                    let llvm_condition = self.get_or_insert_value(context, *condition)?;
 
                     for (argument, block_argument) in
-                        true_arguments.iter().zip(true_block.get_args(library))
+                        true_arguments.iter().zip(true_block.get_args(context))
                     {
-                        let llvm_val = self.get_or_insert_value(library, *argument)?;
-                        let llvm_phi = self.get_or_insert_value(library, block_argument)?;
+                        let llvm_val = self.get_or_insert_value(context, *argument)?;
+                        let llvm_phi = self.get_or_insert_value(context, block_argument)?;
 
                         let mut llvm_values = vec![llvm_val];
                         let mut llvm_blocks = vec![llvm_block];
@@ -984,10 +984,10 @@ impl<'a> Helpers<'a> {
                     }
 
                     for (argument, block_argument) in
-                        false_arguments.iter().zip(false_block.get_args(library))
+                        false_arguments.iter().zip(false_block.get_args(context))
                     {
-                        let llvm_val = self.get_or_insert_value(library, *argument)?;
-                        let llvm_phi = self.get_or_insert_value(library, block_argument)?;
+                        let llvm_val = self.get_or_insert_value(context, *argument)?;
+                        let llvm_phi = self.get_or_insert_value(context, block_argument)?;
 
                         let mut llvm_values = vec![llvm_val];
                         let mut llvm_blocks = vec![llvm_block];
@@ -1012,9 +1012,9 @@ impl<'a> Helpers<'a> {
                     }
                 }
                 Instruction::Extract(x, index, _) => {
-                    let llvm_x = self.get_or_insert_value(library, *x)?;
+                    let llvm_x = self.get_or_insert_value(context, *x)?;
 
-                    if x.get_type(library).is_vector(library) {
+                    if x.get_type(context).is_vector(context) {
                         let int_ty = unsafe { LLVMIntTypeInContext(self.codegen.context, 64) };
                         let llvm_index =
                             unsafe { core::LLVMConstInt(int_ty, *index as libc::c_ulonglong, 0) };
@@ -1039,8 +1039,8 @@ impl<'a> Helpers<'a> {
                     }
                 }
                 Instruction::IndexInto(ty, ptr, indices, _) => {
-                    let llvm_ty = self.get_or_insert_type(library, *ty)?;
-                    let llvm_ptr = self.get_or_insert_value(library, *ptr)?;
+                    let llvm_ty = self.get_or_insert_type(context, *ty)?;
+                    let llvm_ptr = self.get_or_insert_value(context, *ptr)?;
 
                     let llvm_ptr_ty = unsafe { core::LLVMPointerType(llvm_ty, 0) };
 
@@ -1051,7 +1051,7 @@ impl<'a> Helpers<'a> {
                     let mut llvm_indices = Vec::new();
 
                     for index in indices {
-                        llvm_indices.push(self.get_or_insert_value(library, *index)?);
+                        llvm_indices.push(self.get_or_insert_value(context, *index)?);
                     }
 
                     let llvm_gep = unsafe {
@@ -1075,10 +1075,10 @@ impl<'a> Helpers<'a> {
                     }
                 }
                 Instruction::Insert(aggregate, x, index, _) => {
-                    let llvm_aggregate = self.get_or_insert_value(library, *aggregate)?;
-                    let llvm_x = self.get_or_insert_value(library, *x)?;
+                    let llvm_aggregate = self.get_or_insert_value(context, *aggregate)?;
+                    let llvm_x = self.get_or_insert_value(context, *x)?;
 
-                    if aggregate.get_type(library).is_vector(library) {
+                    if aggregate.get_type(context).is_vector(context) {
                         let int_ty = unsafe { LLVMIntTypeInContext(self.codegen.context, 64) };
                         let llvm_index =
                             unsafe { core::LLVMConstInt(int_ty, *index as libc::c_ulonglong, 0) };
@@ -1105,8 +1105,8 @@ impl<'a> Helpers<'a> {
                     }
                 }
                 Instruction::Load(ty, ptr, _) => {
-                    let llvm_ty = self.get_or_insert_type(library, *ty)?;
-                    let llvm_ptr = self.get_or_insert_value(library, *ptr)?;
+                    let llvm_ty = self.get_or_insert_type(context, *ty)?;
+                    let llvm_ptr = self.get_or_insert_value(context, *ptr)?;
 
                     let llvm_ptr_ty = unsafe { core::LLVMPointerType(llvm_ty, 0) };
 
@@ -1118,30 +1118,30 @@ impl<'a> Helpers<'a> {
                 }
                 Instruction::Return(_) => unsafe { core::LLVMBuildRetVoid(builder) },
                 Instruction::ReturnValue(_, x, _) => {
-                    let llvm_x = self.get_or_insert_value(library, *x)?;
+                    let llvm_x = self.get_or_insert_value(context, *x)?;
 
                     unsafe { core::LLVMBuildRet(builder, llvm_x) }
                 }
                 Instruction::Select(_, cond, x, y, _) => {
-                    let llvm_cond = self.get_or_insert_value(library, *cond)?;
-                    let llvm_x = self.get_or_insert_value(library, *x)?;
-                    let llvm_y = self.get_or_insert_value(library, *y)?;
+                    let llvm_cond = self.get_or_insert_value(context, *cond)?;
+                    let llvm_x = self.get_or_insert_value(context, *x)?;
+                    let llvm_y = self.get_or_insert_value(context, *y)?;
 
                     unsafe {
                         core::LLVMBuildSelect(builder, llvm_cond, llvm_x, llvm_y, instruction_name)
                     }
                 }
                 Instruction::StackAlloc(name, ty, _, _) => {
-                    let name = name.as_str(library);
+                    let name = name.as_str(context);
                     let len = name.len();
                     let name_cstr = CString::new(name).unwrap();
                     let name = name_cstr.as_ptr() as *const libc::c_char;
 
-                    let llvm_ty = self.get_or_insert_type(library, *ty)?;
+                    let llvm_ty = self.get_or_insert_type(context, *ty)?;
 
                     let alloca = unsafe { core::LLVMBuildAlloca(builder, llvm_ty, name) };
 
-                    if let Some(location) = instruction.get_location(library) {
+                    if let Some(location) = instruction.get_location(context) {
                         let line_number = location.get_line();
 
                         let llvm_location = unsafe { core::LLVMGetCurrentDebugLocation2(builder) };
@@ -1158,7 +1158,7 @@ impl<'a> Helpers<'a> {
                                 len as libc::size_t,
                                 llvm_location,
                                 line_number as libc::c_uint,
-                                self.get_or_insert_debug_type(library, *ty)?,
+                                self.get_or_insert_debug_type(context, *ty)?,
                                 0,
                                 0,
                                 0,
@@ -1186,9 +1186,9 @@ impl<'a> Helpers<'a> {
                     alloca
                 }
                 Instruction::Store(ty, ptr, val, _) => {
-                    let llvm_ty = self.get_or_insert_type(library, *ty)?;
-                    let llvm_ptr = self.get_or_insert_value(library, *ptr)?;
-                    let llvm_val = self.get_or_insert_value(library, *val)?;
+                    let llvm_ty = self.get_or_insert_type(context, *ty)?;
+                    let llvm_ptr = self.get_or_insert_value(context, *ptr)?;
+                    let llvm_val = self.get_or_insert_value(context, *val)?;
 
                     let llvm_ptr_ty = unsafe { core::LLVMPointerType(llvm_ty, 0) };
 
@@ -1199,12 +1199,12 @@ impl<'a> Helpers<'a> {
                     unsafe { core::LLVMBuildStore(builder, llvm_val, llvm_cast) }
                 }
                 Instruction::Unary(_, op, x, _) => {
-                    let llvm_x = self.get_or_insert_value(library, *x)?;
+                    let llvm_x = self.get_or_insert_value(context, *x)?;
 
                     match op {
                         Unary::Neg => {
-                            let x_ty = x.get_type(library);
-                            if x_ty.is_float_or_float_vector(library) {
+                            let x_ty = x.get_type(context);
+                            if x_ty.is_float_or_float_vector(context) {
                                 unsafe { core::LLVMBuildFNeg(builder, llvm_x, instruction_name) }
                             } else {
                                 unsafe { core::LLVMBuildNeg(builder, llvm_x, instruction_name) }
@@ -1227,34 +1227,34 @@ impl<'a> Helpers<'a> {
 
     fn make_module(&mut self) -> Result<LLVMModuleRef, Error> {
         let llvm_module = self.module;
-        let library = self.library;
+        let context = self.context;
 
-        for module in library.get_modules() {
-            let module_name = module.get_name(library).as_str(library).to_owned();
+        for module in context.get_modules() {
+            let module_name = module.get_name(context).as_str(context).to_owned();
 
-            for global in module.get_globals(library) {
-                let name_cstr = CString::new(global.get_name(library).as_str(library)).unwrap();
+            for global in module.get_globals(context) {
+                let name_cstr = CString::new(global.get_name(context).as_str(context)).unwrap();
                 let name = name_cstr.as_ptr() as *const libc::c_char;
 
                 let llvm_ty =
-                    self.get_or_insert_type(library, global.get_global_backing_type(library))?;
+                    self.get_or_insert_type(context, global.get_global_backing_type(context))?;
 
                 let llvm_global = unsafe { core::LLVMAddGlobal(llvm_module, llvm_ty, name) };
 
-                let llvm_ptr_ty = self.get_or_insert_type(library, global.get_type(library))?;
+                let llvm_ptr_ty = self.get_or_insert_type(context, global.get_type(context))?;
 
                 let llvm_bitcast = unsafe { core::LLVMConstBitCast(llvm_global, llvm_ptr_ty) };
 
                 self.value_map.insert(global, llvm_bitcast);
             }
 
-            for function in module.get_functions(library) {
+            for function in module.get_functions(context) {
                 let llvm_function =
-                    self.make_function_declaration(library, function, llvm_module, &module_name)?;
+                    self.make_function_declaration(context, function, llvm_module, &module_name)?;
                 self.function_map.insert(function, llvm_function);
             }
 
-            for function in module.get_functions(library) {
+            for function in module.get_functions(context) {
                 self.add_function_body(function, *self.function_map.get(&function).unwrap())?;
             }
         }
@@ -1329,14 +1329,14 @@ impl CodeGen for Llvm {
     type Error = Error;
 
     fn generate<W: Seek + Write>(
-        library: &Library,
+        context: &Context,
         triple: &str,
         output: CodeGenOutput,
         writer: &mut W,
     ) -> Result<(), Self::Error> {
         let codegen = Self::new(triple)?;
 
-        let mut helpers = Helpers::new(&codegen, library)?;
+        let mut helpers = Helpers::new(&codegen, context)?;
 
         let module = helpers.make_module()?;
 
@@ -1456,12 +1456,12 @@ impl JitGen for Llvm {
 
     fn build_jit_fn<'a, Args: 'static, Output: 'static>(
         &'a self,
-        library: &'a Library,
+        context: &'a Context,
         entry_point: &str,
     ) -> Result<Box<dyn JitFn<Args, Output>>, Self::Error> {
         unsafe { execution_engine::LLVMLinkInMCJIT() };
 
-        let mut helpers = Helpers::new(&self, library)?;
+        let mut helpers = Helpers::new(&self, context)?;
 
         let module = helpers.make_module()?;
 

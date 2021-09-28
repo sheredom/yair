@@ -9,20 +9,20 @@ mod tests {
     use test::Bencher;
 
     fn splat_adds() -> Library {
-        let mut library = Library::new();
-        let module = library.create_module().build();
-        let u32_ty = library.get_uint_type(32);
+        let mut context = Context::new();
+        let module = context.create_module().build();
+        let u32_ty = context.get_uint_type(32);
         let function = module
-            .create_function(&mut library)
+            .create_function(&mut context)
             .with_name("func")
             .with_return_type(u32_ty)
             .with_arg("a", u32_ty)
             .with_arg("b", u32_ty)
             .build();
-        let block = function.create_block(&mut library).build();
-        let x = function.get_arg(&library, 0);
-        let y = function.get_arg(&library, 1);
-        let mut instruction_builder = block.create_instructions(&mut library);
+        let block = function.create_block(&mut context).build();
+        let x = function.get_arg(&context, 0);
+        let y = function.get_arg(&context, 1);
+        let mut instruction_builder = block.create_instructions(&mut context);
         let location = None;
 
         let mut result = instruction_builder.add(x, y, location);
@@ -45,7 +45,7 @@ mod tests {
         let code_gen_output = CodeGenOutput::Object;
 
         b.iter(|| {
-            Llvm::generate(&library, target_triple, code_gen_output, &mut cursor)
+            Llvm::generate(&context, target_triple, code_gen_output, &mut cursor)
                 .expect("Could not write data")
         });
     }

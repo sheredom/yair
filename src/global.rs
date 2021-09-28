@@ -25,13 +25,13 @@ impl Named for Global {
     ///
     /// ```
     /// # use yair::*;
-    /// # let mut library = Library::new();
-    /// # let module = library.create_module().build();
-    /// # let global = module.create_global(&mut library).with_name("var").build();
-    /// let name = global.get_name(&library);
-    /// # assert_eq!(name.as_str(&library), "var");
+    /// # let mut context = Context::new();
+    /// # let module = context.create_module().build();
+    /// # let global = module.create_global(&mut context).with_name("var").build();
+    /// let name = global.get_name(&context);
+    /// # assert_eq!(name.as_str(&context), "var");
     /// ```
-    fn get_name(&self, _: &Library) -> Name {
+    fn get_name(&self, _: &Context) -> Name {
         self.name
     }
 }
@@ -43,20 +43,20 @@ impl Typed for Global {
     ///
     /// ```
     /// # use yair::*;
-    /// # let mut library = Library::new();
-    /// # let module = library.create_module().build();
-    /// # let global = module.create_global(&mut library).with_name("var").build();
-    /// let ty = global.get_type(&library);
-    /// # let void_ty = library.get_void_type();
-    /// # assert_eq!(ty, library.get_pointer_type(Domain::CrossDevice));
+    /// # let mut context = Context::new();
+    /// # let module = context.create_module().build();
+    /// # let global = module.create_global(&mut context).with_name("var").build();
+    /// let ty = global.get_type(&context);
+    /// # let void_ty = context.get_void_type();
+    /// # assert_eq!(ty, context.get_pointer_type(Domain::CrossDevice));
     /// ```
-    fn get_type(&self, _: &Library) -> Type {
+    fn get_type(&self, _: &Context) -> Type {
         self.ptr_ty
     }
 }
 
 pub struct GlobalBuilder<'a> {
-    library: &'a mut Library,
+    context: &'a mut Context,
     module: Module,
     name: &'a str,
     ty: Type,
@@ -66,10 +66,10 @@ pub struct GlobalBuilder<'a> {
 }
 
 impl<'a> GlobalBuilder<'a> {
-    pub(crate) fn with_library_and_module(library: &'a mut Library, module: Module) -> Self {
-        let void_ty = library.get_void_type();
+    pub(crate) fn with_context_and_module(context: &'a mut Context, module: Module) -> Self {
+        let void_ty = context.get_void_type();
         GlobalBuilder {
-            library,
+            context,
             module,
             name: "",
             ty: void_ty,
@@ -85,9 +85,9 @@ impl<'a> GlobalBuilder<'a> {
     ///
     /// ```
     /// # use yair::*;
-    /// # let mut library = Library::new();
-    /// # let module = library.create_module().build();
-    /// # let builder = module.create_global(&mut library);
+    /// # let mut context = Context::new();
+    /// # let module = context.create_module().build();
+    /// # let builder = module.create_global(&mut context);
     /// builder.with_name("var");
     /// ```
     pub fn with_name(mut self, name: &'a str) -> Self {
@@ -101,10 +101,10 @@ impl<'a> GlobalBuilder<'a> {
     ///
     /// ```
     /// # use yair::*;
-    /// # let mut library = Library::new();
-    /// # let module = library.create_module().build();
-    /// # let u32_ty = library.get_uint_type(32);
-    /// # let builder = module.create_global(&mut library);
+    /// # let mut context = Context::new();
+    /// # let module = context.create_module().build();
+    /// # let u32_ty = context.get_uint_type(32);
+    /// # let builder = module.create_global(&mut context);
     /// builder.with_type(u32_ty);
     /// ```
     pub fn with_type(mut self, ty: Type) -> Self {
@@ -120,9 +120,9 @@ impl<'a> GlobalBuilder<'a> {
     ///
     /// ```
     /// # use yair::*;
-    /// # let mut library = Library::new();
-    /// # let module = library.create_module().build();
-    /// # let builder = module.create_global(&mut library);
+    /// # let mut context = Context::new();
+    /// # let module = context.create_module().build();
+    /// # let builder = module.create_global(&mut context);
     /// builder.with_domain(Domain::Cpu);
     /// ```
     pub fn with_domain(mut self, domain: Domain) -> Self {
@@ -138,9 +138,9 @@ impl<'a> GlobalBuilder<'a> {
     ///
     /// ```
     /// # use yair::*;
-    /// # let mut library = Library::new();
-    /// # let module = library.create_module().build();
-    /// # let builder = module.create_global(&mut library);
+    /// # let mut context = Context::new();
+    /// # let module = context.create_module().build();
+    /// # let builder = module.create_global(&mut context);
     /// builder.with_attributes(GlobalAttributes::only(GlobalAttribute::Export));
     /// ```
     pub fn with_attributes(mut self, attributes: GlobalAttributes) -> Self {
@@ -156,10 +156,10 @@ impl<'a> GlobalBuilder<'a> {
     ///
     /// ```
     /// # use yair::*;
-    /// # let mut library = Library::new();
-    /// # let location = library.get_location("foo.ya", 0, 13);
-    /// # let module = library.create_module().build();
-    /// # let builder = module.create_global(&mut library);
+    /// # let mut context = Context::new();
+    /// # let location = context.get_location("foo.ya", 0, 13);
+    /// # let module = context.create_module().build();
+    /// # let builder = module.create_global(&mut context);
     /// builder.with_location(location);
     /// ```
     pub fn with_location(mut self, loc: Location) -> Self {
@@ -173,27 +173,27 @@ impl<'a> GlobalBuilder<'a> {
     ///
     /// ```
     /// # use yair::*;
-    /// # let mut library = Library::new();
-    /// # let module = library.create_module().build();
-    /// # let builder = module.create_global(&mut library).with_name("var");
+    /// # let mut context = Context::new();
+    /// # let module = context.create_module().build();
+    /// # let builder = module.create_global(&mut context).with_name("var");
     /// let global = builder.build();
     /// ```
     pub fn build(self) -> Value {
         debug_assert!(!self.name.is_empty(), "name must be non-0 in length");
 
-        let global_type = self.library.get_pointer_type(self.domain);
+        let global_type = self.context.get_pointer_type(self.domain);
 
         let global = Global {
-            name: self.library.get_name(self.name),
+            name: self.context.get_name(self.name),
             ty: self.ty,
             ptr_ty: global_type,
             attributes: self.attributes,
             location: self.location,
         };
 
-        let index = Value(self.library.values.insert(ValuePayload::Global(global)));
+        let index = Value(self.context.values.insert(ValuePayload::Global(global)));
 
-        self.library.modules[self.module.0].globals.push(index);
+        self.context.modules[self.module.0].globals.push(index);
 
         index
     }

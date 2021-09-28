@@ -212,7 +212,7 @@ impl<'a> Assembler<'a> {
 
     fn try_parse_int_or_float_val(
         &mut self,
-        library: &mut Library,
+        context: &mut Context,
         c: char,
         bits: u8,
     ) -> Option<Type> {
@@ -225,34 +225,34 @@ impl<'a> Assembler<'a> {
         self.bump_current_by(str.len());
 
         match c {
-            'i' => Some(library.get_int_type(bits)),
-            'u' => Some(library.get_uint_type(bits)),
-            'f' => Some(library.get_float_type(bits)),
+            'i' => Some(context.get_int_type(bits)),
+            'u' => Some(context.get_uint_type(bits)),
+            'f' => Some(context.get_float_type(bits)),
             _ => None,
         }
     }
 
-    fn try_parse_int_or_float(&mut self, library: &mut Library, c: char) -> Option<Type> {
-        if let Some(x) = self.try_parse_int_or_float_val(library, c, 8) {
+    fn try_parse_int_or_float(&mut self, context: &mut Context, c: char) -> Option<Type> {
+        if let Some(x) = self.try_parse_int_or_float_val(context, c, 8) {
             return Some(x);
         }
 
-        if let Some(x) = self.try_parse_int_or_float_val(library, c, 16) {
+        if let Some(x) = self.try_parse_int_or_float_val(context, c, 16) {
             return Some(x);
         }
 
-        if let Some(x) = self.try_parse_int_or_float_val(library, c, 32) {
+        if let Some(x) = self.try_parse_int_or_float_val(context, c, 32) {
             return Some(x);
         }
 
-        if let Some(x) = self.try_parse_int_or_float_val(library, c, 64) {
+        if let Some(x) = self.try_parse_int_or_float_val(context, c, 64) {
             return Some(x);
         }
 
         None
     }
 
-    fn parse_struct_type(&mut self, library: &mut Library) -> Result<Type, Diagnostic> {
+    fn parse_struct_type(&mut self, context: &mut Context) -> Result<Type, Diagnostic> {
         // Skip the '{'
         self.bump_current();
 
@@ -275,7 +275,7 @@ impl<'a> Assembler<'a> {
                 break;
             }
 
-            let element_type = self.parse_type(library)?;
+            let element_type = self.parse_type(context)?;
 
             element_types.push(element_type);
 
@@ -299,7 +299,7 @@ impl<'a> Assembler<'a> {
             self.bump_current();
         }
 
-        Ok(library.get_struct_type(&element_types))
+        Ok(context.get_struct_type(&element_types))
     }
 
     fn parse_literal<T: FromStr>(&mut self) -> Result<T, Diagnostic> {
@@ -344,37 +344,37 @@ impl<'a> Assembler<'a> {
         }
     }
 
-    fn parse_constant(&mut self, library: &mut Library, ty: Type) -> Result<Value, Diagnostic> {
-        if ty.is_int(library) {
+    fn parse_constant(&mut self, context: &mut Context, ty: Type) -> Result<Value, Diagnostic> {
+        if ty.is_int(context) {
             let cnst = self.parse_literal()?;
-            Ok(library.get_int_constant(ty.get_bits(library) as u8, cnst))
-        } else if ty.is_uint(library) {
+            Ok(context.get_int_constant(ty.get_bits(context) as u8, cnst))
+        } else if ty.is_uint(context) {
             let cnst = self.parse_literal()?;
-            Ok(library.get_uint_constant(ty.get_bits(library) as u8, cnst))
-        } else if ty.is_boolean(library) {
+            Ok(context.get_uint_constant(ty.get_bits(context) as u8, cnst))
+        } else if ty.is_boolean(context) {
             if self.pop_if_next_symbol("true")? {
-                Ok(library.get_bool_constant(true))
+                Ok(context.get_bool_constant(true))
             } else if self.pop_if_next_symbol("false")? {
-                Ok(library.get_bool_constant(false))
+                Ok(context.get_bool_constant(false))
             } else {
                 Err(Diagnostic::new_error(
                     "Expected 'true' or 'false' for boolean constant",
                     Label::new(self.file, self.single_char_span(), "here"),
                 ))
             }
-        } else if ty.is_pointer(library) {
+        } else if ty.is_pointer(context) {
             if self.pop_if_next_symbol("null")? {
-                Ok(library.get_pointer_constant_null(ty))
+                Ok(context.get_pointer_constant_null(ty))
             } else {
                 Err(Diagnostic::new_error(
                     "Expected 'true' or 'false' for boolean constant",
                     Label::new(self.file, self.single_char_span(), "here"),
                 ))
             }
-        } else if ty.is_float(library) {
+        } else if ty.is_float(context) {
             let cnst = self.parse_literal()?;
-            Ok(library.get_float_constant(ty.get_bits(library) as u8, cnst))
-        } else if ty.is_array(library) {
+            Ok(context.get_float_constant(ty.get_bits(context) as u8, cnst))
+        } else if ty.is_array(context) {
             if !self.pop_if_next_symbol("[")? {
                 return Err(Diagnostic::new_error(
                     "Expected '[' to open an array constant",
@@ -382,12 +382,12 @@ impl<'a> Assembler<'a> {
                 ));
             }
 
-            let len = ty.get_len(library);
+            let len = ty.get_len(context);
 
             // Array elements have all the same type.
-            let elem_ty = ty.get_element(library, 0);
+            let elem_ty = ty.get_element(context, 0);
 
-            let mut constants = vec![self.parse_constant(library, elem_ty)?];
+            let mut constants = vec![self.parse_constant(context, elem_ty)?];
 
             for _ in 1..len {
                 if !self.pop_if_next_symbol(",")? {
@@ -397,7 +397,7 @@ impl<'a> Assembler<'a> {
                     ));
                 }
 
-                constants.push(self.parse_constant(library, elem_ty)?);
+                constants.push(self.parse_constant(context, elem_ty)?);
             }
 
             if !self.pop_if_next_symbol("]")? {
@@ -407,8 +407,8 @@ impl<'a> Assembler<'a> {
                 ));
             }
 
-            Ok(library.get_composite_constant(ty, &constants))
-        } else if ty.is_vector(library) {
+            Ok(context.get_composite_constant(ty, &constants))
+        } else if ty.is_vector(context) {
             if !self.pop_if_next_symbol("<")? {
                 return Err(Diagnostic::new_error(
                     "Expected '<' to open a vector constant",
@@ -416,12 +416,12 @@ impl<'a> Assembler<'a> {
                 ));
             }
 
-            let len = ty.get_len(library);
+            let len = ty.get_len(context);
 
             // Vector elements have all the same type.
-            let elem_ty = ty.get_element(library, 0);
+            let elem_ty = ty.get_element(context, 0);
 
-            let mut constants = vec![self.parse_constant(library, elem_ty)?];
+            let mut constants = vec![self.parse_constant(context, elem_ty)?];
 
             for _ in 1..len {
                 if !self.pop_if_next_symbol(",")? {
@@ -431,7 +431,7 @@ impl<'a> Assembler<'a> {
                     ));
                 }
 
-                constants.push(self.parse_constant(library, elem_ty)?);
+                constants.push(self.parse_constant(context, elem_ty)?);
             }
 
             if !self.pop_if_next_symbol(">")? {
@@ -441,8 +441,8 @@ impl<'a> Assembler<'a> {
                 ));
             }
 
-            Ok(library.get_composite_constant(ty, &constants))
-        } else if ty.is_struct(library) {
+            Ok(context.get_composite_constant(ty, &constants))
+        } else if ty.is_struct(context) {
             if !self.pop_if_next_symbol("{")? {
                 return Err(Diagnostic::new_error(
                     "Expected '{' to open a struct constant",
@@ -450,9 +450,9 @@ impl<'a> Assembler<'a> {
                 ));
             }
 
-            let len = ty.get_len(library);
+            let len = ty.get_len(context);
 
-            let mut constants = vec![self.parse_constant(library, ty.get_element(library, 0))?];
+            let mut constants = vec![self.parse_constant(context, ty.get_element(context, 0))?];
 
             for i in 1..len {
                 if !self.pop_if_next_symbol(",")? {
@@ -462,7 +462,7 @@ impl<'a> Assembler<'a> {
                     ));
                 }
 
-                constants.push(self.parse_constant(library, ty.get_element(library, i))?);
+                constants.push(self.parse_constant(context, ty.get_element(context, i))?);
             }
 
             if !self.pop_if_next_symbol("}")? {
@@ -472,19 +472,19 @@ impl<'a> Assembler<'a> {
                 ));
             }
 
-            Ok(library.get_composite_constant(ty, &constants))
+            Ok(context.get_composite_constant(ty, &constants))
         } else {
             std::unreachable!();
         }
     }
 
-    fn parse_vector_type(&mut self, library: &mut Library) -> Result<Type, Diagnostic> {
+    fn parse_vector_type(&mut self, context: &mut Context) -> Result<Type, Diagnostic> {
         // Skip the '<'
         self.bump_current();
 
         self.skip_comments_or_whitespace();
 
-        let element_type = self.parse_type(library)?;
+        let element_type = self.parse_type(context)?;
 
         self.skip_comments_or_whitespace();
 
@@ -510,16 +510,16 @@ impl<'a> Assembler<'a> {
         // Skip the '>'
         self.bump_current();
 
-        Ok(library.get_vector_type(element_type, width))
+        Ok(context.get_vector_type(element_type, width))
     }
 
-    fn parse_array_type(&mut self, library: &mut Library) -> Result<Type, Diagnostic> {
+    fn parse_array_type(&mut self, context: &mut Context) -> Result<Type, Diagnostic> {
         // Skip the '['
         self.bump_current();
 
         self.skip_comments_or_whitespace();
 
-        let element_type = self.parse_type(library)?;
+        let element_type = self.parse_type(context)?;
 
         self.skip_comments_or_whitespace();
 
@@ -545,7 +545,7 @@ impl<'a> Assembler<'a> {
         // Skip the ']'
         self.bump_current();
 
-        Ok(library.get_array_type(element_type, len))
+        Ok(context.get_array_type(element_type, len))
     }
 
     fn parse_domain(&mut self) -> Result<Domain, Diagnostic> {
@@ -569,7 +569,7 @@ impl<'a> Assembler<'a> {
         }
     }
 
-    fn parse_pointer_type(&mut self, library: &mut Library) -> Result<Type, Diagnostic> {
+    fn parse_pointer_type(&mut self, context: &mut Context) -> Result<Type, Diagnostic> {
         // Skiop the '*'
         self.bump_current();
 
@@ -577,10 +577,10 @@ impl<'a> Assembler<'a> {
 
         let domain = self.parse_domain()?;
 
-        Ok(library.get_pointer_type(domain))
+        Ok(context.get_pointer_type(domain))
     }
 
-    fn parse_type(&mut self, library: &mut Library) -> Result<Type, Diagnostic> {
+    fn parse_type(&mut self, context: &mut Context) -> Result<Type, Diagnostic> {
         self.skip_comments_or_whitespace();
 
         // Do we have a named struct?
@@ -597,32 +597,32 @@ impl<'a> Assembler<'a> {
             return Ok(self.structs[identifier]);
         }
 
-        if let Some(t) = self.try_parse_int_or_float(library, 'i') {
+        if let Some(t) = self.try_parse_int_or_float(context, 'i') {
             return Ok(t);
         }
 
-        if let Some(t) = self.try_parse_int_or_float(library, 'u') {
+        if let Some(t) = self.try_parse_int_or_float(context, 'u') {
             return Ok(t);
         }
 
-        if let Some(t) = self.try_parse_int_or_float(library, 'f') {
+        if let Some(t) = self.try_parse_int_or_float(context, 'f') {
             return Ok(t);
         }
 
         if self.get_current_str().starts_with("void") {
             self.bump_current_by("void".len());
-            Ok(library.get_void_type())
+            Ok(context.get_void_type())
         } else if self.get_current_str().starts_with("bool") {
             self.bump_current_by("bool".len());
-            Ok(library.get_bool_type())
+            Ok(context.get_bool_type())
         } else if self.get_current_str().starts_with('<') {
-            self.parse_vector_type(library)
+            self.parse_vector_type(context)
         } else if self.get_current_str().starts_with('{') {
-            self.parse_struct_type(library)
+            self.parse_struct_type(context)
         } else if self.get_current_str().starts_with('[') {
-            self.parse_array_type(library)
+            self.parse_array_type(context)
         } else if self.get_current_str().starts_with('*') {
-            self.parse_pointer_type(library)
+            self.parse_pointer_type(context)
         } else {
             Err(Diagnostic::new_error(
                 "Could not deduce type",
@@ -650,7 +650,7 @@ impl<'a> Assembler<'a> {
         ))
     }
 
-    fn parse_block(&mut self, library: &mut Library) -> Result<(), Diagnostic> {
+    fn parse_block(&mut self, context: &mut Context) -> Result<(), Diagnostic> {
         self.skip_comments_or_whitespace();
 
         let name = self.parse_identifier()?;
@@ -667,7 +667,7 @@ impl<'a> Assembler<'a> {
         let mut args = Vec::new();
 
         while !self.pop_if_next_symbol(")")? {
-            args.push(self.parse_arg(library)?);
+            args.push(self.parse_arg(context)?);
         }
 
         if !self.pop_if_next_symbol(":")? {
@@ -678,11 +678,11 @@ impl<'a> Assembler<'a> {
         }
 
         let block = if let Some(block) = self.current_blocks.get(name) {
-            let mut block_args = block.get_args_mut(library);
+            let mut block_args = block.get_args_mut(context);
             args.iter().for_each(|(_, b)| block_args.push(*b));
             *block
         } else {
-            let mut builder = function.create_block(library);
+            let mut builder = function.create_block(context);
 
             for (_, ty) in &args {
                 builder = builder.with_arg(*ty);
@@ -695,22 +695,22 @@ impl<'a> Assembler<'a> {
             block
         };
 
-        for (i, arg) in args.iter().enumerate().take(block.get_num_args(library)) {
-            self.current_values.insert(arg.0, block.get_arg(library, i));
+        for (i, arg) in args.iter().enumerate().take(block.get_num_args(context)) {
+            self.current_values.insert(arg.0, block.get_arg(context, i));
         }
 
         let func_ret_is_void = self
             .current_function
             .unwrap()
-            .get_return_type(library)
-            .is_void(library);
-        let mut builder = block.create_instructions(library);
+            .get_return_type(context)
+            .is_void(context);
+        let mut builder = block.create_instructions(context);
 
         loop {
             if self.pop_if_next_symbol("ret")? {
                 let paused = builder.pause_building();
-                let loc = self.parse_loc(library)?;
-                builder = InstructionBuilder::resume_building(library, paused);
+                let loc = self.parse_loc(context)?;
+                builder = InstructionBuilder::resume_building(context, paused);
 
                 if func_ret_is_void {
                     builder.ret(loc);
@@ -721,8 +721,8 @@ impl<'a> Assembler<'a> {
                 break;
             } else if self.pop_if_next_symbol("store")? {
                 let paused_builder = builder.pause_building();
-                let ty = self.parse_type(library)?;
-                builder = InstructionBuilder::resume_building(library, paused_builder);
+                let ty = self.parse_type(context)?;
+                builder = InstructionBuilder::resume_building(context, paused_builder);
 
                 if !self.pop_if_next_symbol(",")? {
                     return Err(Diagnostic::new_error(
@@ -743,8 +743,8 @@ impl<'a> Assembler<'a> {
                 let value = self.parse_value()?;
 
                 let paused = builder.pause_building();
-                let loc = self.parse_loc(library)?;
-                builder = InstructionBuilder::resume_building(library, paused);
+                let loc = self.parse_loc(context)?;
+                builder = InstructionBuilder::resume_building(context, paused);
 
                 builder.store(ty, ptr, value, loc);
             } else if self.pop_if_next_symbol("br")? {
@@ -783,7 +783,7 @@ impl<'a> Assembler<'a> {
                 } else {
                     let paused_builder = builder.pause_building();
 
-                    let block_builder = self.current_function.unwrap().create_block(library);
+                    let block_builder = self.current_function.unwrap().create_block(context);
 
                     // Make the block with no args for now, we'll fill it out later when we actually hit the creation of the block.
 
@@ -791,14 +791,14 @@ impl<'a> Assembler<'a> {
 
                     self.current_blocks.insert(name, block);
 
-                    builder = InstructionBuilder::resume_building(library, paused_builder);
+                    builder = InstructionBuilder::resume_building(context, paused_builder);
 
                     block
                 };
 
                 let paused = builder.pause_building();
-                let loc = self.parse_loc(library)?;
-                builder = InstructionBuilder::resume_building(library, paused);
+                let loc = self.parse_loc(context)?;
+                builder = InstructionBuilder::resume_building(context, paused);
 
                 builder.branch(block, &args, loc);
 
@@ -848,7 +848,7 @@ impl<'a> Assembler<'a> {
                 } else {
                     let paused_builder = builder.pause_building();
 
-                    let block_builder = self.current_function.unwrap().create_block(library);
+                    let block_builder = self.current_function.unwrap().create_block(context);
 
                     // Make the block with no args for now, we'll fill it out later when we actually hit the creation of the block.
 
@@ -856,7 +856,7 @@ impl<'a> Assembler<'a> {
 
                     self.current_blocks.insert(true_br, block);
 
-                    builder = InstructionBuilder::resume_building(library, paused_builder);
+                    builder = InstructionBuilder::resume_building(context, paused_builder);
 
                     block
                 };
@@ -903,7 +903,7 @@ impl<'a> Assembler<'a> {
                 } else {
                     let paused_builder = builder.pause_building();
 
-                    let block_builder = self.current_function.unwrap().create_block(library);
+                    let block_builder = self.current_function.unwrap().create_block(context);
 
                     // Make the block with no args for now, we'll fill it out later when we actually hit the creation of the block.
 
@@ -911,14 +911,14 @@ impl<'a> Assembler<'a> {
 
                     self.current_blocks.insert(false_br, block);
 
-                    builder = InstructionBuilder::resume_building(library, paused_builder);
+                    builder = InstructionBuilder::resume_building(context, paused_builder);
 
                     block
                 };
 
                 let paused = builder.pause_building();
-                let loc = self.parse_loc(library)?;
-                builder = InstructionBuilder::resume_building(library, paused);
+                let loc = self.parse_loc(context)?;
+                builder = InstructionBuilder::resume_building(context, paused);
 
                 builder.conditional_branch(
                     cond,
@@ -954,8 +954,8 @@ impl<'a> Assembler<'a> {
                     let index = self.parse_literal()?;
 
                     let paused = builder.pause_building();
-                    let loc = self.parse_loc(library)?;
-                    builder = InstructionBuilder::resume_building(library, paused);
+                    let loc = self.parse_loc(context)?;
+                    builder = InstructionBuilder::resume_building(context, paused);
 
                     let value = builder.extract(aggregate, index, loc);
 
@@ -982,8 +982,8 @@ impl<'a> Assembler<'a> {
                     let index = self.parse_literal()?;
 
                     let paused = builder.pause_building();
-                    let loc = self.parse_loc(library)?;
-                    builder = InstructionBuilder::resume_building(library, paused);
+                    let loc = self.parse_loc(context)?;
+                    builder = InstructionBuilder::resume_building(context, paused);
 
                     let value = builder.insert(aggregate, value, index, loc);
 
@@ -1020,8 +1020,8 @@ impl<'a> Assembler<'a> {
                     let rhs = self.parse_value()?;
 
                     let paused = builder.pause_building();
-                    let loc = self.parse_loc(library)?;
-                    builder = InstructionBuilder::resume_building(library, paused);
+                    let loc = self.parse_loc(context)?;
+                    builder = InstructionBuilder::resume_building(context, paused);
 
                     let value = builder.cmp(cmp, lhs, rhs, loc);
 
@@ -1039,8 +1039,8 @@ impl<'a> Assembler<'a> {
                     let rhs = self.parse_value()?;
 
                     let paused = builder.pause_building();
-                    let loc = self.parse_loc(library)?;
-                    builder = InstructionBuilder::resume_building(library, paused);
+                    let loc = self.parse_loc(context)?;
+                    builder = InstructionBuilder::resume_building(context, paused);
 
                     let value = builder.add(lhs, rhs, loc);
 
@@ -1058,8 +1058,8 @@ impl<'a> Assembler<'a> {
                     let rhs = self.parse_value()?;
 
                     let paused = builder.pause_building();
-                    let loc = self.parse_loc(library)?;
-                    builder = InstructionBuilder::resume_building(library, paused);
+                    let loc = self.parse_loc(context)?;
+                    builder = InstructionBuilder::resume_building(context, paused);
 
                     let value = builder.sub(lhs, rhs, loc);
 
@@ -1077,8 +1077,8 @@ impl<'a> Assembler<'a> {
                     let rhs = self.parse_value()?;
 
                     let paused = builder.pause_building();
-                    let loc = self.parse_loc(library)?;
-                    builder = InstructionBuilder::resume_building(library, paused);
+                    let loc = self.parse_loc(context)?;
+                    builder = InstructionBuilder::resume_building(context, paused);
 
                     let value = builder.mul(lhs, rhs, loc);
 
@@ -1096,8 +1096,8 @@ impl<'a> Assembler<'a> {
                     let rhs = self.parse_value()?;
 
                     let paused = builder.pause_building();
-                    let loc = self.parse_loc(library)?;
-                    builder = InstructionBuilder::resume_building(library, paused);
+                    let loc = self.parse_loc(context)?;
+                    builder = InstructionBuilder::resume_building(context, paused);
 
                     let value = builder.div(lhs, rhs, loc);
 
@@ -1115,8 +1115,8 @@ impl<'a> Assembler<'a> {
                     let rhs = self.parse_value()?;
 
                     let paused = builder.pause_building();
-                    let loc = self.parse_loc(library)?;
-                    builder = InstructionBuilder::resume_building(library, paused);
+                    let loc = self.parse_loc(context)?;
+                    builder = InstructionBuilder::resume_building(context, paused);
 
                     let value = builder.rem(lhs, rhs, loc);
 
@@ -1125,8 +1125,8 @@ impl<'a> Assembler<'a> {
                     let lhs = self.parse_value()?;
 
                     let paused = builder.pause_building();
-                    let loc = self.parse_loc(library)?;
-                    builder = InstructionBuilder::resume_building(library, paused);
+                    let loc = self.parse_loc(context)?;
+                    builder = InstructionBuilder::resume_building(context, paused);
 
                     let value = builder.neg(lhs, loc);
 
@@ -1144,8 +1144,8 @@ impl<'a> Assembler<'a> {
                     let rhs = self.parse_value()?;
 
                     let paused = builder.pause_building();
-                    let loc = self.parse_loc(library)?;
-                    builder = InstructionBuilder::resume_building(library, paused);
+                    let loc = self.parse_loc(context)?;
+                    builder = InstructionBuilder::resume_building(context, paused);
 
                     let value = builder.and(lhs, rhs, loc);
 
@@ -1163,8 +1163,8 @@ impl<'a> Assembler<'a> {
                     let rhs = self.parse_value()?;
 
                     let paused = builder.pause_building();
-                    let loc = self.parse_loc(library)?;
-                    builder = InstructionBuilder::resume_building(library, paused);
+                    let loc = self.parse_loc(context)?;
+                    builder = InstructionBuilder::resume_building(context, paused);
 
                     let value = builder.or(lhs, rhs, loc);
 
@@ -1182,8 +1182,8 @@ impl<'a> Assembler<'a> {
                     let rhs = self.parse_value()?;
 
                     let paused = builder.pause_building();
-                    let loc = self.parse_loc(library)?;
-                    builder = InstructionBuilder::resume_building(library, paused);
+                    let loc = self.parse_loc(context)?;
+                    builder = InstructionBuilder::resume_building(context, paused);
 
                     let value = builder.xor(lhs, rhs, loc);
 
@@ -1192,8 +1192,8 @@ impl<'a> Assembler<'a> {
                     let lhs = self.parse_value()?;
 
                     let paused = builder.pause_building();
-                    let loc = self.parse_loc(library)?;
-                    builder = InstructionBuilder::resume_building(library, paused);
+                    let loc = self.parse_loc(context)?;
+                    builder = InstructionBuilder::resume_building(context, paused);
 
                     let value = builder.not(lhs, loc);
 
@@ -1211,8 +1211,8 @@ impl<'a> Assembler<'a> {
                     let rhs = self.parse_value()?;
 
                     let paused = builder.pause_building();
-                    let loc = self.parse_loc(library)?;
-                    builder = InstructionBuilder::resume_building(library, paused);
+                    let loc = self.parse_loc(context)?;
+                    builder = InstructionBuilder::resume_building(context, paused);
 
                     let value = builder.shl(lhs, rhs, loc);
 
@@ -1230,8 +1230,8 @@ impl<'a> Assembler<'a> {
                     let rhs = self.parse_value()?;
 
                     let paused = builder.pause_building();
-                    let loc = self.parse_loc(library)?;
-                    builder = InstructionBuilder::resume_building(library, paused);
+                    let loc = self.parse_loc(context)?;
+                    builder = InstructionBuilder::resume_building(context, paused);
 
                     let value = builder.shr(lhs, rhs, loc);
 
@@ -1247,12 +1247,12 @@ impl<'a> Assembler<'a> {
                     }
 
                     let paused_builder = builder.pause_building();
-                    let ty = self.parse_type(library)?;
-                    builder = InstructionBuilder::resume_building(library, paused_builder);
+                    let ty = self.parse_type(context)?;
+                    builder = InstructionBuilder::resume_building(context, paused_builder);
 
                     let paused = builder.pause_building();
-                    let loc = self.parse_loc(library)?;
-                    builder = InstructionBuilder::resume_building(library, paused);
+                    let loc = self.parse_loc(context)?;
+                    builder = InstructionBuilder::resume_building(context, paused);
 
                     let value = builder.cast(lhs, ty, loc);
 
@@ -1268,20 +1268,20 @@ impl<'a> Assembler<'a> {
                     }
 
                     let paused_builder = builder.pause_building();
-                    let ty = self.parse_type(library)?;
-                    builder = InstructionBuilder::resume_building(library, paused_builder);
+                    let ty = self.parse_type(context)?;
+                    builder = InstructionBuilder::resume_building(context, paused_builder);
 
                     let paused = builder.pause_building();
-                    let loc = self.parse_loc(library)?;
-                    builder = InstructionBuilder::resume_building(library, paused);
+                    let loc = self.parse_loc(context)?;
+                    builder = InstructionBuilder::resume_building(context, paused);
 
                     let value = builder.bitcast(lhs, ty, loc);
 
                     self.current_values.insert(identifier, value);
                 } else if self.pop_if_next_symbol("load")? {
                     let paused_builder = builder.pause_building();
-                    let ty = self.parse_type(library)?;
-                    builder = InstructionBuilder::resume_building(library, paused_builder);
+                    let ty = self.parse_type(context)?;
+                    builder = InstructionBuilder::resume_building(context, paused_builder);
 
                     if !self.pop_if_next_symbol(",")? {
                         return Err(Diagnostic::new_error(
@@ -1293,8 +1293,8 @@ impl<'a> Assembler<'a> {
                     let ptr = self.parse_value()?;
 
                     let paused = builder.pause_building();
-                    let loc = self.parse_loc(library)?;
-                    builder = InstructionBuilder::resume_building(library, paused);
+                    let loc = self.parse_loc(context)?;
+                    builder = InstructionBuilder::resume_building(context, paused);
 
                     let value = builder.load(ty, ptr, loc);
 
@@ -1312,9 +1312,9 @@ impl<'a> Assembler<'a> {
                     }
 
                     let paused_builder = builder.pause_building();
-                    let ty = self.parse_type(library)?;
-                    let loc = self.parse_loc(library)?;
-                    builder = InstructionBuilder::resume_building(library, paused_builder);
+                    let ty = self.parse_type(context)?;
+                    let loc = self.parse_loc(context)?;
+                    builder = InstructionBuilder::resume_building(context, paused_builder);
 
                     let value = builder.stack_alloc(name, ty, loc);
 
@@ -1377,8 +1377,8 @@ impl<'a> Assembler<'a> {
                     }
 
                     let paused = builder.pause_building();
-                    let loc = self.parse_loc(library)?;
-                    builder = InstructionBuilder::resume_building(library, paused);
+                    let loc = self.parse_loc(context)?;
+                    builder = InstructionBuilder::resume_building(context, paused);
 
                     let value = builder.call(function, &args, loc);
 
@@ -1405,16 +1405,16 @@ impl<'a> Assembler<'a> {
                     let rhs = self.parse_value()?;
 
                     let paused = builder.pause_building();
-                    let loc = self.parse_loc(library)?;
-                    builder = InstructionBuilder::resume_building(library, paused);
+                    let loc = self.parse_loc(context)?;
+                    builder = InstructionBuilder::resume_building(context, paused);
 
                     let value = builder.select(cond, lhs, rhs, loc);
 
                     self.current_values.insert(identifier, value);
                 } else if self.pop_if_next_symbol("indexinto")? {
                     let paused_builder = builder.pause_building();
-                    let ty = self.parse_type(library)?;
-                    builder = InstructionBuilder::resume_building(library, paused_builder);
+                    let ty = self.parse_type(context)?;
+                    builder = InstructionBuilder::resume_building(context, paused_builder);
 
                     if !self.pop_if_next_symbol(",")? {
                         return Err(Diagnostic::new_error(
@@ -1443,19 +1443,19 @@ impl<'a> Assembler<'a> {
                     }
 
                     let paused = builder.pause_building();
-                    let loc = self.parse_loc(library)?;
-                    builder = InstructionBuilder::resume_building(library, paused);
+                    let loc = self.parse_loc(context)?;
+                    builder = InstructionBuilder::resume_building(context, paused);
 
                     let value = builder.index_into(ty, ptr, &indices, loc);
 
                     self.current_values.insert(identifier, value);
                 } else if self.pop_if_next_symbol("const")? {
                     let paused = builder.pause_building();
-                    let ty = self.parse_type(library)?;
+                    let ty = self.parse_type(context)?;
 
-                    let value = self.parse_constant(library, ty)?;
+                    let value = self.parse_constant(context, ty)?;
 
-                    builder = InstructionBuilder::resume_building(library, paused);
+                    builder = InstructionBuilder::resume_building(context, paused);
 
                     self.current_values.insert(identifier, value);
                 }
@@ -1468,12 +1468,12 @@ impl<'a> Assembler<'a> {
         Ok(())
     }
 
-    fn parse_fn_body(&mut self, library: &mut Library) -> Result<(), Diagnostic> {
+    fn parse_fn_body(&mut self, context: &mut Context) -> Result<(), Diagnostic> {
         // Skip the '{'
         self.bump_current();
 
         loop {
-            self.parse_block(library)?;
+            self.parse_block(context)?;
 
             self.skip_comments_or_whitespace();
 
@@ -1491,7 +1491,7 @@ impl<'a> Assembler<'a> {
         Ok(())
     }
 
-    fn parse_arg(&mut self, library: &mut Library) -> Result<(&'a str, Type), Diagnostic> {
+    fn parse_arg(&mut self, context: &mut Context) -> Result<(&'a str, Type), Diagnostic> {
         let name = self.parse_identifier()?;
 
         if !self.pop_if_next_symbol(":")? {
@@ -1501,7 +1501,7 @@ impl<'a> Assembler<'a> {
             ));
         }
 
-        let ty = self.parse_type(library)?;
+        let ty = self.parse_type(context)?;
 
         if !self.peek_if_next_symbol(")") && !self.pop_if_next_symbol(",")? {
             return Err(Diagnostic::new_error(
@@ -1513,7 +1513,7 @@ impl<'a> Assembler<'a> {
         Ok((name, ty))
     }
 
-    fn parse_loc(&mut self, library: &mut Library) -> Result<Option<Location>, Diagnostic> {
+    fn parse_loc(&mut self, context: &mut Context) -> Result<Option<Location>, Diagnostic> {
         self.skip_comments_or_whitespace();
 
         // If we don't have the '!' that starts a location, bail!
@@ -1541,10 +1541,10 @@ impl<'a> Assembler<'a> {
 
         let column = self.parse_literal()?;
 
-        Ok(Some(library.get_location(loc, line, column)))
+        Ok(Some(context.get_location(loc, line, column)))
     }
 
-    fn parse_fn(&mut self, library: &mut Library) -> Result<(), Diagnostic> {
+    fn parse_fn(&mut self, context: &mut Context) -> Result<(), Diagnostic> {
         debug_assert!(self.get_current_str().starts_with("fn"));
 
         self.bump_current_by("fn".len());
@@ -1603,7 +1603,7 @@ impl<'a> Assembler<'a> {
                 break;
             }
 
-            args.push(self.parse_arg(library)?);
+            args.push(self.parse_arg(context)?);
         }
 
         self.skip_comments_or_whitespace();
@@ -1620,14 +1620,14 @@ impl<'a> Assembler<'a> {
 
         self.skip_comments_or_whitespace();
 
-        let return_type = self.parse_type(library)?;
+        let return_type = self.parse_type(context)?;
 
         let module = self.current_module.unwrap();
 
-        let location = self.parse_loc(library)?;
+        let location = self.parse_loc(context)?;
 
         let mut builder = module
-            .create_function(library)
+            .create_function(context)
             .with_name(name)
             .with_attributes(attributes)
             .with_return_type(return_type);
@@ -1649,7 +1649,7 @@ impl<'a> Assembler<'a> {
         self.skip_comments_or_whitespace();
 
         if self.get_current_str().starts_with('{') {
-            self.parse_fn_body(library)?;
+            self.parse_fn_body(context)?;
         }
 
         self.current_function = None;
@@ -1657,7 +1657,7 @@ impl<'a> Assembler<'a> {
         Ok(())
     }
 
-    fn parse_var(&mut self, library: &mut Library) -> Result<(), Diagnostic> {
+    fn parse_var(&mut self, context: &mut Context) -> Result<(), Diagnostic> {
         assert!(self.get_current_str().starts_with("var"));
 
         self.bump_current_by("var".len());
@@ -1723,14 +1723,14 @@ impl<'a> Assembler<'a> {
         // Skip the ','
         self.bump_current();
 
-        let ty = self.parse_type(library)?;
+        let ty = self.parse_type(context)?;
 
         let module = self.current_module.unwrap();
 
-        let location = self.parse_loc(library)?;
+        let location = self.parse_loc(context)?;
 
         let builder = module
-            .create_global(library)
+            .create_global(context)
             .with_attributes(attributes)
             .with_name(identifier)
             .with_type(ty)
@@ -1748,7 +1748,7 @@ impl<'a> Assembler<'a> {
         Ok(())
     }
 
-    fn parse_struct(&mut self, library: &mut Library) -> Result<(), Diagnostic> {
+    fn parse_struct(&mut self, context: &mut Context) -> Result<(), Diagnostic> {
         let identifier = self.parse_identifier()?;
 
         if !self.pop_if_next_symbol(":")? {
@@ -1777,9 +1777,9 @@ impl<'a> Assembler<'a> {
                 ));
             }
 
-            let element_type = self.parse_type(library)?;
+            let element_type = self.parse_type(context)?;
 
-            let location = self.parse_loc(library)?;
+            let location = self.parse_loc(context)?;
 
             elements.push((element_name, element_type, location));
 
@@ -1795,25 +1795,25 @@ impl<'a> Assembler<'a> {
             }
         }
 
-        let location = self.parse_loc(library)?;
+        let location = self.parse_loc(context)?;
 
         let named_struct = self
             .current_module
             .unwrap()
-            .create_named_struct_type(library, identifier, &elements, location);
+            .create_named_struct_type(context, identifier, &elements, location);
 
         self.structs.insert(identifier, named_struct);
 
         Ok(())
     }
 
-    fn parse_fn_or_var(&mut self, library: &mut Library) -> Result<(), Diagnostic> {
+    fn parse_fn_or_var(&mut self, context: &mut Context) -> Result<(), Diagnostic> {
         if self.get_current_str().starts_with("fn") {
-            self.parse_fn(library)
+            self.parse_fn(context)
         } else if self.get_current_str().starts_with("var") {
-            self.parse_var(library)
+            self.parse_var(context)
         } else if self.pop_if_next_symbol("struct")? {
-            self.parse_struct(library)
+            self.parse_struct(context)
         } else if self.get_current_str().starts_with('}') || self.get_current_str().is_empty() {
             Ok(())
         } else {
@@ -1828,7 +1828,7 @@ impl<'a> Assembler<'a> {
         }
     }
 
-    fn parse_mod(&mut self, library: &mut Library) -> Result<(), Diagnostic> {
+    fn parse_mod(&mut self, context: &mut Context) -> Result<(), Diagnostic> {
         // Skip the leading mod
         self.bump_current_by("mod".len());
 
@@ -1845,7 +1845,7 @@ impl<'a> Assembler<'a> {
             ));
         }
 
-        let module = library.create_module().with_name(name).build();
+        let module = context.create_module().with_name(name).build();
         self.modules.insert(name, module);
 
         // Record our current module so that stuff in the module know where they live.
@@ -1872,7 +1872,7 @@ impl<'a> Assembler<'a> {
                 break;
             }
 
-            self.parse_fn_or_var(library)?;
+            self.parse_fn_or_var(context)?;
         }
 
         // And reset the current module when exiting.
@@ -1883,7 +1883,7 @@ impl<'a> Assembler<'a> {
         Ok(())
     }
 
-    pub fn build(mut self, library: &mut Library) -> Result<(), Diagnostic> {
+    pub fn build(mut self, context: &mut Context) -> Result<(), Diagnostic> {
         loop {
             self.skip_comments_or_whitespace();
 
@@ -1892,7 +1892,7 @@ impl<'a> Assembler<'a> {
             }
 
             if self.get_current_str().starts_with("mod") {
-                match self.parse_mod(library) {
+                match self.parse_mod(context) {
                     Ok(_) => (),
                     Err(e) => return Err(e),
                 }
@@ -1906,12 +1906,12 @@ impl<'a> Assembler<'a> {
     }
 }
 
-pub fn assemble(file: FileId, data: &str) -> Result<Library, Diagnostic> {
-    let mut library = Library::new();
+pub fn assemble(file: FileId, data: &str) -> Result<Context, Diagnostic> {
+    let mut context = Context::new();
     let assembler = Assembler::new(file, &data);
 
-    match assembler.build(&mut library) {
-        Ok(_) => Ok(library),
+    match assembler.build(&mut context) {
+        Ok(_) => Ok(context),
         Err(d) => Err(d),
     }
 }
@@ -1925,62 +1925,62 @@ fn get_domain(domain: Domain) -> &'static str {
     }
 }
 
-fn get_type_name(library: &Library, ty: Type) -> String {
-    if ty.is_named_struct(library) {
-        format!("%{}", ty.get_name(library).get_displayer(library))
-    } else if ty.is_void(library) {
+fn get_type_name(context: &Context, ty: Type) -> String {
+    if ty.is_named_struct(context) {
+        format!("%{}", ty.get_name(context).get_displayer(context))
+    } else if ty.is_void(context) {
         "void".to_string()
-    } else if ty.is_boolean(library) {
+    } else if ty.is_boolean(context) {
         "bool".to_string()
-    } else if ty.is_vector(library) {
+    } else if ty.is_vector(context) {
         format!(
             "<{}, {}>",
-            get_type_name(library, ty.get_element(library, 0)),
-            ty.get_len(library)
+            get_type_name(context, ty.get_element(context, 0)),
+            ty.get_len(context)
         )
-    } else if ty.is_array(library) {
+    } else if ty.is_array(context) {
         format!(
             "[{}, {}]",
-            get_type_name(library, ty.get_element(library, 0)),
-            ty.get_len(library)
+            get_type_name(context, ty.get_element(context, 0)),
+            ty.get_len(context)
         )
-    } else if ty.is_struct(library) {
+    } else if ty.is_struct(context) {
         let mut string = "{".to_string();
 
-        for i in 0..ty.get_len(library) {
+        for i in 0..ty.get_len(context) {
             if i != 0 {
                 string.push_str(", ");
             }
 
-            string.push_str(&get_type_name(library, ty.get_element(library, i)));
+            string.push_str(&get_type_name(context, ty.get_element(context, i)));
         }
 
         string.push('}');
 
         string
-    } else if ty.is_int(library) {
-        format!("i{}", ty.get_bits(library))
-    } else if ty.is_uint(library) {
-        format!("u{}", ty.get_bits(library))
-    } else if ty.is_float(library) {
-        format!("f{}", ty.get_bits(library))
-    } else if ty.is_pointer(library) {
-        format!("*{}", get_domain(ty.get_domain(library)))
+    } else if ty.is_int(context) {
+        format!("i{}", ty.get_bits(context))
+    } else if ty.is_uint(context) {
+        format!("u{}", ty.get_bits(context))
+    } else if ty.is_float(context) {
+        format!("f{}", ty.get_bits(context))
+    } else if ty.is_pointer(context) {
+        format!("*{}", get_domain(ty.get_domain(context)))
     } else {
         std::unreachable!();
     }
 }
 
-fn get_loc(library: &Library, loc: &Option<Location>) -> String {
+fn get_loc(context: &Context, loc: &Option<Location>) -> String {
     if let Some(loc) = loc {
-        format!("{}", loc.get_displayer(library))
+        format!("{}", loc.get_displayer(context))
     } else {
         "".to_string()
     }
 }
 
-fn get_constant_literal(library: &Library, val: &Value) -> String {
-    let cnst = val.get_constant(library);
+fn get_constant_literal(context: &Context, val: &Value) -> String {
+    let cnst = val.get_constant(context);
 
     match cnst {
         Constant::Bool(b, _) => b.to_string(),
@@ -1989,11 +1989,11 @@ fn get_constant_literal(library: &Library, val: &Value) -> String {
         Constant::Float(f, _) => format!("{:e}", f),
         Constant::Pointer(_) => "null".to_string(),
         Constant::Composite(c, ty) => {
-            let (open, close) = if ty.is_array(library) {
+            let (open, close) = if ty.is_array(context) {
                 ('[', ']')
-            } else if ty.is_vector(library) {
+            } else if ty.is_vector(context) {
                 ('<', '>')
-            } else if ty.is_struct(library) {
+            } else if ty.is_struct(context) {
                 ('{', '}')
             } else {
                 std::unreachable!();
@@ -2002,7 +2002,7 @@ fn get_constant_literal(library: &Library, val: &Value) -> String {
             let mut literal = open.to_string();
 
             for e in c {
-                literal += &get_constant_literal(library, e);
+                literal += &get_constant_literal(context, e);
                 literal += ", ";
             }
 
@@ -2016,34 +2016,34 @@ fn get_constant_literal(library: &Library, val: &Value) -> String {
 }
 
 fn write_if_constant(
-    library: &Library,
+    context: &Context,
     value: &Value,
     writer: &mut impl std::io::Write,
 ) -> std::io::Result<()> {
-    if value.is_constant(library) {
+    if value.is_constant(context) {
         writeln!(
             writer,
             "      {} = const {} {}",
-            value.get_displayer(library),
-            value.get_type(library).get_displayer(library),
-            get_constant_literal(library, &value)
+            value.get_displayer(context),
+            value.get_type(context).get_displayer(context),
+            get_constant_literal(context, &value)
         )?;
     }
 
     Ok(())
 }
 
-pub fn disassemble(library: &Library, mut writer: impl std::io::Write) -> std::io::Result<()> {
-    let modules = library.get_modules();
+pub fn disassemble(context: &Context, mut writer: impl std::io::Write) -> std::io::Result<()> {
+    let modules = context.get_modules();
 
     for module in modules {
-        let name = module.get_name(library);
+        let name = module.get_name(context);
 
-        write!(writer, "mod {} {{", name.get_displayer(library))?;
+        write!(writer, "mod {} {{", name.get_displayer(context))?;
 
         let mut printed_newline = false;
 
-        for named_struct in module.get_named_structs(library) {
+        for named_struct in module.get_named_structs(context) {
             if !printed_newline {
                 writeln!(writer)?;
                 printed_newline = true;
@@ -2051,23 +2051,23 @@ pub fn disassemble(library: &Library, mut writer: impl std::io::Write) -> std::i
 
             write!(writer, "  struct ")?;
 
-            let name = named_struct.get_name(library).get_displayer(library);
+            let name = named_struct.get_name(context).get_displayer(context);
 
             write!(writer, "{} : {{", name,)?;
 
-            let len = named_struct.get_len(library);
+            let len = named_struct.get_len(context);
 
-            for i in 0..named_struct.get_len(library) {
-                let name = named_struct.get_element_name(library, i);
-                let ty = named_struct.get_element(library, i);
-                let location = named_struct.get_location(library);
+            for i in 0..named_struct.get_len(context) {
+                let name = named_struct.get_element_name(context, i);
+                let ty = named_struct.get_element(context, i);
+                let location = named_struct.get_location(context);
 
                 write!(
                     writer,
                     "{} : {}{}",
-                    name.get_displayer(library),
-                    get_type_name(library, ty),
-                    get_loc(library, &location)
+                    name.get_displayer(context),
+                    get_type_name(context, ty),
+                    get_loc(context, &location)
                 )?;
 
                 if i != (len - 1) {
@@ -2080,7 +2080,7 @@ pub fn disassemble(library: &Library, mut writer: impl std::io::Write) -> std::i
 
         let mut printed_newline = false;
 
-        for global in module.get_globals(library) {
+        for global in module.get_globals(context) {
             if !printed_newline {
                 writeln!(writer)?;
                 printed_newline = true;
@@ -2088,15 +2088,15 @@ pub fn disassemble(library: &Library, mut writer: impl std::io::Write) -> std::i
 
             write!(writer, "  var ")?;
 
-            if global.is_export(library) {
+            if global.is_export(context) {
                 write!(writer, "[export] ")?;
             }
 
-            let name = global.get_name(library).get_displayer(library);
-            let domain = get_domain(global.get_global_domain(library));
-            let ty = global.get_global_backing_type(library);
-            let ty_name = get_type_name(library, ty);
-            let location = global.get_location(library);
+            let name = global.get_name(context).get_displayer(context);
+            let domain = get_domain(global.get_global_domain(context));
+            let ty = global.get_global_backing_type(context);
+            let ty_name = get_type_name(context, ty);
+            let location = global.get_location(context);
 
             writeln!(
                 writer,
@@ -2104,101 +2104,101 @@ pub fn disassemble(library: &Library, mut writer: impl std::io::Write) -> std::i
                 name,
                 domain,
                 ty_name,
-                get_loc(library, &location)
+                get_loc(context, &location)
             )?;
         }
 
-        for function in module.get_functions(library) {
+        for function in module.get_functions(context) {
             if !printed_newline {
                 writeln!(writer)?;
                 printed_newline = true;
             }
 
-            write!(writer, "  {}", function.get_displayer(library))?;
+            write!(writer, "  {}", function.get_displayer(context))?;
 
             let mut first = true;
 
-            for block in function.get_blocks(library) {
+            for block in function.get_blocks(context) {
                 if first {
                     writeln!(writer, " {{")?;
                     first = false;
                 }
 
-                writeln!(writer, "    {}:", block.get_displayer(library))?;
+                writeln!(writer, "    {}:", block.get_displayer(context))?;
 
-                for value in block.get_insts(library) {
-                    match value.get_inst(library) {
+                for value in block.get_insts(context) {
+                    match value.get_inst(context) {
                         Instruction::ReturnValue(_, r, _) => {
-                            write_if_constant(library, r, &mut writer)?;
+                            write_if_constant(context, r, &mut writer)?;
                         }
                         Instruction::Cmp(_, _, a, b, _) => {
-                            write_if_constant(library, a, &mut writer)?;
-                            write_if_constant(library, b, &mut writer)?;
+                            write_if_constant(context, a, &mut writer)?;
+                            write_if_constant(context, b, &mut writer)?;
                         }
                         Instruction::Unary(_, _, a, _) => {
-                            write_if_constant(library, a, &mut writer)?;
+                            write_if_constant(context, a, &mut writer)?;
                         }
                         Instruction::Binary(_, _, a, b, _) => {
-                            write_if_constant(library, a, &mut writer)?;
-                            write_if_constant(library, b, &mut writer)?;
+                            write_if_constant(context, a, &mut writer)?;
+                            write_if_constant(context, b, &mut writer)?;
                         }
                         Instruction::Cast(_, val, _) => {
-                            write_if_constant(library, val, &mut writer)?;
+                            write_if_constant(context, val, &mut writer)?;
                         }
                         Instruction::BitCast(_, val, _) => {
-                            write_if_constant(library, val, &mut writer)?;
+                            write_if_constant(context, val, &mut writer)?;
                         }
                         Instruction::Load(_, ptr, _) => {
-                            write_if_constant(library, ptr, &mut writer)?;
+                            write_if_constant(context, ptr, &mut writer)?;
                         }
                         Instruction::Store(_, ptr, val, _) => {
-                            write_if_constant(library, ptr, &mut writer)?;
-                            write_if_constant(library, val, &mut writer)?;
+                            write_if_constant(context, ptr, &mut writer)?;
+                            write_if_constant(context, val, &mut writer)?;
                         }
                         Instruction::Extract(agg, _, _) => {
-                            write_if_constant(library, agg, &mut writer)?;
+                            write_if_constant(context, agg, &mut writer)?;
                         }
                         Instruction::Insert(agg, elem, _, _) => {
-                            write_if_constant(library, agg, &mut writer)?;
-                            write_if_constant(library, elem, &mut writer)?;
+                            write_if_constant(context, agg, &mut writer)?;
+                            write_if_constant(context, elem, &mut writer)?;
                         }
                         Instruction::Call(_, args, _) => {
                             for arg in args {
-                                write_if_constant(library, arg, &mut writer)?;
+                                write_if_constant(context, arg, &mut writer)?;
                             }
                         }
                         Instruction::Branch(_, args, _) => {
                             for arg in args {
-                                write_if_constant(library, arg, &mut writer)?;
+                                write_if_constant(context, arg, &mut writer)?;
                             }
                         }
                         Instruction::ConditionalBranch(cond, _, _, true_args, false_args, _) => {
-                            write_if_constant(library, cond, &mut writer)?;
+                            write_if_constant(context, cond, &mut writer)?;
 
                             for arg in true_args {
-                                write_if_constant(library, arg, &mut writer)?;
+                                write_if_constant(context, arg, &mut writer)?;
                             }
 
                             for arg in false_args {
-                                write_if_constant(library, arg, &mut writer)?;
+                                write_if_constant(context, arg, &mut writer)?;
                             }
                         }
                         Instruction::Select(_, cond, true_val, false_val, _) => {
-                            write_if_constant(library, cond, &mut writer)?;
-                            write_if_constant(library, true_val, &mut writer)?;
-                            write_if_constant(library, false_val, &mut writer)?;
+                            write_if_constant(context, cond, &mut writer)?;
+                            write_if_constant(context, true_val, &mut writer)?;
+                            write_if_constant(context, false_val, &mut writer)?;
                         }
                         Instruction::IndexInto(_, ptr, args, _) => {
-                            write_if_constant(library, ptr, &mut writer)?;
+                            write_if_constant(context, ptr, &mut writer)?;
 
                             for arg in args {
-                                write_if_constant(library, arg, &mut writer)?;
+                                write_if_constant(context, arg, &mut writer)?;
                             }
                         }
                         _ => (),
                     }
 
-                    writeln!(writer, "      {}", value.get_inst_displayer(library))?;
+                    writeln!(writer, "      {}", value.get_inst_displayer(context))?;
                 }
             }
 

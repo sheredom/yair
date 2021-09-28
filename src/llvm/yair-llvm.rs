@@ -9,7 +9,7 @@ use std::fs::File;
 use std::io::{self, Cursor, Write};
 use std::str::FromStr;
 use yair::llvm::Llvm;
-use yair::{CodeGen, CodeGenOutput, Library};
+use yair::{CodeGen, CodeGenOutput, Context};
 
 fn main() {
     let yaml = load_yaml!("yair-llvm.yml");
@@ -17,7 +17,7 @@ fn main() {
 
     let input = matches.value_of("input").unwrap();
 
-    let library: Library = if input == "-" {
+    let context: Context = if input == "-" {
         rmp_serde::from_read(io::stdin())
     } else {
         let file = File::open(input).unwrap();
@@ -32,7 +32,7 @@ fn main() {
 
     if output == "-" {
         let mut cursor = Cursor::new(Vec::new());
-        Llvm::generate(&library, triple_triple, code_gen_output, &mut cursor)
+        Llvm::generate(&context, triple_triple, code_gen_output, &mut cursor)
             .expect("Could not write data");
 
         io::stdout()
@@ -40,7 +40,7 @@ fn main() {
             .expect("Could not write data");
     } else {
         let mut file = File::create(output).unwrap();
-        Llvm::generate(&library, triple_triple, code_gen_output, &mut file)
+        Llvm::generate(&context, triple_triple, code_gen_output, &mut file)
             .expect("Could not write data");
     }
 }

@@ -13,8 +13,8 @@ pub(crate) struct ModulePayload {
 pub struct Module(pub(crate) generational_arena::Index);
 
 impl Named for Module {
-    fn get_name(&self, library: &Library) -> Name {
-        library.modules[self.0].name
+    fn get_name(&self, context: &Context) -> Name {
+        context.modules[self.0].name
     }
 }
 
@@ -25,12 +25,12 @@ impl Module {
     ///
     /// ```
     /// # use yair::*;
-    /// # let mut library = Library::new();
-    /// # let module = library.create_module().build();
-    /// let function_builder = module.create_function(&mut library);
+    /// # let mut context = Context::new();
+    /// # let module = context.create_module().build();
+    /// let function_builder = module.create_function(&mut context);
     /// ```
-    pub fn create_function<'a>(&self, library: &'a mut Library) -> FunctionBuilder<'a> {
-        FunctionBuilder::with_library_and_module(library, *self)
+    pub fn create_function<'a>(&self, context: &'a mut Context) -> FunctionBuilder<'a> {
+        FunctionBuilder::with_context_and_module(context, *self)
     }
 
     /// Create a new global variable.
@@ -39,12 +39,12 @@ impl Module {
     ///
     /// ```
     /// # use yair::*;
-    /// # let mut library = Library::new();
-    /// # let module = library.create_module().build();
-    /// let global_builder = module.create_global(&mut library);
+    /// # let mut context = Context::new();
+    /// # let module = context.create_module().build();
+    /// let global_builder = module.create_global(&mut context);
     /// ```
-    pub fn create_global<'a>(&self, library: &'a mut Library) -> GlobalBuilder<'a> {
-        GlobalBuilder::with_library_and_module(library, *self)
+    pub fn create_global<'a>(&self, context: &'a mut Context) -> GlobalBuilder<'a> {
+        GlobalBuilder::with_context_and_module(context, *self)
     }
 
     /// Get a named struct type.
@@ -53,41 +53,41 @@ impl Module {
     ///
     /// ```
     /// # use yair::*;
-    /// # let mut library = Library::new();
-    /// # let u32_ty = library.get_uint_type(32);
-    /// # let module = library.create_module().build();
+    /// # let mut context = Context::new();
+    /// # let u32_ty = context.get_uint_type(32);
+    /// # let module = context.create_module().build();
     /// # let elements = vec![("my_field", u32_ty, None)];
     /// # let location = None;
-    /// let struct_ty = module.create_named_struct_type(&mut library, "my_struct", &elements, location);
+    /// let struct_ty = module.create_named_struct_type(&mut context, "my_struct", &elements, location);
     /// ```
     pub fn create_named_struct_type(
         &self,
-        library: &mut Library,
+        context: &mut Context,
         name: &str,
         elements: &[(&str, Type, Option<Location>)],
         location: Option<Location>,
     ) -> Type {
-        let name = library.get_name(name);
+        let name = context.get_name(name);
 
         let vec = elements
             .iter()
-            .map(|(n, t, l)| (library.get_name(n), *t, *l))
+            .map(|(n, t, l)| (context.get_name(n), *t, *l))
             .collect();
 
         let ty = Type(
-            library
+            context
                 .types
                 .insert(TypePayload::NamedStruct(*self, name, vec, location)),
         );
 
-        library.modules[self.0].named_structs.push(ty);
+        context.modules[self.0].named_structs.push(ty);
 
         ty
     }
 
     // Get all named structs in a module.
-    pub fn get_named_structs(&self, library: &Library) -> StructIterator {
-        let module = &library.modules[self.0];
+    pub fn get_named_structs(&self, context: &Context) -> StructIterator {
+        let module = &context.modules[self.0];
         StructIterator::new(&module.named_structs)
     }
 
@@ -97,17 +97,17 @@ impl Module {
     ///
     /// ```
     /// # use yair::*;
-    /// # let mut library = Library::new();
-    /// # let module = library.create_module().with_name("module").build();
-    /// # let u32_ty = library.get_uint_type(32);
-    /// let global_a = module.create_global(&mut library).with_name("a").with_type(u32_ty).build();
-    /// let global_b = module.create_global(&mut library).with_name("b").with_type(u32_ty).build();
-    /// let mut globals = module.get_globals(&library);
-    /// assert_eq!(globals.nth(0).unwrap().get_name(&library).as_str(&library), "a");
-    /// assert_eq!(globals.nth(0).unwrap().get_name(&library).as_str(&library), "b");
+    /// # let mut context = Context::new();
+    /// # let module = context.create_module().with_name("module").build();
+    /// # let u32_ty = context.get_uint_type(32);
+    /// let global_a = module.create_global(&mut context).with_name("a").with_type(u32_ty).build();
+    /// let global_b = module.create_global(&mut context).with_name("b").with_type(u32_ty).build();
+    /// let mut globals = module.get_globals(&context);
+    /// assert_eq!(globals.nth(0).unwrap().get_name(&context).as_str(&context), "a");
+    /// assert_eq!(globals.nth(0).unwrap().get_name(&context).as_str(&context), "b");
     /// ```
-    pub fn get_globals(&self, library: &Library) -> GlobalIterator {
-        let module = &library.modules[self.0];
+    pub fn get_globals(&self, context: &Context) -> GlobalIterator {
+        let module = &context.modules[self.0];
         GlobalIterator::new(&module.globals)
     }
 
@@ -117,43 +117,43 @@ impl Module {
     ///
     /// ```
     /// # use yair::*;
-    /// # let mut library = Library::new();
-    /// # let module = library.create_module().with_name("module").build();
-    /// let function_a = module.create_function(&mut library).with_name("a").build();
-    /// let function_b = module.create_function(&mut library).with_name("b").build();
-    /// let mut functions = module.get_functions(&library);
-    /// assert_eq!(functions.nth(0).unwrap().get_name(&library).as_str(&library), "a");
-    /// assert_eq!(functions.nth(0).unwrap().get_name(&library).as_str(&library), "b");
+    /// # let mut context = Context::new();
+    /// # let module = context.create_module().with_name("module").build();
+    /// let function_a = module.create_function(&mut context).with_name("a").build();
+    /// let function_b = module.create_function(&mut context).with_name("b").build();
+    /// let mut functions = module.get_functions(&context);
+    /// assert_eq!(functions.nth(0).unwrap().get_name(&context).as_str(&context), "a");
+    /// assert_eq!(functions.nth(0).unwrap().get_name(&context).as_str(&context), "b");
     /// ```
-    pub fn get_functions(&self, library: &Library) -> FunctionIterator {
-        let module = &library.modules[self.0];
+    pub fn get_functions(&self, context: &Context) -> FunctionIterator {
+        let module = &context.modules[self.0];
         FunctionIterator::new(&module.functions)
     }
 
-    /// Verify a library of modules.
+    /// Verify a context of modules.
     ///
     /// # Examples
     ///
     /// ```
     /// # use yair::*;
-    /// # let mut library = Library::new();
-    /// # let module = library.create_module().with_name("module").build();
-    /// let result = module.verify(&library);
+    /// # let mut context = Context::new();
+    /// # let module = context.create_module().with_name("module").build();
+    /// let result = module.verify(&context);
     /// # assert!(result.is_ok());
     /// ```
-    pub fn verify<'a>(&self, library: &'a Library) -> Result<(), VerifyError<'a>> {
-        verify(library, *self)
+    pub fn verify<'a>(&self, context: &'a Context) -> Result<(), VerifyError<'a>> {
+        verify(context, *self)
     }
 }
 
 pub struct ModuleBuilder<'a> {
-    library: &'a mut Library,
+    context: &'a mut Context,
     name: &'a str,
 }
 
 impl<'a> ModuleBuilder<'a> {
-    pub(crate) fn with_library(library: &'a mut Library) -> ModuleBuilder {
-        ModuleBuilder { library, name: "" }
+    pub(crate) fn with_context(context: &'a mut Context) -> ModuleBuilder {
+        ModuleBuilder { context, name: "" }
     }
 
     /// Add a name for the module to the builder.
@@ -162,8 +162,8 @@ impl<'a> ModuleBuilder<'a> {
     ///
     /// ```
     /// # use yair::*;
-    /// # let mut library = Library::new();
-    /// # let module_builder = library.create_module();
+    /// # let mut context = Context::new();
+    /// # let module_builder = context.create_module();
     /// module_builder.with_name("my module");
     /// ```
     pub fn with_name(mut self, name: &'a str) -> Self {
@@ -177,19 +177,19 @@ impl<'a> ModuleBuilder<'a> {
     ///
     /// ```
     /// # use yair::*;
-    /// # let mut library = Library::new();
-    /// # let module_builder = library.create_module();
+    /// # let mut context = Context::new();
+    /// # let module_builder = context.create_module();
     /// let module = module_builder.build();
     /// ```
     pub fn build(self) -> Module {
         let module = ModulePayload {
-            name: self.library.get_name(self.name),
+            name: self.context.get_name(self.name),
             functions: Vec::new(),
             globals: Vec::new(),
             named_structs: Vec::new(),
         };
 
-        Module(self.library.modules.insert(module))
+        Module(self.context.modules.insert(module))
     }
 }
 

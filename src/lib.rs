@@ -20,7 +20,7 @@ mod function;
 mod global;
 mod instructions;
 mod jitgen;
-mod library;
+mod context;
 mod linkgen;
 mod location;
 mod module;
@@ -44,7 +44,7 @@ pub use function::*;
 pub use global::*;
 pub use instructions::*;
 pub use jitgen::*;
-pub use library::*;
+pub use context::*;
 pub use location::*;
 pub use module::*;
 pub use value::*;
@@ -110,21 +110,21 @@ impl Default for TypePayload {
 pub struct Name(pub(crate) generational_arena::Index);
 
 impl Name {
-    pub fn as_str<'a>(&self, library: &'a Library) -> &'a str {
-        &library.names[self.0]
+    pub fn as_str<'a>(&self, context: &'a Context) -> &'a str {
+        &context.names[self.0]
     }
 
-    pub fn get_displayer<'a>(&self, library: &'a Library) -> NameDisplayer<'a> {
+    pub fn get_displayer<'a>(&self, context: &'a Context) -> NameDisplayer<'a> {
         NameDisplayer {
             name: *self,
-            library,
+            context,
         }
     }
 }
 
 pub struct NameDisplayer<'a> {
     pub(crate) name: Name,
-    pub(crate) library: &'a Library,
+    pub(crate) context: &'a Context,
 }
 
 impl<'a> std::fmt::Display for NameDisplayer<'a> {
@@ -132,7 +132,7 @@ impl<'a> std::fmt::Display for NameDisplayer<'a> {
         &self,
         writer: &mut std::fmt::Formatter<'_>,
     ) -> std::result::Result<(), std::fmt::Error> {
-        let name = self.name.as_str(self.library);
+        let name = self.name.as_str(self.context);
         if name.chars().all(|c| c.is_ascii_alphanumeric() || c == '_') {
             write!(writer, "{}", name)
         } else {
@@ -142,11 +142,11 @@ impl<'a> std::fmt::Display for NameDisplayer<'a> {
 }
 
 pub trait Named {
-    fn get_name(&self, library: &Library) -> Name;
+    fn get_name(&self, context: &Context) -> Name;
 }
 
 pub trait Typed {
-    fn get_type(&self, library: &Library) -> Type;
+    fn get_type(&self, context: &Context) -> Type;
 }
 
 pub trait UniqueIndex {
@@ -159,7 +159,7 @@ pub struct Type(pub(crate) generational_arena::Index);
 
 pub struct TypeDisplayer<'a> {
     pub(crate) ty: Type,
-    pub(crate) library: &'a Library,
+    pub(crate) context: &'a Context,
 }
 
 impl<'a> std::fmt::Display for TypeDisplayer<'a> {
@@ -167,38 +167,38 @@ impl<'a> std::fmt::Display for TypeDisplayer<'a> {
         &self,
         writer: &mut std::fmt::Formatter<'_>,
     ) -> std::result::Result<(), std::fmt::Error> {
-        if self.ty.is_named_struct(self.library) {
+        if self.ty.is_named_struct(self.context) {
             write!(
                 writer,
                 "%{}",
-                self.ty.get_name(self.library).get_displayer(self.library)
+                self.ty.get_name(self.context).get_displayer(self.context)
             )
-        } else if self.ty.is_void(self.library) {
+        } else if self.ty.is_void(self.context) {
             write!(writer, "void")
-        } else if self.ty.is_boolean(self.library) {
+        } else if self.ty.is_boolean(self.context) {
             write!(writer, "bool")
-        } else if self.ty.is_vector(self.library) {
+        } else if self.ty.is_vector(self.context) {
             write!(
                 writer,
                 "<{}, {}>",
                 self.ty
-                    .get_element(self.library, 0)
-                    .get_displayer(self.library),
-                self.ty.get_len(self.library)
+                    .get_element(self.context, 0)
+                    .get_displayer(self.context),
+                self.ty.get_len(self.context)
             )
-        } else if self.ty.is_array(self.library) {
+        } else if self.ty.is_array(self.context) {
             write!(
                 writer,
                 "[{}, {}]",
                 self.ty
-                    .get_element(self.library, 0)
-                    .get_displayer(self.library),
-                self.ty.get_len(self.library)
+                    .get_element(self.context, 0)
+                    .get_displayer(self.context),
+                self.ty.get_len(self.context)
             )
-        } else if self.ty.is_struct(self.library) {
+        } else if self.ty.is_struct(self.context) {
             write!(writer, "{{")?;
 
-            for i in 0..self.ty.get_len(self.library) {
+            for i in 0..self.ty.get_len(self.context) {
                 if i != 0 {
                     write!(writer, ", ")?;
                 }
@@ -207,20 +207,20 @@ impl<'a> std::fmt::Display for TypeDisplayer<'a> {
                     writer,
                     "{}",
                     self.ty
-                        .get_element(self.library, i)
-                        .get_displayer(self.library)
+                        .get_element(self.context, i)
+                        .get_displayer(self.context)
                 )?;
             }
 
             write!(writer, "}}")
-        } else if self.ty.is_int(self.library) {
-            write!(writer, "i{}", self.ty.get_bits(self.library))
-        } else if self.ty.is_uint(self.library) {
-            write!(writer, "u{}", self.ty.get_bits(self.library))
-        } else if self.ty.is_float(self.library) {
-            write!(writer, "f{}", self.ty.get_bits(self.library))
-        } else if self.ty.is_pointer(self.library) {
-            write!(writer, "*{}", self.ty.get_domain(self.library))
+        } else if self.ty.is_int(self.context) {
+            write!(writer, "i{}", self.ty.get_bits(self.context))
+        } else if self.ty.is_uint(self.context) {
+            write!(writer, "u{}", self.ty.get_bits(self.context))
+        } else if self.ty.is_float(self.context) {
+            write!(writer, "f{}", self.ty.get_bits(self.context))
+        } else if self.ty.is_pointer(self.context) {
+            write!(writer, "*{}", self.ty.get_domain(self.context))
         } else {
             std::unreachable!();
         }
@@ -234,19 +234,19 @@ impl Type {
     ///
     /// ```
     /// # use yair::*;
-    /// # let mut library = Library::new();
-    /// # let module = library.create_module().build();
-    /// # let u32_ty = library.get_uint_type(32);
-    /// let bits = u32_ty.get_bits(&library);
+    /// # let mut context = Context::new();
+    /// # let module = context.create_module().build();
+    /// # let u32_ty = context.get_uint_type(32);
+    /// let bits = u32_ty.get_bits(&context);
     /// # assert_eq!(bits, 32);
     /// ```
-    pub fn get_bits(&self, library: &Library) -> usize {
-        match library.types[self.0] {
+    pub fn get_bits(&self, context: &Context) -> usize {
+        match context.types[self.0] {
             TypePayload::Void => 0,
             TypePayload::Int(x) => x as usize,
             TypePayload::UInt(x) => x as usize,
             TypePayload::Float(x) => x as usize,
-            TypePayload::Vector(ty, width) => ty.get_bits(library) * (width as usize),
+            TypePayload::Vector(ty, width) => ty.get_bits(context) * (width as usize),
             _ => panic!("Cannot get the bit-width of type"),
         }
     }
@@ -257,14 +257,14 @@ impl Type {
     ///
     /// ```
     /// # use yair::*;
-    /// # let mut library = Library::new();
-    /// # let module = library.create_module().build();
-    /// # let u32_ty = library.get_uint_type(32);
-    /// let vec_ty = library.get_vector_type(u32_ty, 4);
-    /// assert_eq!(vec_ty.get_len(&library), 4);
+    /// # let mut context = Context::new();
+    /// # let module = context.create_module().build();
+    /// # let u32_ty = context.get_uint_type(32);
+    /// let vec_ty = context.get_vector_type(u32_ty, 4);
+    /// assert_eq!(vec_ty.get_len(&context), 4);
     /// ```
-    pub fn get_len(&self, library: &Library) -> usize {
-        match &library.types[self.0] {
+    pub fn get_len(&self, context: &Context) -> usize {
+        match &context.types[self.0] {
             TypePayload::Vector(_, width) => *width as usize,
             TypePayload::Array(_, width) => *width,
             TypePayload::Struct(vec) => vec.len(),
@@ -279,15 +279,15 @@ impl Type {
     ///
     /// ```
     /// # use yair::*;
-    /// # let mut library = Library::new();
-    /// # let module = library.create_module().build();
-    /// # let u32_ty = library.get_uint_type(32);
-    /// # let u32_ptr_ty = library.get_pointer_type(Domain::Cpu);
-    /// let domain = u32_ptr_ty.get_domain(&library);
+    /// # let mut context = Context::new();
+    /// # let module = context.create_module().build();
+    /// # let u32_ty = context.get_uint_type(32);
+    /// # let u32_ptr_ty = context.get_pointer_type(Domain::Cpu);
+    /// let domain = u32_ptr_ty.get_domain(&context);
     /// # assert_eq!(domain, Domain::Cpu);
     /// ```
-    pub fn get_domain(&self, library: &Library) -> Domain {
-        match library.types[self.0] {
+    pub fn get_domain(&self, context: &Context) -> Domain {
+        match context.types[self.0] {
             TypePayload::Pointer(domain) => domain,
             _ => panic!("Cannot get the domain from a non pointer type"),
         }
@@ -299,15 +299,15 @@ impl Type {
     ///
     /// ```
     /// # use yair::*;
-    /// # let mut library = Library::new();
-    /// # let module = library.create_module().build();
-    /// # let u32_ty = library.get_uint_type(32);
-    /// # let vec_ty = library.get_vector_type(u32_ty, 4);
-    /// let element = vec_ty.get_element(&library, 3);
+    /// # let mut context = Context::new();
+    /// # let module = context.create_module().build();
+    /// # let u32_ty = context.get_uint_type(32);
+    /// # let vec_ty = context.get_vector_type(u32_ty, 4);
+    /// let element = vec_ty.get_element(&context, 3);
     /// # assert_eq!(element, u32_ty);
     /// ```
-    pub fn get_element(&self, library: &Library, index: usize) -> Type {
-        match &library.types[self.0] {
+    pub fn get_element(&self, context: &Context, index: usize) -> Type {
+        match &context.types[self.0] {
             TypePayload::Vector(ty, size) => {
                 assert!(
                     index < (*size as usize),
@@ -331,15 +331,15 @@ impl Type {
     ///
     /// ```
     /// # use yair::*;
-    /// # let mut library = Library::new();
-    /// # let module = library.create_module().build();
-    /// # let u32_ty = library.get_uint_type(32);
-    /// # let array_ty = library.get_array_type(u32_ty, 4);
-    /// let is_array = array_ty.is_array(&library);
+    /// # let mut context = Context::new();
+    /// # let module = context.create_module().build();
+    /// # let u32_ty = context.get_uint_type(32);
+    /// # let array_ty = context.get_array_type(u32_ty, 4);
+    /// let is_array = array_ty.is_array(&context);
     /// # assert!(is_array);
     /// ```
-    pub fn is_array(&self, library: &Library) -> bool {
-        matches!(library.types[self.0], TypePayload::Array(_, _))
+    pub fn is_array(&self, context: &Context) -> bool {
+        matches!(context.types[self.0], TypePayload::Array(_, _))
     }
 
     /// Checks whether a type is a struct type.
@@ -348,16 +348,16 @@ impl Type {
     ///
     /// ```
     /// # use yair::*;
-    /// # let mut library = Library::new();
-    /// # let module = library.create_module().build();
-    /// # let u32_ty = library.get_uint_type(32);
-    /// # let struct_ty = library.get_struct_type(&[ u32_ty ]);
-    /// let is_struct = struct_ty.is_struct(&library);
+    /// # let mut context = Context::new();
+    /// # let module = context.create_module().build();
+    /// # let u32_ty = context.get_uint_type(32);
+    /// # let struct_ty = context.get_struct_type(&[ u32_ty ]);
+    /// let is_struct = struct_ty.is_struct(&context);
     /// # assert!(is_struct);
     /// ```
-    pub fn is_struct(&self, library: &Library) -> bool {
-        matches!(library.types[self.0], TypePayload::Struct(_))
-            || matches!(library.types[self.0], TypePayload::NamedStruct(_, _, _, _))
+    pub fn is_struct(&self, context: &Context) -> bool {
+        matches!(context.types[self.0], TypePayload::Struct(_))
+            || matches!(context.types[self.0], TypePayload::NamedStruct(_, _, _, _))
     }
 
     /// Checks whether a type is a named struct type.
@@ -366,15 +366,15 @@ impl Type {
     ///
     /// ```
     /// # use yair::*;
-    /// # let mut library = Library::new();
-    /// # let module = library.create_module().build();
-    /// # let u32_ty = library.get_uint_type(32);
-    /// # let struct_ty = library.get_struct_type(&[ u32_ty ]);
-    /// let is_named_struct = struct_ty.is_named_struct(&library);
+    /// # let mut context = Context::new();
+    /// # let module = context.create_module().build();
+    /// # let u32_ty = context.get_uint_type(32);
+    /// # let struct_ty = context.get_struct_type(&[ u32_ty ]);
+    /// let is_named_struct = struct_ty.is_named_struct(&context);
     /// # assert!(!is_named_struct);
     /// ```
-    pub fn is_named_struct(&self, library: &Library) -> bool {
-        matches!(library.types[self.0], TypePayload::NamedStruct(_, _, _, _))
+    pub fn is_named_struct(&self, context: &Context) -> bool {
+        matches!(context.types[self.0], TypePayload::NamedStruct(_, _, _, _))
     }
 
     /// Checks whether a type is a vector type.
@@ -383,15 +383,15 @@ impl Type {
     ///
     /// ```
     /// # use yair::*;
-    /// # let mut library = Library::new();
-    /// # let module = library.create_module().build();
-    /// # let u32_ty = library.get_uint_type(32);
-    /// # let vec_ty = library.get_vector_type(u32_ty, 4);
-    /// let is_vec = vec_ty.is_vector(&library);
+    /// # let mut context = Context::new();
+    /// # let module = context.create_module().build();
+    /// # let u32_ty = context.get_uint_type(32);
+    /// # let vec_ty = context.get_vector_type(u32_ty, 4);
+    /// let is_vec = vec_ty.is_vector(&context);
     /// # assert!(is_vec);
     /// ```
-    pub fn is_vector(&self, library: &Library) -> bool {
-        matches!(library.types[self.0], TypePayload::Vector(_, _))
+    pub fn is_vector(&self, context: &Context) -> bool {
+        matches!(context.types[self.0], TypePayload::Vector(_, _))
     }
 
     /// Checks whether a type is an int type.
@@ -400,13 +400,13 @@ impl Type {
     ///
     /// ```
     /// # use yair::*;
-    /// # let mut library = Library::new();
-    /// # let module = library.create_module().build();
-    /// # let i32_ty = library.get_int_type(32);
-    /// assert!(i32_ty.is_int(&library));
+    /// # let mut context = Context::new();
+    /// # let module = context.create_module().build();
+    /// # let i32_ty = context.get_int_type(32);
+    /// assert!(i32_ty.is_int(&context));
     /// ```
-    pub fn is_int(&self, library: &Library) -> bool {
-        matches!(library.types[self.0], TypePayload::Int(_))
+    pub fn is_int(&self, context: &Context) -> bool {
+        matches!(context.types[self.0], TypePayload::Int(_))
     }
 
     /// Checks whether a type is an uint type.
@@ -415,13 +415,13 @@ impl Type {
     ///
     /// ```
     /// # use yair::*;
-    /// # let mut library = Library::new();
-    /// # let module = library.create_module().build();
-    /// # let u32_ty = library.get_uint_type(32);
-    /// assert!(u32_ty.is_uint(&library));
+    /// # let mut context = Context::new();
+    /// # let module = context.create_module().build();
+    /// # let u32_ty = context.get_uint_type(32);
+    /// assert!(u32_ty.is_uint(&context));
     /// ```
-    pub fn is_uint(&self, library: &Library) -> bool {
-        matches!(library.types[self.0], TypePayload::UInt(_))
+    pub fn is_uint(&self, context: &Context) -> bool {
+        matches!(context.types[self.0], TypePayload::UInt(_))
     }
 
     /// Checks whether a type is a float type.
@@ -430,13 +430,13 @@ impl Type {
     ///
     /// ```
     /// # use yair::*;
-    /// # let mut library = Library::new();
-    /// # let module = library.create_module().build();
-    /// # let f32_ty = library.get_float_type(32);
-    /// assert!(f32_ty.is_float(&library));
+    /// # let mut context = Context::new();
+    /// # let module = context.create_module().build();
+    /// # let f32_ty = context.get_float_type(32);
+    /// assert!(f32_ty.is_float(&context));
     /// ```
-    pub fn is_float(&self, library: &Library) -> bool {
-        matches!(library.types[self.0], TypePayload::Float(_))
+    pub fn is_float(&self, context: &Context) -> bool {
+        matches!(context.types[self.0], TypePayload::Float(_))
     }
 
     /// Checks whether a type is an integral (signed or unsigned) type.
@@ -445,17 +445,17 @@ impl Type {
     ///
     /// ```
     /// # use yair::*;
-    /// # let mut library = Library::new();
-    /// # let module = library.create_module().build();
-    /// # let u32_ty = library.get_uint_type(32);
-    /// # let vec_ty = library.get_vector_type(u32_ty, 4);
-    /// let is_integral = u32_ty.is_integral(&library);
+    /// # let mut context = Context::new();
+    /// # let module = context.create_module().build();
+    /// # let u32_ty = context.get_uint_type(32);
+    /// # let vec_ty = context.get_vector_type(u32_ty, 4);
+    /// let is_integral = u32_ty.is_integral(&context);
     /// # assert!(is_integral);
-    /// # assert!(!vec_ty.is_integral(&library));
+    /// # assert!(!vec_ty.is_integral(&context));
     /// ```
-    pub fn is_integral(&self, library: &Library) -> bool {
+    pub fn is_integral(&self, context: &Context) -> bool {
         matches!(
-            library.types[self.0],
+            context.types[self.0],
             TypePayload::Int(_) | TypePayload::UInt(_)
         )
     }
@@ -466,25 +466,25 @@ impl Type {
     ///
     /// ```
     /// # use yair::*;
-    /// # let mut library = Library::new();
-    /// # let module = library.create_module().build();
-    /// # let u32_ty = library.get_uint_type(32);
-    /// # let vec_ty = library.get_vector_type(u32_ty, 4);
-    /// # let bool_ty = library.get_bool_type();
-    /// let is_uint = u32_ty.is_uint_or_uint_vector(&library);
-    /// let is_vector_uint = vec_ty.is_uint_or_uint_vector(&library);
+    /// # let mut context = Context::new();
+    /// # let module = context.create_module().build();
+    /// # let u32_ty = context.get_uint_type(32);
+    /// # let vec_ty = context.get_vector_type(u32_ty, 4);
+    /// # let bool_ty = context.get_bool_type();
+    /// let is_uint = u32_ty.is_uint_or_uint_vector(&context);
+    /// let is_vector_uint = vec_ty.is_uint_or_uint_vector(&context);
     /// # assert!(is_uint);
     /// # assert!(is_vector_uint);
-    /// # assert!(!bool_ty.is_uint_or_uint_vector(&library));
+    /// # assert!(!bool_ty.is_uint_or_uint_vector(&context));
     /// ```
-    pub fn is_uint_or_uint_vector(&self, library: &Library) -> bool {
+    pub fn is_uint_or_uint_vector(&self, context: &Context) -> bool {
         let mut ty = *self;
 
-        if ty.is_vector(library) {
-            ty = ty.get_element(library, 0);
+        if ty.is_vector(context) {
+            ty = ty.get_element(context, 0);
         }
 
-        ty.is_uint(library)
+        ty.is_uint(context)
     }
 
     /// Checks whether a type is a signed integer type, or a vector of it.
@@ -493,25 +493,25 @@ impl Type {
     ///
     /// ```
     /// # use yair::*;
-    /// # let mut library = Library::new();
-    /// # let module = library.create_module().build();
-    /// # let i32_ty = library.get_int_type(32);
-    /// # let vec_ty = library.get_vector_type(i32_ty, 4);
-    /// # let bool_ty = library.get_bool_type();
-    /// let is_int = i32_ty.is_int_or_int_vector(&library);
-    /// let is_vector_int = vec_ty.is_int_or_int_vector(&library);
+    /// # let mut context = Context::new();
+    /// # let module = context.create_module().build();
+    /// # let i32_ty = context.get_int_type(32);
+    /// # let vec_ty = context.get_vector_type(i32_ty, 4);
+    /// # let bool_ty = context.get_bool_type();
+    /// let is_int = i32_ty.is_int_or_int_vector(&context);
+    /// let is_vector_int = vec_ty.is_int_or_int_vector(&context);
     /// # assert!(is_int);
     /// # assert!(is_vector_int);
-    /// # assert!(!bool_ty.is_int_or_int_vector(&library));
+    /// # assert!(!bool_ty.is_int_or_int_vector(&context));
     /// ```
-    pub fn is_int_or_int_vector(&self, library: &Library) -> bool {
+    pub fn is_int_or_int_vector(&self, context: &Context) -> bool {
         let mut ty = *self;
 
-        if ty.is_vector(library) {
-            ty = ty.get_element(library, 0);
+        if ty.is_vector(context) {
+            ty = ty.get_element(context, 0);
         }
 
-        ty.is_int(library)
+        ty.is_int(context)
     }
 
     /// Checks whether a type is an integral (signed or unsigned) type, or a vector of integral.
@@ -520,25 +520,25 @@ impl Type {
     ///
     /// ```
     /// # use yair::*;
-    /// # let mut library = Library::new();
-    /// # let module = library.create_module().build();
-    /// # let u32_ty = library.get_uint_type(32);
-    /// # let vec_ty = library.get_vector_type(u32_ty, 4);
-    /// # let bool_ty = library.get_bool_type();
-    /// let is_integral = u32_ty.is_integral_or_integral_vector(&library);
-    /// let is_vector_integral = vec_ty.is_integral_or_integral_vector(&library);
+    /// # let mut context = Context::new();
+    /// # let module = context.create_module().build();
+    /// # let u32_ty = context.get_uint_type(32);
+    /// # let vec_ty = context.get_vector_type(u32_ty, 4);
+    /// # let bool_ty = context.get_bool_type();
+    /// let is_integral = u32_ty.is_integral_or_integral_vector(&context);
+    /// let is_vector_integral = vec_ty.is_integral_or_integral_vector(&context);
     /// # assert!(is_integral);
     /// # assert!(is_vector_integral);
-    /// # assert!(!bool_ty.is_integral_or_integral_vector(&library));
+    /// # assert!(!bool_ty.is_integral_or_integral_vector(&context));
     /// ```
-    pub fn is_integral_or_integral_vector(&self, library: &Library) -> bool {
+    pub fn is_integral_or_integral_vector(&self, context: &Context) -> bool {
         let mut ty = *self;
 
-        if ty.is_vector(library) {
-            ty = ty.get_element(library, 0);
+        if ty.is_vector(context) {
+            ty = ty.get_element(context, 0);
         }
 
-        ty.is_integral(library)
+        ty.is_integral(context)
     }
 
     /// Checks whether a type is a float type, or a vector of float.
@@ -547,25 +547,25 @@ impl Type {
     ///
     /// ```
     /// # use yair::*;
-    /// # let mut library = Library::new();
-    /// # let module = library.create_module().build();
-    /// # let f32_ty = library.get_float_type(32);
-    /// # let vec_ty = library.get_vector_type(f32_ty, 4);
-    /// # let bool_ty = library.get_bool_type();
-    /// let is_float = f32_ty.is_float_or_float_vector(&library);
-    /// let is_vector_float = vec_ty.is_float_or_float_vector(&library);
+    /// # let mut context = Context::new();
+    /// # let module = context.create_module().build();
+    /// # let f32_ty = context.get_float_type(32);
+    /// # let vec_ty = context.get_vector_type(f32_ty, 4);
+    /// # let bool_ty = context.get_bool_type();
+    /// let is_float = f32_ty.is_float_or_float_vector(&context);
+    /// let is_vector_float = vec_ty.is_float_or_float_vector(&context);
     /// # assert!(is_float);
     /// # assert!(is_vector_float);
-    /// # assert!(!bool_ty.is_float_or_float_vector(&library));
+    /// # assert!(!bool_ty.is_float_or_float_vector(&context));
     /// ```
-    pub fn is_float_or_float_vector(&self, library: &Library) -> bool {
+    pub fn is_float_or_float_vector(&self, context: &Context) -> bool {
         let mut ty = *self;
 
-        if ty.is_vector(library) {
-            ty = ty.get_element(library, 0);
+        if ty.is_vector(context) {
+            ty = ty.get_element(context, 0);
         }
 
-        ty.is_float(library)
+        ty.is_float(context)
     }
 
     /// Checks whether a type is a float type, or a vector of float.
@@ -574,25 +574,25 @@ impl Type {
     ///
     /// ```
     /// # use yair::*;
-    /// # let mut library = Library::new();
-    /// # let module = library.create_module().build();
-    /// # let f32_ty = library.get_float_type(32);
-    /// # let bool_ty = library.get_bool_type();
-    /// # let vec_ty = library.get_vector_type(bool_ty, 4);
-    /// let is_bool = bool_ty.is_bool_or_bool_vector(&library);
-    /// let is_vector_bool = vec_ty.is_bool_or_bool_vector(&library);
+    /// # let mut context = Context::new();
+    /// # let module = context.create_module().build();
+    /// # let f32_ty = context.get_float_type(32);
+    /// # let bool_ty = context.get_bool_type();
+    /// # let vec_ty = context.get_vector_type(bool_ty, 4);
+    /// let is_bool = bool_ty.is_bool_or_bool_vector(&context);
+    /// let is_vector_bool = vec_ty.is_bool_or_bool_vector(&context);
     /// # assert!(is_bool);
     /// # assert!(is_vector_bool);
-    /// # assert!(!f32_ty.is_bool_or_bool_vector(&library));
+    /// # assert!(!f32_ty.is_bool_or_bool_vector(&context));
     /// ```
-    pub fn is_bool_or_bool_vector(&self, library: &Library) -> bool {
+    pub fn is_bool_or_bool_vector(&self, context: &Context) -> bool {
         let mut ty = *self;
 
-        if ty.is_vector(library) {
-            ty = ty.get_element(library, 0);
+        if ty.is_vector(context) {
+            ty = ty.get_element(context, 0);
         }
 
-        ty.is_boolean(library)
+        ty.is_boolean(context)
     }
 
     /// Checks whether a type is a boolean type.
@@ -601,17 +601,17 @@ impl Type {
     ///
     /// ```
     /// # use yair::*;
-    /// # let mut library = Library::new();
-    /// # let module = library.create_module().build();
-    /// # let u32_ty = library.get_uint_type(32);
-    /// # let vec_ty = library.get_vector_type(u32_ty, 4);
-    /// # let bool_ty = library.get_bool_type();
-    /// let is_boolean = bool_ty.is_boolean(&library);
+    /// # let mut context = Context::new();
+    /// # let module = context.create_module().build();
+    /// # let u32_ty = context.get_uint_type(32);
+    /// # let vec_ty = context.get_vector_type(u32_ty, 4);
+    /// # let bool_ty = context.get_bool_type();
+    /// let is_boolean = bool_ty.is_boolean(&context);
     /// # assert!(is_boolean);
-    /// # assert!(!vec_ty.is_boolean(&library));
+    /// # assert!(!vec_ty.is_boolean(&context));
     /// ```
-    pub fn is_boolean(&self, library: &Library) -> bool {
-        matches!(library.types[self.0], TypePayload::Bool)
+    pub fn is_boolean(&self, context: &Context) -> bool {
+        matches!(context.types[self.0], TypePayload::Bool)
     }
 
     /// Checks whether a type is a void type.
@@ -620,16 +620,16 @@ impl Type {
     ///
     /// ```
     /// # use yair::*;
-    /// # let mut library = Library::new();
-    /// # let module = library.create_module().build();
-    /// # let u32_ty = library.get_uint_type(32);
-    /// # let vec_ty = library.get_vector_type(u32_ty, 4);
-    /// # let void_ty = library.get_void_type();
-    /// assert!(void_ty.is_void(&library));
-    /// # assert!(!vec_ty.is_boolean(&library));
+    /// # let mut context = Context::new();
+    /// # let module = context.create_module().build();
+    /// # let u32_ty = context.get_uint_type(32);
+    /// # let vec_ty = context.get_vector_type(u32_ty, 4);
+    /// # let void_ty = context.get_void_type();
+    /// assert!(void_ty.is_void(&context));
+    /// # assert!(!vec_ty.is_boolean(&context));
     /// ```
-    pub fn is_void(&self, library: &Library) -> bool {
-        matches!(library.types[self.0], TypePayload::Void)
+    pub fn is_void(&self, context: &Context) -> bool {
+        matches!(context.types[self.0], TypePayload::Void)
     }
 
     /// Checks whether a type is a pointer type.
@@ -638,16 +638,16 @@ impl Type {
     ///
     /// ```
     /// # use yair::*;
-    /// # let mut library = Library::new();
-    /// # let module = library.create_module().build();
-    /// # let bool_ty = library.get_bool_type();
-    /// # let ptr_ty = library.get_pointer_type(Domain::Cpu);
-    /// let is_pointer = ptr_ty.is_pointer(&library);
+    /// # let mut context = Context::new();
+    /// # let module = context.create_module().build();
+    /// # let bool_ty = context.get_bool_type();
+    /// # let ptr_ty = context.get_pointer_type(Domain::Cpu);
+    /// let is_pointer = ptr_ty.is_pointer(&context);
     /// # assert!(is_pointer);
-    /// # assert!(!bool_ty.is_pointer(&library));
+    /// # assert!(!bool_ty.is_pointer(&context));
     /// ```
-    pub fn is_pointer(&self, library: &Library) -> bool {
-        matches!(library.types[self.0], TypePayload::Pointer(_))
+    pub fn is_pointer(&self, context: &Context) -> bool {
+        matches!(context.types[self.0], TypePayload::Pointer(_))
     }
 
     /// Get the type at the index into the type.
@@ -656,24 +656,24 @@ impl Type {
     ///
     /// ```
     /// # use yair::*;
-    /// # let mut library = Library::new();
-    /// # let module = library.create_module().build();
-    /// # let u32_ty = library.get_uint_type(32);
-    /// # let ty = library.get_array_type(u32_ty, 42);
-    /// # let index = library.get_int_constant(8, 0);
-    /// let indexed_type = ty.get_indexed(&library, index);
+    /// # let mut context = Context::new();
+    /// # let module = context.create_module().build();
+    /// # let u32_ty = context.get_uint_type(32);
+    /// # let ty = context.get_array_type(u32_ty, 42);
+    /// # let index = context.get_int_constant(8, 0);
+    /// let indexed_type = ty.get_indexed(&context, index);
     /// # assert_eq!(indexed_type, u32_ty);
     /// ```
-    pub fn get_indexed(&self, library: &Library, index: Value) -> Type {
-        match &library.types[self.0] {
+    pub fn get_indexed(&self, context: &Context, index: Value) -> Type {
+        match &context.types[self.0] {
             TypePayload::Array(ty, _) => *ty,
             TypePayload::Struct(tys) => {
                 assert!(
-                    index.is_constant(library),
+                    index.is_constant(context),
                     "Cannot index into a struct with a non-constant"
                 );
 
-                match index.get_constant(library) {
+                match index.get_constant(context) {
                     Constant::Int(c, _) => tys[*c as usize],
                     Constant::UInt(c, _) => tys[*c as usize],
                     _ => panic!("Cannot index into a struct with a non-integral constant"),
@@ -681,11 +681,11 @@ impl Type {
             }
             TypePayload::NamedStruct(_, _, tys, _) => {
                 assert!(
-                    index.is_constant(library),
+                    index.is_constant(context),
                     "Cannot index into a struct with a non-constant"
                 );
 
-                match index.get_constant(library) {
+                match index.get_constant(context) {
                     Constant::Int(c, _) => tys[*c as usize].1,
                     Constant::UInt(c, _) => tys[*c as usize].1,
                     _ => panic!("Cannot index into a struct with a non-integral constant"),
@@ -702,16 +702,16 @@ impl Type {
     /// ```
     /// # use yair::*;
     /// # use yair::*;
-    /// # let mut library = Library::new();
-    /// # let u32_ty = library.get_uint_type(32);
-    /// # let module = library.create_module().build();
+    /// # let mut context = Context::new();
+    /// # let u32_ty = context.get_uint_type(32);
+    /// # let module = context.create_module().build();
     /// # let elements = vec![("my_field", u32_ty, None)];
     /// # let location = None;
-    /// # let struct_ty = module.create_named_struct_type(&mut library, "my_struct", &elements, location);
-    /// let name = struct_ty.get_name(&library);
+    /// # let struct_ty = module.create_named_struct_type(&mut context, "my_struct", &elements, location);
+    /// let name = struct_ty.get_name(&context);
     /// ```
-    pub fn get_name(&self, library: &Library) -> Name {
-        match library.types[self.0] {
+    pub fn get_name(&self, context: &Context) -> Name {
+        match context.types[self.0] {
             TypePayload::NamedStruct(_, name, _, _) => name,
             _ => panic!("Cannot get the name of anything other than a named-struct"),
         }
@@ -724,16 +724,16 @@ impl Type {
     /// ```
     /// # use yair::*;
     /// # use yair::*;
-    /// # let mut library = Library::new();
-    /// # let u32_ty = library.get_uint_type(32);
-    /// # let module = library.create_module().build();
+    /// # let mut context = Context::new();
+    /// # let u32_ty = context.get_uint_type(32);
+    /// # let module = context.create_module().build();
     /// # let elements = vec![("my_field", u32_ty, None)];
     /// # let location = None;
-    /// # let struct_ty = module.create_named_struct_type(&mut library, "my_struct", &elements, location);
-    /// let name = struct_ty.get_element_name(&library, 0);
+    /// # let struct_ty = module.create_named_struct_type(&mut context, "my_struct", &elements, location);
+    /// let name = struct_ty.get_element_name(&context, 0);
     /// ```
-    pub fn get_element_name(&self, library: &Library, index: usize) -> Name {
-        match &library.types[self.0] {
+    pub fn get_element_name(&self, context: &Context, index: usize) -> Name {
+        match &context.types[self.0] {
             TypePayload::NamedStruct(_, _, elements, _) => elements[index].0,
             _ => panic!("Cannot get the element name of anything other than a named-struct"),
         }
@@ -746,22 +746,22 @@ impl Type {
     /// ```
     /// # use yair::*;
     /// # use yair::*;
-    /// # let mut library = Library::new();
-    /// # let u32_ty = library.get_uint_type(32);
-    /// # let module = library.create_module().build();
+    /// # let mut context = Context::new();
+    /// # let u32_ty = context.get_uint_type(32);
+    /// # let module = context.create_module().build();
     /// # let elements = vec![("my_field", u32_ty, None)];
     /// # let location = None;
-    /// # let struct_ty = module.create_named_struct_type(&mut library, "my_struct", &elements, location);
-    /// let location = struct_ty.get_location(&library);
+    /// # let struct_ty = module.create_named_struct_type(&mut context, "my_struct", &elements, location);
+    /// let location = struct_ty.get_location(&context);
     /// ```
-    pub fn get_location(&self, library: &Library) -> Option<Location> {
-        match library.types[self.0] {
+    pub fn get_location(&self, context: &Context) -> Option<Location> {
+        match context.types[self.0] {
             TypePayload::NamedStruct(_, _, _, location) => location,
             _ => panic!("Cannot get the location of anything other than a named-struct"),
         }
     }
 
-    pub fn get_displayer<'a>(&self, library: &'a Library) -> TypeDisplayer<'a> {
-        TypeDisplayer { ty: *self, library }
+    pub fn get_displayer<'a>(&self, context: &'a Context) -> TypeDisplayer<'a> {
+        TypeDisplayer { ty: *self, context }
     }
 }

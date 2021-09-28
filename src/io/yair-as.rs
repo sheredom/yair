@@ -39,7 +39,7 @@ fn main() {
     let writer = StandardStream::stderr(color.into());
     let config = codespan_reporting::term::Config::default();
 
-    let library = match assemble(file, &data) {
+    let context = match assemble(file, &data) {
         Ok(l) => l,
         Err(d) => {
             emit(&mut writer.lock(), &config, &files, &d).unwrap();
@@ -51,11 +51,11 @@ fn main() {
 
     if output == "-" {
         let mut serializer = Serializer::new(io::stdout());
-        library.serialize(&mut serializer)
+        context.serialize(&mut serializer)
     } else {
         let file = File::create(output).unwrap();
         let mut serializer = Serializer::new(file);
-        library.serialize(&mut serializer)
+        context.serialize(&mut serializer)
     }
     .expect("Serde failed to serialize the library to a binary");
 }

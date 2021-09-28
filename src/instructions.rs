@@ -104,7 +104,7 @@ pub enum Instruction {
 
 pub struct InstructionDisplayer<'a> {
     pub(crate) value: Value,
-    pub(crate) library: &'a Library,
+    pub(crate) context: &'a Context,
 }
 
 impl<'a> std::fmt::Display for InstructionDisplayer<'a> {
@@ -112,184 +112,184 @@ impl<'a> std::fmt::Display for InstructionDisplayer<'a> {
         &self,
         writer: &mut std::fmt::Formatter<'_>,
     ) -> std::result::Result<(), std::fmt::Error> {
-        let inst = self.value.get_inst(self.library);
+        let inst = self.value.get_inst(self.context);
         match inst {
             Instruction::Return(loc) => {
                 write!(writer, "ret",)?;
                 if let Some(loc) = loc {
-                    write!(writer, "{}", loc.get_displayer(self.library))?;
+                    write!(writer, "{}", loc.get_displayer(self.context))?;
                 }
             }
             Instruction::ReturnValue(_, val, loc) => {
-                write!(writer, "ret {}", val.get_displayer(self.library),)?;
+                write!(writer, "ret {}", val.get_displayer(self.context),)?;
                 if let Some(loc) = loc {
-                    write!(writer, "{}", loc.get_displayer(self.library))?;
+                    write!(writer, "{}", loc.get_displayer(self.context))?;
                 }
             }
             Instruction::Cmp(_, cmp, a, b, loc) => {
                 write!(
                     writer,
                     "{} = cmp {} {}, {}",
-                    self.value.get_displayer(self.library),
+                    self.value.get_displayer(self.context),
                     cmp,
-                    a.get_displayer(self.library),
-                    b.get_displayer(self.library),
+                    a.get_displayer(self.context),
+                    b.get_displayer(self.context),
                 )?;
                 if let Some(loc) = loc {
-                    write!(writer, "{}", loc.get_displayer(self.library))?;
+                    write!(writer, "{}", loc.get_displayer(self.context))?;
                 }
             }
             Instruction::Unary(_, unary, a, loc) => {
                 write!(
                     writer,
                     "{} = {} {}",
-                    self.value.get_displayer(self.library),
+                    self.value.get_displayer(self.context),
                     unary,
-                    a.get_displayer(self.library),
+                    a.get_displayer(self.context),
                 )?;
                 if let Some(loc) = loc {
-                    write!(writer, "{}", loc.get_displayer(self.library))?;
+                    write!(writer, "{}", loc.get_displayer(self.context))?;
                 }
             }
             Instruction::Binary(_, binary, a, b, loc) => {
                 write!(
                     writer,
                     "{} = {} {}, {}",
-                    self.value.get_displayer(self.library),
+                    self.value.get_displayer(self.context),
                     binary,
-                    a.get_displayer(self.library),
-                    b.get_displayer(self.library),
+                    a.get_displayer(self.context),
+                    b.get_displayer(self.context),
                 )?;
                 if let Some(loc) = loc {
-                    write!(writer, "{}", loc.get_displayer(self.library))?;
+                    write!(writer, "{}", loc.get_displayer(self.context))?;
                 }
             }
             Instruction::Cast(ty, val, loc) => {
                 write!(
                     writer,
                     "{} = cast {} to {}",
-                    self.value.get_displayer(self.library),
-                    val.get_displayer(self.library),
-                    ty.get_displayer(self.library),
+                    self.value.get_displayer(self.context),
+                    val.get_displayer(self.context),
+                    ty.get_displayer(self.context),
                 )?;
                 if let Some(loc) = loc {
-                    write!(writer, "{}", loc.get_displayer(self.library))?;
+                    write!(writer, "{}", loc.get_displayer(self.context))?;
                 }
             }
             Instruction::BitCast(ty, val, loc) => {
                 write!(
                     writer,
                     "{} = bitcast {} to {}",
-                    self.value.get_displayer(self.library),
-                    val.get_displayer(self.library),
-                    ty.get_displayer(self.library),
+                    self.value.get_displayer(self.context),
+                    val.get_displayer(self.context),
+                    ty.get_displayer(self.context),
                 )?;
                 if let Some(loc) = loc {
-                    write!(writer, "{}", loc.get_displayer(self.library))?;
+                    write!(writer, "{}", loc.get_displayer(self.context))?;
                 }
             }
             Instruction::Load(ty, ptr, loc) => {
                 write!(
                     writer,
                     "{} = load {}, {}",
-                    self.value.get_displayer(self.library),
-                    ty.get_displayer(self.library),
-                    ptr.get_displayer(self.library),
+                    self.value.get_displayer(self.context),
+                    ty.get_displayer(self.context),
+                    ptr.get_displayer(self.context),
                 )?;
                 if let Some(loc) = loc {
-                    write!(writer, "{}", loc.get_displayer(self.library))?;
+                    write!(writer, "{}", loc.get_displayer(self.context))?;
                 }
             }
             Instruction::Store(ty, ptr, val, loc) => {
                 write!(
                     writer,
                     "store {}, {}, {}",
-                    ty.get_displayer(self.library),
-                    ptr.get_displayer(self.library),
-                    val.get_displayer(self.library),
+                    ty.get_displayer(self.context),
+                    ptr.get_displayer(self.context),
+                    val.get_displayer(self.context),
                 )?;
                 if let Some(loc) = loc {
-                    write!(writer, "{}", loc.get_displayer(self.library))?;
+                    write!(writer, "{}", loc.get_displayer(self.context))?;
                 }
             }
             Instruction::Extract(agg, index, loc) => {
                 write!(
                     writer,
                     "{} = extract {}, {}",
-                    self.value.get_displayer(self.library),
-                    agg.get_displayer(self.library),
+                    self.value.get_displayer(self.context),
+                    agg.get_displayer(self.context),
                     index,
                 )?;
                 if let Some(loc) = loc {
-                    write!(writer, "{}", loc.get_displayer(self.library))?;
+                    write!(writer, "{}", loc.get_displayer(self.context))?;
                 }
             }
             Instruction::Insert(agg, elem, index, loc) => {
                 write!(
                     writer,
                     "{} = insert {}, {}, {}",
-                    self.value.get_displayer(self.library),
-                    agg.get_displayer(self.library),
-                    elem.get_displayer(self.library),
+                    self.value.get_displayer(self.context),
+                    agg.get_displayer(self.context),
+                    elem.get_displayer(self.context),
                     index,
                 )?;
                 if let Some(loc) = loc {
-                    write!(writer, "{}", loc.get_displayer(self.library))?;
+                    write!(writer, "{}", loc.get_displayer(self.context))?;
                 }
             }
             Instruction::StackAlloc(name, ty, _, loc) => {
                 write!(
                     writer,
                     "{} = stackalloc {}, {}",
-                    self.value.get_displayer(self.library),
-                    name.get_displayer(self.library),
-                    ty.get_displayer(self.library),
+                    self.value.get_displayer(self.context),
+                    name.get_displayer(self.context),
+                    ty.get_displayer(self.context),
                 )?;
 
                 if let Some(loc) = loc {
-                    write!(writer, "{}", loc.get_displayer(self.library))?;
+                    write!(writer, "{}", loc.get_displayer(self.context))?;
                 }
             }
             Instruction::Call(func, args, loc) => {
                 write!(
                     writer,
                     "{} = call {} from {} (",
-                    self.value.get_displayer(self.library),
-                    func.get_name(self.library).get_displayer(self.library),
-                    func.get_module(self.library)
-                        .get_name(self.library)
-                        .get_displayer(self.library)
+                    self.value.get_displayer(self.context),
+                    func.get_name(self.context).get_displayer(self.context),
+                    func.get_module(self.context)
+                        .get_name(self.context)
+                        .get_displayer(self.context)
                 )?;
 
                 for arg in args.iter().take(1) {
-                    write!(writer, "{}", arg.get_displayer(self.library))?;
+                    write!(writer, "{}", arg.get_displayer(self.context))?;
                 }
 
                 for arg in args.iter().skip(1) {
-                    write!(writer, ", {}", arg.get_displayer(self.library))?;
+                    write!(writer, ", {}", arg.get_displayer(self.context))?;
                 }
 
                 write!(writer, ")")?;
 
                 if let Some(loc) = loc {
-                    write!(writer, "{}", loc.get_displayer(self.library))?;
+                    write!(writer, "{}", loc.get_displayer(self.context))?;
                 }
             }
             Instruction::Branch(block, args, loc) => {
                 write!(writer, "br b{}(", block.get_unique_index())?;
 
                 for arg in args.iter().take(1) {
-                    write!(writer, "{}", arg.get_displayer(self.library))?;
+                    write!(writer, "{}", arg.get_displayer(self.context))?;
                 }
 
                 for arg in args.iter().skip(1) {
-                    write!(writer, ", {}", arg.get_displayer(self.library))?;
+                    write!(writer, ", {}", arg.get_displayer(self.context))?;
                 }
 
                 write!(writer, ")")?;
 
                 if let Some(loc) = loc {
-                    write!(writer, "{}", loc.get_displayer(self.library))?;
+                    write!(writer, "{}", loc.get_displayer(self.context))?;
                 }
             }
             Instruction::ConditionalBranch(
@@ -303,67 +303,67 @@ impl<'a> std::fmt::Display for InstructionDisplayer<'a> {
                 write!(
                     writer,
                     "cbr {}, b{}(",
-                    cond.get_displayer(self.library),
+                    cond.get_displayer(self.context),
                     true_block.get_unique_index()
                 )?;
 
                 for arg in true_args.iter().take(1) {
-                    write!(writer, "{}", arg.get_displayer(self.library))?;
+                    write!(writer, "{}", arg.get_displayer(self.context))?;
                 }
 
                 for arg in true_args.iter().skip(1) {
-                    write!(writer, ", {}", arg.get_displayer(self.library))?;
+                    write!(writer, ", {}", arg.get_displayer(self.context))?;
                 }
 
                 write!(writer, "), b{}(", false_block.get_unique_index())?;
 
                 for arg in false_args.iter().take(1) {
-                    write!(writer, "{}", arg.get_displayer(self.library))?;
+                    write!(writer, "{}", arg.get_displayer(self.context))?;
                 }
 
                 for arg in false_args.iter().skip(1) {
-                    write!(writer, ", {}", arg.get_displayer(self.library))?;
+                    write!(writer, ", {}", arg.get_displayer(self.context))?;
                 }
 
                 write!(writer, ")")?;
 
                 if let Some(loc) = loc {
-                    write!(writer, "{}", loc.get_displayer(self.library))?;
+                    write!(writer, "{}", loc.get_displayer(self.context))?;
                 }
             }
             Instruction::Select(_, cond, true_val, false_val, loc) => {
                 write!(
                     writer,
                     "{} = select {}, {}, {}",
-                    self.value.get_displayer(self.library),
-                    cond.get_displayer(self.library),
-                    true_val.get_displayer(self.library),
-                    false_val.get_displayer(self.library),
+                    self.value.get_displayer(self.context),
+                    cond.get_displayer(self.context),
+                    true_val.get_displayer(self.context),
+                    false_val.get_displayer(self.context),
                 )?;
 
                 if let Some(loc) = loc {
-                    write!(writer, "{}", loc.get_displayer(self.library))?;
+                    write!(writer, "{}", loc.get_displayer(self.context))?;
                 }
             }
             Instruction::IndexInto(ty, ptr, args, loc) => {
                 write!(
                     writer,
                     "{} = indexinto {}, {}, ",
-                    self.value.get_displayer(self.library),
-                    ty.get_displayer(self.library),
-                    ptr.get_displayer(self.library),
+                    self.value.get_displayer(self.context),
+                    ty.get_displayer(self.context),
+                    ptr.get_displayer(self.context),
                 )?;
 
                 for arg in args.iter().take(1) {
-                    write!(writer, "{}", arg.get_displayer(self.library))?;
+                    write!(writer, "{}", arg.get_displayer(self.context))?;
                 }
 
                 for arg in args.iter().skip(1) {
-                    write!(writer, ", {}", arg.get_displayer(self.library))?;
+                    write!(writer, ", {}", arg.get_displayer(self.context))?;
                 }
 
                 if let Some(loc) = loc {
-                    write!(writer, "{}", loc.get_displayer(self.library))?;
+                    write!(writer, "{}", loc.get_displayer(self.context))?;
                 }
             }
         }
@@ -379,20 +379,20 @@ impl Typed for Instruction {
     ///
     /// ```
     /// # use yair::*;
-    /// # let mut library = Library::new();
-    /// # let module = library.create_module().build();
-    /// # let u32_ty = library.get_uint_type(32);
-    /// # let function = module.create_function(&mut library).with_name("func").with_return_type(u32_ty).build();
-    /// # let _ = function.create_block(&mut library).build();
-    /// # let block = function.create_block(&mut library).build();
-    /// # let constant = library.get_uint_constant(32, 42);
-    /// # let mut instruction_builder = block.create_instructions(&mut library);
+    /// # let mut context = Context::new();
+    /// # let module = context.create_module().build();
+    /// # let u32_ty = context.get_uint_type(32);
+    /// # let function = module.create_function(&mut context).with_name("func").with_return_type(u32_ty).build();
+    /// # let _ = function.create_block(&mut context).build();
+    /// # let block = function.create_block(&mut context).build();
+    /// # let constant = context.get_uint_constant(32, 42);
+    /// # let mut instruction_builder = block.create_instructions(&mut context);
     /// # let instruction = instruction_builder.ret_val(constant, None);
-    /// let ty = instruction.get_type(&library);
+    /// let ty = instruction.get_type(&context);
     /// # assert_eq!(ty, u32_ty);
     ///
     /// ```
-    fn get_type(&self, library: &Library) -> Type {
+    fn get_type(&self, context: &Context) -> Type {
         match self {
             Instruction::Return(_) => panic!("Cannot get the type of a void return"),
             Instruction::ReturnValue(ty, _, _) => *ty,
@@ -404,17 +404,17 @@ impl Typed for Instruction {
             Instruction::Load(ty, _, _) => *ty,
             Instruction::Store(_, _, _, _) => panic!("Cannot get the type of a store"),
             Instruction::Extract(val, index, _) => {
-                val.get_type(library).get_element(library, *index)
+                val.get_type(context).get_element(context, *index)
             }
-            Instruction::Insert(_, val, _, _) => val.get_type(library),
+            Instruction::Insert(_, val, _, _) => val.get_type(context),
             Instruction::StackAlloc(_, _, ty, _) => *ty,
-            Instruction::Call(function, _, _) => function.get_return_type(library),
+            Instruction::Call(function, _, _) => function.get_return_type(context),
             Instruction::Branch(_, _, _) => panic!("Cannot get the type of a branch"),
             Instruction::ConditionalBranch(_, _, _, _, _, _) => {
                 panic!("Cannot get the type of a conditional branch")
             }
             Instruction::Select(ty, _, _, _, _) => *ty,
-            Instruction::IndexInto(_, val, _, _) => val.get_type(library),
+            Instruction::IndexInto(_, val, _, _) => val.get_type(context),
         }
     }
 }
@@ -426,20 +426,20 @@ impl Named for Instruction {
     ///
     /// ```
     /// # use yair::*;
-    /// # let mut library = Library::new();
-    /// # let module = library.create_module().build();
-    /// # let u32_ty = library.get_uint_type(32);
-    /// # let function = module.create_function(&mut library).with_name("func").build();
-    /// # let _ = function.create_block(&mut library).build();
-    /// # let block = function.create_block(&mut library).build();
-    /// # let constant = library.get_uint_constant(32, 42);
-    /// # let mut instruction_builder = block.create_instructions(&mut library);
+    /// # let mut context = Context::new();
+    /// # let module = context.create_module().build();
+    /// # let u32_ty = context.get_uint_type(32);
+    /// # let function = module.create_function(&mut context).with_name("func").build();
+    /// # let _ = function.create_block(&mut context).build();
+    /// # let block = function.create_block(&mut context).build();
+    /// # let constant = context.get_uint_constant(32, 42);
+    /// # let mut instruction_builder = block.create_instructions(&mut context);
     /// # let instruction = instruction_builder.stack_alloc("😀", u32_ty, None);
     /// # instruction_builder.ret(None);
-    /// let name = instruction.get_name(&library);
-    /// # assert_eq!(name.as_str(&library), "😀");
+    /// let name = instruction.get_name(&context);
+    /// # assert_eq!(name.as_str(&context), "😀");
     /// ```
-    fn get_name(&self, _: &Library) -> Name {
+    fn get_name(&self, _: &Context) -> Name {
         match self {
             Instruction::StackAlloc(name, _, _, _) => *name,
             _ => panic!("Cannot get the name of instruction"),
@@ -458,21 +458,21 @@ impl PausedInstructionBuilder {
 }
 
 pub struct InstructionBuilder<'a> {
-    library: &'a mut Library,
+    context: &'a mut Context,
     block: Block,
 }
 
 impl<'a> InstructionBuilder<'a> {
-    pub(crate) fn with_library_and_block(library: &'a mut Library, block: Block) -> Self {
-        InstructionBuilder { library, block }
+    pub(crate) fn with_context_and_block(context: &'a mut Context, block: Block) -> Self {
+        InstructionBuilder { context, block }
     }
 
     fn make_value(&mut self, instruction: Instruction) -> Value {
         let index = self
-            .library
+            .context
             .values
             .insert(ValuePayload::Instruction(instruction));
-        self.library.blocks[self.block.0]
+        self.context.blocks[self.block.0]
             .instructions
             .push(Value(index));
         Value(index)
@@ -486,9 +486,9 @@ impl<'a> InstructionBuilder<'a> {
     }
 
     /// Resume building an instruction builder.
-    pub fn resume_building(library: &'a mut Library, paused: PausedInstructionBuilder) -> Self {
+    pub fn resume_building(context: &'a mut Context, paused: PausedInstructionBuilder) -> Self {
         InstructionBuilder {
-            library,
+            context,
             block: paused.block,
         }
     }
@@ -499,11 +499,11 @@ impl<'a> InstructionBuilder<'a> {
     ///
     /// ```
     /// # use yair::*;
-    /// # let mut library = Library::new();
-    /// # let module = library.create_module().build();
-    /// # let function = module.create_function(&mut library).with_name("func").build();
-    /// # let block = function.create_block(&mut library).build();
-    /// # let mut instruction_builder = block.create_instructions(&mut library);
+    /// # let mut context = Context::new();
+    /// # let module = context.create_module().build();
+    /// # let function = module.create_function(&mut context).with_name("func").build();
+    /// # let block = function.create_block(&mut context).build();
+    /// # let mut instruction_builder = block.create_instructions(&mut context);
     /// # let location = None;
     /// instruction_builder.ret(location);
     /// ```
@@ -517,19 +517,19 @@ impl<'a> InstructionBuilder<'a> {
     ///
     /// ```
     /// # use yair::*;
-    /// # let mut library = Library::new();
-    /// # let module = library.create_module().build();
-    /// # let u32_ty = library.get_uint_type(32);
-    /// # let function = module.create_function(&mut library).with_name("func").with_return_type(u32_ty).with_arg("a", u32_ty).build();
-    /// # let block = function.create_block(&mut library).build();
-    /// # let return_value = function.get_arg(&library, 0);
-    /// # let mut instruction_builder = block.create_instructions(&mut library);
+    /// # let mut context = Context::new();
+    /// # let module = context.create_module().build();
+    /// # let u32_ty = context.get_uint_type(32);
+    /// # let function = module.create_function(&mut context).with_name("func").with_return_type(u32_ty).with_arg("a", u32_ty).build();
+    /// # let block = function.create_block(&mut context).build();
+    /// # let return_value = function.get_arg(&context, 0);
+    /// # let mut instruction_builder = block.create_instructions(&mut context);
     /// # let location = None;
     /// instruction_builder.ret_val(return_value, location);
     /// ```
     pub fn ret_val(mut self, value: Value, location: Option<Location>) -> Value {
         self.make_value(Instruction::ReturnValue(
-            value.get_type(self.library),
+            value.get_type(self.context),
             value,
             location,
         ))
@@ -544,20 +544,20 @@ impl<'a> InstructionBuilder<'a> {
     ///
     /// ```
     /// # use yair::*;
-    /// # let mut library = Library::new();
-    /// # let module = library.create_module().build();
-    /// # let u32_ty = library.get_uint_type(32);
-    /// # let function = module.create_function(&mut library).with_name("func").with_return_type(u32_ty).with_arg("a", u32_ty).with_arg("b", u32_ty).build();
-    /// # let block = function.create_block(&mut library).build();
-    /// # let x = function.get_arg(&library, 0);
-    /// # let y = function.get_arg(&library, 1);
-    /// # let mut instruction_builder = block.create_instructions(&mut library);
+    /// # let mut context = Context::new();
+    /// # let module = context.create_module().build();
+    /// # let u32_ty = context.get_uint_type(32);
+    /// # let function = module.create_function(&mut context).with_name("func").with_return_type(u32_ty).with_arg("a", u32_ty).with_arg("b", u32_ty).build();
+    /// # let block = function.create_block(&mut context).build();
+    /// # let x = function.get_arg(&context, 0);
+    /// # let y = function.get_arg(&context, 1);
+    /// # let mut instruction_builder = block.create_instructions(&mut context);
     /// # let location = None;
     /// let add = instruction_builder.add(x, y, location);
     /// ```
     pub fn add(&mut self, x: Value, y: Value, location: Option<Location>) -> Value {
         self.make_value(Instruction::Binary(
-            x.get_type(self.library),
+            x.get_type(self.context),
             Binary::Add,
             x,
             y,
@@ -574,20 +574,20 @@ impl<'a> InstructionBuilder<'a> {
     ///
     /// ```
     /// # use yair::*;
-    /// # let mut library = Library::new();
-    /// # let module = library.create_module().build();
-    /// # let u32_ty = library.get_uint_type(32);
-    /// # let function = module.create_function(&mut library).with_name("func").with_return_type(u32_ty).with_arg("a", u32_ty).with_arg("b", u32_ty).build();
-    /// # let block = function.create_block(&mut library).build();
-    /// # let x = function.get_arg(&library, 0);
-    /// # let y = function.get_arg(&library, 1);
-    /// # let mut instruction_builder = block.create_instructions(&mut library);
+    /// # let mut context = Context::new();
+    /// # let module = context.create_module().build();
+    /// # let u32_ty = context.get_uint_type(32);
+    /// # let function = module.create_function(&mut context).with_name("func").with_return_type(u32_ty).with_arg("a", u32_ty).with_arg("b", u32_ty).build();
+    /// # let block = function.create_block(&mut context).build();
+    /// # let x = function.get_arg(&context, 0);
+    /// # let y = function.get_arg(&context, 1);
+    /// # let mut instruction_builder = block.create_instructions(&mut context);
     /// # let location = None;
     /// let sub = instruction_builder.sub(x, y, location);
     /// ```
     pub fn sub(&mut self, x: Value, y: Value, location: Option<Location>) -> Value {
         self.make_value(Instruction::Binary(
-            x.get_type(self.library),
+            x.get_type(self.context),
             Binary::Sub,
             x,
             y,
@@ -604,20 +604,20 @@ impl<'a> InstructionBuilder<'a> {
     ///
     /// ```
     /// # use yair::*;
-    /// # let mut library = Library::new();
-    /// # let module = library.create_module().build();
-    /// # let u32_ty = library.get_uint_type(32);
-    /// # let function = module.create_function(&mut library).with_name("func").with_return_type(u32_ty).with_arg("a", u32_ty).with_arg("b", u32_ty).build();
-    /// # let block = function.create_block(&mut library).build();
-    /// # let x = function.get_arg(&library, 0);
-    /// # let y = function.get_arg(&library, 1);
-    /// # let mut instruction_builder = block.create_instructions(&mut library);
+    /// # let mut context = Context::new();
+    /// # let module = context.create_module().build();
+    /// # let u32_ty = context.get_uint_type(32);
+    /// # let function = module.create_function(&mut context).with_name("func").with_return_type(u32_ty).with_arg("a", u32_ty).with_arg("b", u32_ty).build();
+    /// # let block = function.create_block(&mut context).build();
+    /// # let x = function.get_arg(&context, 0);
+    /// # let y = function.get_arg(&context, 1);
+    /// # let mut instruction_builder = block.create_instructions(&mut context);
     /// # let location = None;
     /// let mul = instruction_builder.mul(x, y, location);
     /// ```
     pub fn mul(&mut self, x: Value, y: Value, location: Option<Location>) -> Value {
         self.make_value(Instruction::Binary(
-            x.get_type(self.library),
+            x.get_type(self.context),
             Binary::Mul,
             x,
             y,
@@ -634,20 +634,20 @@ impl<'a> InstructionBuilder<'a> {
     ///
     /// ```
     /// # use yair::*;
-    /// # let mut library = Library::new();
-    /// # let module = library.create_module().build();
-    /// # let u32_ty = library.get_uint_type(32);
-    /// # let function = module.create_function(&mut library).with_name("func").with_return_type(u32_ty).with_arg("a", u32_ty).with_arg("b", u32_ty).build();
-    /// # let block = function.create_block(&mut library).build();
-    /// # let x = function.get_arg(&library, 0);
-    /// # let y = function.get_arg(&library, 1);
-    /// # let mut instruction_builder = block.create_instructions(&mut library);
+    /// # let mut context = Context::new();
+    /// # let module = context.create_module().build();
+    /// # let u32_ty = context.get_uint_type(32);
+    /// # let function = module.create_function(&mut context).with_name("func").with_return_type(u32_ty).with_arg("a", u32_ty).with_arg("b", u32_ty).build();
+    /// # let block = function.create_block(&mut context).build();
+    /// # let x = function.get_arg(&context, 0);
+    /// # let y = function.get_arg(&context, 1);
+    /// # let mut instruction_builder = block.create_instructions(&mut context);
     /// # let location = None;
     /// let div = instruction_builder.div(x, y, location);
     /// ```
     pub fn div(&mut self, x: Value, y: Value, location: Option<Location>) -> Value {
         self.make_value(Instruction::Binary(
-            x.get_type(self.library),
+            x.get_type(self.context),
             Binary::Div,
             x,
             y,
@@ -664,20 +664,20 @@ impl<'a> InstructionBuilder<'a> {
     ///
     /// ```
     /// # use yair::*;
-    /// # let mut library = Library::new();
-    /// # let module = library.create_module().build();
-    /// # let u32_ty = library.get_uint_type(32);
-    /// # let function = module.create_function(&mut library).with_name("func").with_return_type(u32_ty).with_arg("a", u32_ty).with_arg("b", u32_ty).build();
-    /// # let block = function.create_block(&mut library).build();
-    /// # let x = function.get_arg(&library, 0);
-    /// # let y = function.get_arg(&library, 1);
-    /// # let mut instruction_builder = block.create_instructions(&mut library);
+    /// # let mut context = Context::new();
+    /// # let module = context.create_module().build();
+    /// # let u32_ty = context.get_uint_type(32);
+    /// # let function = module.create_function(&mut context).with_name("func").with_return_type(u32_ty).with_arg("a", u32_ty).with_arg("b", u32_ty).build();
+    /// # let block = function.create_block(&mut context).build();
+    /// # let x = function.get_arg(&context, 0);
+    /// # let y = function.get_arg(&context, 1);
+    /// # let mut instruction_builder = block.create_instructions(&mut context);
     /// # let location = None;
     /// let rem = instruction_builder.rem(x, y, location);
     /// ```
     pub fn rem(&mut self, x: Value, y: Value, location: Option<Location>) -> Value {
         self.make_value(Instruction::Binary(
-            x.get_type(self.library),
+            x.get_type(self.context),
             Binary::Rem,
             x,
             y,
@@ -691,19 +691,19 @@ impl<'a> InstructionBuilder<'a> {
     ///
     /// ```
     /// # use yair::*;
-    /// # let mut library = Library::new();
-    /// # let module = library.create_module().build();
-    /// # let u32_ty = library.get_uint_type(32);
-    /// # let function = module.create_function(&mut library).with_name("func").with_return_type(u32_ty).with_arg("a", u32_ty).build();
-    /// # let block = function.create_block(&mut library).build();
-    /// # let x = function.get_arg(&library, 0);
-    /// # let mut instruction_builder = block.create_instructions(&mut library);
+    /// # let mut context = Context::new();
+    /// # let module = context.create_module().build();
+    /// # let u32_ty = context.get_uint_type(32);
+    /// # let function = module.create_function(&mut context).with_name("func").with_return_type(u32_ty).with_arg("a", u32_ty).build();
+    /// # let block = function.create_block(&mut context).build();
+    /// # let x = function.get_arg(&context, 0);
+    /// # let mut instruction_builder = block.create_instructions(&mut context);
     /// # let location = None;
     /// let div = instruction_builder.neg(x, location);
     /// ```
     pub fn neg(&mut self, x: Value, location: Option<Location>) -> Value {
         self.make_value(Instruction::Unary(
-            x.get_type(self.library),
+            x.get_type(self.context),
             Unary::Neg,
             x,
             location,
@@ -720,20 +720,20 @@ impl<'a> InstructionBuilder<'a> {
     ///
     /// ```
     /// # use yair::*;
-    /// # let mut library = Library::new();
-    /// # let module = library.create_module().build();
-    /// # let u32_ty = library.get_uint_type(32);
-    /// # let function = module.create_function(&mut library).with_name("func").with_return_type(u32_ty).with_arg("a", u32_ty).with_arg("b", u32_ty).build();
-    /// # let block = function.create_block(&mut library).build();
-    /// # let x = function.get_arg(&library, 0);
-    /// # let y = function.get_arg(&library, 1);
-    /// # let mut instruction_builder = block.create_instructions(&mut library);
+    /// # let mut context = Context::new();
+    /// # let module = context.create_module().build();
+    /// # let u32_ty = context.get_uint_type(32);
+    /// # let function = module.create_function(&mut context).with_name("func").with_return_type(u32_ty).with_arg("a", u32_ty).with_arg("b", u32_ty).build();
+    /// # let block = function.create_block(&mut context).build();
+    /// # let x = function.get_arg(&context, 0);
+    /// # let y = function.get_arg(&context, 1);
+    /// # let mut instruction_builder = block.create_instructions(&mut context);
     /// # let location = None;
     /// let and = instruction_builder.and(x, y, location);
     /// ```
     pub fn and(&mut self, x: Value, y: Value, location: Option<Location>) -> Value {
         self.make_value(Instruction::Binary(
-            x.get_type(self.library),
+            x.get_type(self.context),
             Binary::And,
             x,
             y,
@@ -751,20 +751,20 @@ impl<'a> InstructionBuilder<'a> {
     ///
     /// ```
     /// # use yair::*;
-    /// # let mut library = Library::new();
-    /// # let module = library.create_module().build();
-    /// # let u32_ty = library.get_uint_type(32);
-    /// # let function = module.create_function(&mut library).with_name("func").with_return_type(u32_ty).with_arg("a", u32_ty).with_arg("b", u32_ty).build();
-    /// # let block = function.create_block(&mut library).build();
-    /// # let x = function.get_arg(&library, 0);
-    /// # let y = function.get_arg(&library, 1);
-    /// # let mut instruction_builder = block.create_instructions(&mut library);
+    /// # let mut context = Context::new();
+    /// # let module = context.create_module().build();
+    /// # let u32_ty = context.get_uint_type(32);
+    /// # let function = module.create_function(&mut context).with_name("func").with_return_type(u32_ty).with_arg("a", u32_ty).with_arg("b", u32_ty).build();
+    /// # let block = function.create_block(&mut context).build();
+    /// # let x = function.get_arg(&context, 0);
+    /// # let y = function.get_arg(&context, 1);
+    /// # let mut instruction_builder = block.create_instructions(&mut context);
     /// # let location = None;
     /// let or = instruction_builder.or(x, y, location);
     /// ```
     pub fn or(&mut self, x: Value, y: Value, location: Option<Location>) -> Value {
         self.make_value(Instruction::Binary(
-            x.get_type(self.library),
+            x.get_type(self.context),
             Binary::Or,
             x,
             y,
@@ -782,20 +782,20 @@ impl<'a> InstructionBuilder<'a> {
     ///
     /// ```
     /// # use yair::*;
-    /// # let mut library = Library::new();
-    /// # let module = library.create_module().build();
-    /// # let u32_ty = library.get_uint_type(32);
-    /// # let function = module.create_function(&mut library).with_name("func").with_return_type(u32_ty).with_arg("a", u32_ty).with_arg("b", u32_ty).build();
-    /// # let block = function.create_block(&mut library).build();
-    /// # let x = function.get_arg(&library, 0);
-    /// # let y = function.get_arg(&library, 1);
-    /// # let mut instruction_builder = block.create_instructions(&mut library);
+    /// # let mut context = Context::new();
+    /// # let module = context.create_module().build();
+    /// # let u32_ty = context.get_uint_type(32);
+    /// # let function = module.create_function(&mut context).with_name("func").with_return_type(u32_ty).with_arg("a", u32_ty).with_arg("b", u32_ty).build();
+    /// # let block = function.create_block(&mut context).build();
+    /// # let x = function.get_arg(&context, 0);
+    /// # let y = function.get_arg(&context, 1);
+    /// # let mut instruction_builder = block.create_instructions(&mut context);
     /// # let location = None;
     /// let xor = instruction_builder.xor(x, y, location);
     /// ```
     pub fn xor(&mut self, x: Value, y: Value, location: Option<Location>) -> Value {
         self.make_value(Instruction::Binary(
-            x.get_type(self.library),
+            x.get_type(self.context),
             Binary::Xor,
             x,
             y,
@@ -812,19 +812,19 @@ impl<'a> InstructionBuilder<'a> {
     ///
     /// ```
     /// # use yair::*;
-    /// # let mut library = Library::new();
-    /// # let module = library.create_module().build();
-    /// # let u32_ty = library.get_uint_type(32);
-    /// # let function = module.create_function(&mut library).with_name("func").with_return_type(u32_ty).with_arg("a", u32_ty).build();
-    /// # let block = function.create_block(&mut library).build();
-    /// # let x = function.get_arg(&library, 0);
-    /// # let mut instruction_builder = block.create_instructions(&mut library);
+    /// # let mut context = Context::new();
+    /// # let module = context.create_module().build();
+    /// # let u32_ty = context.get_uint_type(32);
+    /// # let function = module.create_function(&mut context).with_name("func").with_return_type(u32_ty).with_arg("a", u32_ty).build();
+    /// # let block = function.create_block(&mut context).build();
+    /// # let x = function.get_arg(&context, 0);
+    /// # let mut instruction_builder = block.create_instructions(&mut context);
     /// # let location = None;
     /// let not = instruction_builder.not(x, location);
     /// ```
     pub fn not(&mut self, x: Value, location: Option<Location>) -> Value {
         self.make_value(Instruction::Unary(
-            x.get_type(self.library),
+            x.get_type(self.context),
             Unary::Not,
             x,
             location,
@@ -840,20 +840,20 @@ impl<'a> InstructionBuilder<'a> {
     ///
     /// ```
     /// # use yair::*;
-    /// # let mut library = Library::new();
-    /// # let module = library.create_module().build();
-    /// # let u32_ty = library.get_uint_type(32);
-    /// # let function = module.create_function(&mut library).with_name("func").with_return_type(u32_ty).with_arg("a", u32_ty).with_arg("b", u32_ty).build();
-    /// # let block = function.create_block(&mut library).build();
-    /// # let x = function.get_arg(&library, 0);
-    /// # let y = function.get_arg(&library, 1);
-    /// # let mut instruction_builder = block.create_instructions(&mut library);
+    /// # let mut context = Context::new();
+    /// # let module = context.create_module().build();
+    /// # let u32_ty = context.get_uint_type(32);
+    /// # let function = module.create_function(&mut context).with_name("func").with_return_type(u32_ty).with_arg("a", u32_ty).with_arg("b", u32_ty).build();
+    /// # let block = function.create_block(&mut context).build();
+    /// # let x = function.get_arg(&context, 0);
+    /// # let y = function.get_arg(&context, 1);
+    /// # let mut instruction_builder = block.create_instructions(&mut context);
     /// # let location = None;
     /// let shl = instruction_builder.shl(x, y, location);
     /// ```
     pub fn shl(&mut self, x: Value, y: Value, location: Option<Location>) -> Value {
         self.make_value(Instruction::Binary(
-            x.get_type(self.library),
+            x.get_type(self.context),
             Binary::Shl,
             x,
             y,
@@ -870,20 +870,20 @@ impl<'a> InstructionBuilder<'a> {
     ///
     /// ```
     /// # use yair::*;
-    /// # let mut library = Library::new();
-    /// # let module = library.create_module().build();
-    /// # let u32_ty = library.get_uint_type(32);
-    /// # let function = module.create_function(&mut library).with_name("func").with_return_type(u32_ty).with_arg("a", u32_ty).with_arg("b", u32_ty).build();
-    /// # let block = function.create_block(&mut library).build();
-    /// # let x = function.get_arg(&library, 0);
-    /// # let y = function.get_arg(&library, 1);
-    /// # let mut instruction_builder = block.create_instructions(&mut library);
+    /// # let mut context = Context::new();
+    /// # let module = context.create_module().build();
+    /// # let u32_ty = context.get_uint_type(32);
+    /// # let function = module.create_function(&mut context).with_name("func").with_return_type(u32_ty).with_arg("a", u32_ty).with_arg("b", u32_ty).build();
+    /// # let block = function.create_block(&mut context).build();
+    /// # let x = function.get_arg(&context, 0);
+    /// # let y = function.get_arg(&context, 1);
+    /// # let mut instruction_builder = block.create_instructions(&mut context);
     /// # let location = None;
     /// let shr = instruction_builder.shr(x, y, location);
     /// ```
     pub fn shr(&mut self, x: Value, y: Value, location: Option<Location>) -> Value {
         self.make_value(Instruction::Binary(
-            x.get_type(self.library),
+            x.get_type(self.context),
             Binary::Shr,
             x,
             y,
@@ -900,14 +900,14 @@ impl<'a> InstructionBuilder<'a> {
     ///
     /// ```
     /// # use yair::*;
-    /// # let mut library = Library::new();
-    /// # let module = library.create_module().build();
-    /// # let u32_ty = library.get_uint_type(32);
-    /// # let i8_ty = library.get_int_type(8);
-    /// # let function = module.create_function(&mut library).with_name("func").with_return_type(u32_ty).with_arg("a", u32_ty).build();
-    /// # let block = function.create_block(&mut library).build();
-    /// # let x = function.get_arg(&library, 0);
-    /// # let mut instruction_builder = block.create_instructions(&mut library);
+    /// # let mut context = Context::new();
+    /// # let module = context.create_module().build();
+    /// # let u32_ty = context.get_uint_type(32);
+    /// # let i8_ty = context.get_int_type(8);
+    /// # let function = module.create_function(&mut context).with_name("func").with_return_type(u32_ty).with_arg("a", u32_ty).build();
+    /// # let block = function.create_block(&mut context).build();
+    /// # let x = function.get_arg(&context, 0);
+    /// # let mut instruction_builder = block.create_instructions(&mut context);
     /// # let location = None;
     /// let cast = instruction_builder.cast(x, i8_ty, location);
     /// ```
@@ -926,21 +926,21 @@ impl<'a> InstructionBuilder<'a> {
     ///
     /// ```
     /// # use yair::*;
-    /// # let mut library = Library::new();
-    /// # let module = library.create_module().build();
-    /// # let u32_ty = library.get_uint_type(32);
-    /// # let i32_ty = library.get_int_type(32);
-    /// # let function = module.create_function(&mut library).with_name("func").with_return_type(u32_ty).with_arg("a", u32_ty).build();
-    /// # let block = function.create_block(&mut library).build();
-    /// # let x = function.get_arg(&library, 0);
-    /// # let mut instruction_builder = block.create_instructions(&mut library);
+    /// # let mut context = Context::new();
+    /// # let module = context.create_module().build();
+    /// # let u32_ty = context.get_uint_type(32);
+    /// # let i32_ty = context.get_int_type(32);
+    /// # let function = module.create_function(&mut context).with_name("func").with_return_type(u32_ty).with_arg("a", u32_ty).build();
+    /// # let block = function.create_block(&mut context).build();
+    /// # let x = function.get_arg(&context, 0);
+    /// # let mut instruction_builder = block.create_instructions(&mut context);
     /// # let location = None;
     /// let cast = instruction_builder.bitcast(x, i32_ty, location);
     /// ```
     pub fn bitcast(&mut self, x: Value, ty: Type, location: Option<Location>) -> Value {
-        let x_ty = x.get_type(self.library);
+        let x_ty = x.get_type(self.context);
         assert_ne!(x_ty, ty);
-        assert_eq!(x_ty.get_bits(self.library), ty.get_bits(self.library));
+        assert_eq!(x_ty.get_bits(self.context), ty.get_bits(self.context));
         self.make_value(Instruction::BitCast(ty, x, location))
     }
 
@@ -953,19 +953,19 @@ impl<'a> InstructionBuilder<'a> {
     ///
     /// ```
     /// # use yair::*;
-    /// # let mut library = Library::new();
-    /// # let module = library.create_module().build();
-    /// # let u32_ty = library.get_uint_type(32);
-    /// # let u32_ptr_ty = library.get_pointer_type(Domain::Cpu);
-    /// # let function = module.create_function(&mut library).with_name("func").with_return_type(u32_ty).with_arg("a", u32_ptr_ty).build();
-    /// # let block = function.create_block(&mut library).build();
-    /// # let ptr = function.get_arg(&library, 0);
-    /// # let mut instruction_builder = block.create_instructions(&mut library);
+    /// # let mut context = Context::new();
+    /// # let module = context.create_module().build();
+    /// # let u32_ty = context.get_uint_type(32);
+    /// # let u32_ptr_ty = context.get_pointer_type(Domain::Cpu);
+    /// # let function = module.create_function(&mut context).with_name("func").with_return_type(u32_ty).with_arg("a", u32_ptr_ty).build();
+    /// # let block = function.create_block(&mut context).build();
+    /// # let ptr = function.get_arg(&context, 0);
+    /// # let mut instruction_builder = block.create_instructions(&mut context);
     /// # let location = None;
     /// let load = instruction_builder.load(u32_ty, ptr, location);
     /// ```
     pub fn load(&mut self, ty: Type, ptr: Value, location: Option<Location>) -> Value {
-        assert!(ptr.get_type(self.library).is_pointer(self.library));
+        assert!(ptr.get_type(self.context).is_pointer(self.context));
         self.make_value(Instruction::Load(ty, ptr, location))
     }
 
@@ -979,22 +979,22 @@ impl<'a> InstructionBuilder<'a> {
     ///
     /// ```
     /// # use yair::*;
-    /// # let mut library = Library::new();
-    /// # let module = library.create_module().build();
-    /// # let void_ty = library.get_void_type();
-    /// # let u32_ty = library.get_uint_type(32);
-    /// # let u32_ptr_ty = library.get_pointer_type(Domain::Cpu);
-    /// # let function = module.create_function(&mut library).with_name("func").with_return_type(void_ty).with_arg("a", u32_ty).with_arg("b", u32_ptr_ty).build();
-    /// # let block = function.create_block(&mut library).build();
-    /// # let val = function.get_arg(&library, 0);
-    /// # let ptr = function.get_arg(&library, 1);
-    /// # let mut instruction_builder = block.create_instructions(&mut library);
+    /// # let mut context = Context::new();
+    /// # let module = context.create_module().build();
+    /// # let void_ty = context.get_void_type();
+    /// # let u32_ty = context.get_uint_type(32);
+    /// # let u32_ptr_ty = context.get_pointer_type(Domain::Cpu);
+    /// # let function = module.create_function(&mut context).with_name("func").with_return_type(void_ty).with_arg("a", u32_ty).with_arg("b", u32_ptr_ty).build();
+    /// # let block = function.create_block(&mut context).build();
+    /// # let val = function.get_arg(&context, 0);
+    /// # let ptr = function.get_arg(&context, 1);
+    /// # let mut instruction_builder = block.create_instructions(&mut context);
     /// # let location = None;
     /// let store = instruction_builder.store(u32_ty, ptr, val, location);
     /// ```
     pub fn store(&mut self, ty: Type, ptr: Value, val: Value, location: Option<Location>) -> Value {
-        assert!(ptr.get_type(self.library).is_pointer(self.library));
-        assert_eq!(ty, val.get_type(self.library));
+        assert!(ptr.get_type(self.context).is_pointer(self.context));
+        assert_eq!(ty, val.get_type(self.context));
         self.make_value(Instruction::Store(ty, ptr, val, location))
     }
 
@@ -1004,14 +1004,14 @@ impl<'a> InstructionBuilder<'a> {
     ///
     /// ```
     /// # use yair::*;
-    /// # let mut library = Library::new();
-    /// # let module = library.create_module().build();
-    /// # let u32_ty = library.get_uint_type(32);
-    /// # let vec_ty = library.get_vector_type(u32_ty, 4);
-    /// # let function = module.create_function(&mut library).with_name("func").with_return_type(u32_ty).with_arg("", vec_ty).build();
-    /// # let block = function.create_block(&mut library).build();
-    /// # let val = function.get_arg(&library, 0);
-    /// # let mut instruction_builder = block.create_instructions(&mut library);
+    /// # let mut context = Context::new();
+    /// # let module = context.create_module().build();
+    /// # let u32_ty = context.get_uint_type(32);
+    /// # let vec_ty = context.get_vector_type(u32_ty, 4);
+    /// # let function = module.create_function(&mut context).with_name("func").with_return_type(u32_ty).with_arg("", vec_ty).build();
+    /// # let block = function.create_block(&mut context).build();
+    /// # let val = function.get_arg(&context, 0);
+    /// # let mut instruction_builder = block.create_instructions(&mut context);
     /// # let location = None;
     /// let extract = instruction_builder.extract(val, 0, location);
     /// ```
@@ -1025,15 +1025,15 @@ impl<'a> InstructionBuilder<'a> {
     ///
     /// ```
     /// # use yair::*;
-    /// # let mut library = Library::new();
-    /// # let module = library.create_module().build();
-    /// # let u32_ty = library.get_uint_type(32);
-    /// # let vec_ty = library.get_vector_type(u32_ty, 4);
-    /// # let function = module.create_function(&mut library).with_name("func").with_return_type(u32_ty).with_arg("a", vec_ty).with_arg("b", u32_ty).build();
-    /// # let block = function.create_block(&mut library).build();
-    /// # let val = function.get_arg(&library, 0);
-    /// # let element = function.get_arg(&library, 1);
-    /// # let mut instruction_builder = block.create_instructions(&mut library);
+    /// # let mut context = Context::new();
+    /// # let module = context.create_module().build();
+    /// # let u32_ty = context.get_uint_type(32);
+    /// # let vec_ty = context.get_vector_type(u32_ty, 4);
+    /// # let function = module.create_function(&mut context).with_name("func").with_return_type(u32_ty).with_arg("a", vec_ty).with_arg("b", u32_ty).build();
+    /// # let block = function.create_block(&mut context).build();
+    /// # let val = function.get_arg(&context, 0);
+    /// # let element = function.get_arg(&context, 1);
+    /// # let mut instruction_builder = block.create_instructions(&mut context);
     /// # let location = None;
     /// let insert = instruction_builder.insert(val, element, 1, location);
     /// ```
@@ -1045,8 +1045,8 @@ impl<'a> InstructionBuilder<'a> {
         location: Option<Location>,
     ) -> Value {
         assert_eq!(
-            val.get_type(self.library).get_element(self.library, idx),
-            element.get_type(self.library)
+            val.get_type(self.context).get_element(self.context, idx),
+            element.get_type(self.context)
         );
         self.make_value(Instruction::Insert(val, element, idx, location))
     }
@@ -1060,19 +1060,19 @@ impl<'a> InstructionBuilder<'a> {
     ///
     /// ```
     /// # use yair::*;
-    /// # let mut library = Library::new();
-    /// # let module = library.create_module().build();
-    /// # let u32_ty = library.get_uint_type(32);
-    /// # let function = module.create_function(&mut library).with_name("func").with_return_type(u32_ty).with_arg("a", u32_ty).with_arg("b", u32_ty).build();
-    /// # let block = function.create_block(&mut library).build();
-    /// # let x = function.get_arg(&library, 0);
-    /// # let y = function.get_arg(&library, 1);
-    /// # let mut instruction_builder = block.create_instructions(&mut library);
+    /// # let mut context = Context::new();
+    /// # let module = context.create_module().build();
+    /// # let u32_ty = context.get_uint_type(32);
+    /// # let function = module.create_function(&mut context).with_name("func").with_return_type(u32_ty).with_arg("a", u32_ty).with_arg("b", u32_ty).build();
+    /// # let block = function.create_block(&mut context).build();
+    /// # let x = function.get_arg(&context, 0);
+    /// # let y = function.get_arg(&context, 1);
+    /// # let mut instruction_builder = block.create_instructions(&mut context);
     /// # let location = None;
     /// let cmp_eq = instruction_builder.cmp(Cmp::Eq, x, y, location);
     /// ```
     pub fn cmp(&mut self, cmp: Cmp, x: Value, y: Value, location: Option<Location>) -> Value {
-        let bool_ty = self.library.get_bool_type();
+        let bool_ty = self.context.get_bool_type();
         self.make_value(Instruction::Cmp(bool_ty, cmp, x, y, location))
     }
 
@@ -1085,19 +1085,19 @@ impl<'a> InstructionBuilder<'a> {
     ///
     /// ```
     /// # use yair::*;
-    /// # let mut library = Library::new();
-    /// # let module = library.create_module().build();
-    /// # let u32_ty = library.get_uint_type(32);
-    /// # let function = module.create_function(&mut library).with_name("func").with_return_type(u32_ty).with_arg("a", u32_ty).with_arg("b", u32_ty).build();
-    /// # let block = function.create_block(&mut library).build();
-    /// # let x = function.get_arg(&library, 0);
-    /// # let y = function.get_arg(&library, 1);
-    /// # let mut instruction_builder = block.create_instructions(&mut library);
+    /// # let mut context = Context::new();
+    /// # let module = context.create_module().build();
+    /// # let u32_ty = context.get_uint_type(32);
+    /// # let function = module.create_function(&mut context).with_name("func").with_return_type(u32_ty).with_arg("a", u32_ty).with_arg("b", u32_ty).build();
+    /// # let block = function.create_block(&mut context).build();
+    /// # let x = function.get_arg(&context, 0);
+    /// # let y = function.get_arg(&context, 1);
+    /// # let mut instruction_builder = block.create_instructions(&mut context);
     /// # let location = None;
     /// let cmp_eq = instruction_builder.cmp_eq(x, y, location);
     /// ```
     pub fn cmp_eq(&mut self, x: Value, y: Value, location: Option<Location>) -> Value {
-        let bool_ty = self.library.get_bool_type();
+        let bool_ty = self.context.get_bool_type();
         self.make_value(Instruction::Cmp(bool_ty, Cmp::Eq, x, y, location))
     }
 
@@ -1110,19 +1110,19 @@ impl<'a> InstructionBuilder<'a> {
     ///
     /// ```
     /// # use yair::*;
-    /// # let mut library = Library::new();
-    /// # let module = library.create_module().build();
-    /// # let u32_ty = library.get_uint_type(32);
-    /// # let function = module.create_function(&mut library).with_name("func").with_return_type(u32_ty).with_arg("a", u32_ty).with_arg("b", u32_ty).build();
-    /// # let block = function.create_block(&mut library).build();
-    /// # let x = function.get_arg(&library, 0);
-    /// # let y = function.get_arg(&library, 1);
-    /// # let mut instruction_builder = block.create_instructions(&mut library);
+    /// # let mut context = Context::new();
+    /// # let module = context.create_module().build();
+    /// # let u32_ty = context.get_uint_type(32);
+    /// # let function = module.create_function(&mut context).with_name("func").with_return_type(u32_ty).with_arg("a", u32_ty).with_arg("b", u32_ty).build();
+    /// # let block = function.create_block(&mut context).build();
+    /// # let x = function.get_arg(&context, 0);
+    /// # let y = function.get_arg(&context, 1);
+    /// # let mut instruction_builder = block.create_instructions(&mut context);
     /// # let location = None;
     /// let cmp_ne = instruction_builder.cmp_ne(x, y, location);
     /// ```
     pub fn cmp_ne(&mut self, x: Value, y: Value, location: Option<Location>) -> Value {
-        let bool_ty = self.library.get_bool_type();
+        let bool_ty = self.context.get_bool_type();
         self.make_value(Instruction::Cmp(bool_ty, Cmp::Ne, x, y, location))
     }
 
@@ -1135,19 +1135,19 @@ impl<'a> InstructionBuilder<'a> {
     ///
     /// ```
     /// # use yair::*;
-    /// # let mut library = Library::new();
-    /// # let module = library.create_module().build();
-    /// # let u32_ty = library.get_uint_type(32);
-    /// # let function = module.create_function(&mut library).with_name("func").with_return_type(u32_ty).with_arg("a", u32_ty).with_arg("b", u32_ty).build();
-    /// # let block = function.create_block(&mut library).build();
-    /// # let x = function.get_arg(&library, 0);
-    /// # let y = function.get_arg(&library, 1);
-    /// # let mut instruction_builder = block.create_instructions(&mut library);
+    /// # let mut context = Context::new();
+    /// # let module = context.create_module().build();
+    /// # let u32_ty = context.get_uint_type(32);
+    /// # let function = module.create_function(&mut context).with_name("func").with_return_type(u32_ty).with_arg("a", u32_ty).with_arg("b", u32_ty).build();
+    /// # let block = function.create_block(&mut context).build();
+    /// # let x = function.get_arg(&context, 0);
+    /// # let y = function.get_arg(&context, 1);
+    /// # let mut instruction_builder = block.create_instructions(&mut context);
     /// # let location = None;
     /// let cmp_lt = instruction_builder.cmp_lt(x, y, location);
     /// ```
     pub fn cmp_lt(&mut self, x: Value, y: Value, location: Option<Location>) -> Value {
-        let bool_ty = self.library.get_bool_type();
+        let bool_ty = self.context.get_bool_type();
         self.make_value(Instruction::Cmp(bool_ty, Cmp::Lt, x, y, location))
     }
 
@@ -1160,19 +1160,19 @@ impl<'a> InstructionBuilder<'a> {
     ///
     /// ```
     /// # use yair::*;
-    /// # let mut library = Library::new();
-    /// # let module = library.create_module().build();
-    /// # let u32_ty = library.get_uint_type(32);
-    /// # let function = module.create_function(&mut library).with_name("func").with_return_type(u32_ty).with_arg("a", u32_ty).with_arg("b", u32_ty).build();
-    /// # let block = function.create_block(&mut library).build();
-    /// # let x = function.get_arg(&library, 0);
-    /// # let y = function.get_arg(&library, 1);
-    /// # let mut instruction_builder = block.create_instructions(&mut library);
+    /// # let mut context = Context::new();
+    /// # let module = context.create_module().build();
+    /// # let u32_ty = context.get_uint_type(32);
+    /// # let function = module.create_function(&mut context).with_name("func").with_return_type(u32_ty).with_arg("a", u32_ty).with_arg("b", u32_ty).build();
+    /// # let block = function.create_block(&mut context).build();
+    /// # let x = function.get_arg(&context, 0);
+    /// # let y = function.get_arg(&context, 1);
+    /// # let mut instruction_builder = block.create_instructions(&mut context);
     /// # let location = None;
     /// let cmp_le = instruction_builder.cmp_le(x, y, location);
     /// ```
     pub fn cmp_le(&mut self, x: Value, y: Value, location: Option<Location>) -> Value {
-        let bool_ty = self.library.get_bool_type();
+        let bool_ty = self.context.get_bool_type();
         self.make_value(Instruction::Cmp(bool_ty, Cmp::Le, x, y, location))
     }
 
@@ -1185,19 +1185,19 @@ impl<'a> InstructionBuilder<'a> {
     ///
     /// ```
     /// # use yair::*;
-    /// # let mut library = Library::new();
-    /// # let module = library.create_module().build();
-    /// # let u32_ty = library.get_uint_type(32);
-    /// # let function = module.create_function(&mut library).with_name("func").with_return_type(u32_ty).with_arg("a", u32_ty).with_arg("b", u32_ty).build();
-    /// # let block = function.create_block(&mut library).build();
-    /// # let x = function.get_arg(&library, 0);
-    /// # let y = function.get_arg(&library, 1);
-    /// # let mut instruction_builder = block.create_instructions(&mut library);
+    /// # let mut context = Context::new();
+    /// # let module = context.create_module().build();
+    /// # let u32_ty = context.get_uint_type(32);
+    /// # let function = module.create_function(&mut context).with_name("func").with_return_type(u32_ty).with_arg("a", u32_ty).with_arg("b", u32_ty).build();
+    /// # let block = function.create_block(&mut context).build();
+    /// # let x = function.get_arg(&context, 0);
+    /// # let y = function.get_arg(&context, 1);
+    /// # let mut instruction_builder = block.create_instructions(&mut context);
     /// # let location = None;
     /// let cmp_gt = instruction_builder.cmp_gt(x, y, location);
     /// ```
     pub fn cmp_gt(&mut self, x: Value, y: Value, location: Option<Location>) -> Value {
-        let bool_ty = self.library.get_bool_type();
+        let bool_ty = self.context.get_bool_type();
         self.make_value(Instruction::Cmp(bool_ty, Cmp::Gt, x, y, location))
     }
 
@@ -1210,19 +1210,19 @@ impl<'a> InstructionBuilder<'a> {
     ///
     /// ```
     /// # use yair::*;
-    /// # let mut library = Library::new();
-    /// # let module = library.create_module().build();
-    /// # let u32_ty = library.get_uint_type(32);
-    /// # let function = module.create_function(&mut library).with_name("func").with_return_type(u32_ty).with_arg("a", u32_ty).with_arg("b", u32_ty).build();
-    /// # let block = function.create_block(&mut library).build();
-    /// # let x = function.get_arg(&library, 0);
-    /// # let y = function.get_arg(&library, 1);
-    /// # let mut instruction_builder = block.create_instructions(&mut library);
+    /// # let mut context = Context::new();
+    /// # let module = context.create_module().build();
+    /// # let u32_ty = context.get_uint_type(32);
+    /// # let function = module.create_function(&mut context).with_name("func").with_return_type(u32_ty).with_arg("a", u32_ty).with_arg("b", u32_ty).build();
+    /// # let block = function.create_block(&mut context).build();
+    /// # let x = function.get_arg(&context, 0);
+    /// # let y = function.get_arg(&context, 1);
+    /// # let mut instruction_builder = block.create_instructions(&mut context);
     /// # let location = None;
     /// let cmp_ge = instruction_builder.cmp_ge(x, y, location);
     /// ```
     pub fn cmp_ge(&mut self, x: Value, y: Value, location: Option<Location>) -> Value {
-        let bool_ty = self.library.get_bool_type();
+        let bool_ty = self.context.get_bool_type();
         self.make_value(Instruction::Cmp(bool_ty, Cmp::Ge, x, y, location))
     }
 
@@ -1232,20 +1232,20 @@ impl<'a> InstructionBuilder<'a> {
     ///
     /// ```
     /// # use yair::*;
-    /// # let mut library = Library::new();
-    /// # let module = library.create_module().build();
-    /// # let u32_ty = library.get_uint_type(32);
-    /// # let stack_ptr_ty = library.get_pointer_type(Domain::Stack);
-    /// # let function = module.create_function(&mut library).with_name("func").with_return_type(u32_ty).build();
-    /// # let block = function.create_block(&mut library).build();
-    /// # let mut instruction_builder = block.create_instructions(&mut library);
+    /// # let mut context = Context::new();
+    /// # let module = context.create_module().build();
+    /// # let u32_ty = context.get_uint_type(32);
+    /// # let stack_ptr_ty = context.get_pointer_type(Domain::Stack);
+    /// # let function = module.create_function(&mut context).with_name("func").with_return_type(u32_ty).build();
+    /// # let block = function.create_block(&mut context).build();
+    /// # let mut instruction_builder = block.create_instructions(&mut context);
     /// # let location = None;
     /// let stack_alloc = instruction_builder.stack_alloc("a", u32_ty, location);
-    /// # assert_eq!(stack_alloc.get_type(&library), stack_ptr_ty);
+    /// # assert_eq!(stack_alloc.get_type(&context), stack_ptr_ty);
     /// ```
     pub fn stack_alloc(&mut self, name: &str, ty: Type, location: Option<Location>) -> Value {
-        let ptr_ty = self.library.get_pointer_type(Domain::Stack);
-        let name_index = self.library.get_name(name);
+        let ptr_ty = self.context.get_pointer_type(Domain::Stack);
+        let name_index = self.context.get_name(name);
         self.make_value(Instruction::StackAlloc(name_index, ty, ptr_ty, location))
     }
 
@@ -1255,15 +1255,15 @@ impl<'a> InstructionBuilder<'a> {
     ///
     /// ```
     /// # use yair::*;
-    /// # let mut library = Library::new();
-    /// # let module = library.create_module().build();
-    /// # let u32_ty = library.get_uint_type(32);
-    /// # let called_function = module.create_function(&mut library).with_name("called_function").with_return_type(u32_ty).with_arg("a", u32_ty).with_arg("b", u32_ty).build();
-    /// # let function = module.create_function(&mut library).with_name("func").with_return_type(u32_ty).with_arg("a", u32_ty).with_arg("b", u32_ty).build();
-    /// # let block = function.create_block(&mut library).build();
-    /// # let x = function.get_arg(&library, 0);
-    /// # let y = function.get_arg(&library, 1);
-    /// # let mut instruction_builder = block.create_instructions(&mut library);
+    /// # let mut context = Context::new();
+    /// # let module = context.create_module().build();
+    /// # let u32_ty = context.get_uint_type(32);
+    /// # let called_function = module.create_function(&mut context).with_name("called_function").with_return_type(u32_ty).with_arg("a", u32_ty).with_arg("b", u32_ty).build();
+    /// # let function = module.create_function(&mut context).with_name("func").with_return_type(u32_ty).with_arg("a", u32_ty).with_arg("b", u32_ty).build();
+    /// # let block = function.create_block(&mut context).build();
+    /// # let x = function.get_arg(&context, 0);
+    /// # let y = function.get_arg(&context, 1);
+    /// # let mut instruction_builder = block.create_instructions(&mut context);
     /// # let location = None;
     /// let call = instruction_builder.call(called_function, &[ x, y ], location);
     /// ```
@@ -1282,15 +1282,15 @@ impl<'a> InstructionBuilder<'a> {
     ///
     /// ```
     /// # use yair::*;
-    /// # let mut library = Library::new();
-    /// # let module = library.create_module().build();
-    /// # let u32_ty = library.get_uint_type(32);
-    /// # let function = module.create_function(&mut library).with_name("func").with_return_type(u32_ty).with_arg("a", u32_ty).with_arg("b", u32_ty).build();
-    /// # let block = function.create_block(&mut library).build();
-    /// # let called_block = function.create_block(&mut library).with_arg(u32_ty).with_arg(u32_ty).build();
-    /// # let x = function.get_arg(&library, 0);
-    /// # let y = function.get_arg(&library, 1);
-    /// # let mut instruction_builder = block.create_instructions(&mut library);
+    /// # let mut context = Context::new();
+    /// # let module = context.create_module().build();
+    /// # let u32_ty = context.get_uint_type(32);
+    /// # let function = module.create_function(&mut context).with_name("func").with_return_type(u32_ty).with_arg("a", u32_ty).with_arg("b", u32_ty).build();
+    /// # let block = function.create_block(&mut context).build();
+    /// # let called_block = function.create_block(&mut context).with_arg(u32_ty).with_arg(u32_ty).build();
+    /// # let x = function.get_arg(&context, 0);
+    /// # let y = function.get_arg(&context, 1);
+    /// # let mut instruction_builder = block.create_instructions(&mut context);
     /// # let location = None;
     /// instruction_builder.branch(called_block, &[ x, y ], location);
     /// ```
@@ -1307,16 +1307,16 @@ impl<'a> InstructionBuilder<'a> {
     ///
     /// ```
     /// # use yair::*;
-    /// # let mut library = Library::new();
-    /// # let module = library.create_module().build();
-    /// # let u32_ty = library.get_uint_type(32);
-    /// # let function = module.create_function(&mut library).with_name("func").with_return_type(u32_ty).with_arg("a", u32_ty).with_arg("b", u32_ty).build();
-    /// # let block = function.create_block(&mut library).build();
-    /// # let true_block = function.create_block(&mut library).with_arg(u32_ty).with_arg(u32_ty).build();
-    /// # let false_block = function.create_block(&mut library).with_arg(u32_ty).with_arg(u32_ty).build();
-    /// # let x = function.get_arg(&library, 0);
-    /// # let y = function.get_arg(&library, 1);
-    /// # let mut instruction_builder = block.create_instructions(&mut library);
+    /// # let mut context = Context::new();
+    /// # let module = context.create_module().build();
+    /// # let u32_ty = context.get_uint_type(32);
+    /// # let function = module.create_function(&mut context).with_name("func").with_return_type(u32_ty).with_arg("a", u32_ty).with_arg("b", u32_ty).build();
+    /// # let block = function.create_block(&mut context).build();
+    /// # let true_block = function.create_block(&mut context).with_arg(u32_ty).with_arg(u32_ty).build();
+    /// # let false_block = function.create_block(&mut context).with_arg(u32_ty).with_arg(u32_ty).build();
+    /// # let x = function.get_arg(&context, 0);
+    /// # let y = function.get_arg(&context, 1);
+    /// # let mut instruction_builder = block.create_instructions(&mut context);
     /// # let location = None;
     /// # let condition = instruction_builder.cmp_ge(x, y, location);
     /// instruction_builder.conditional_branch(condition, true_block, false_block, &[ x, y ], &[ x, y ], location);
@@ -1350,14 +1350,14 @@ impl<'a> InstructionBuilder<'a> {
     ///
     /// ```
     /// # use yair::*;
-    /// # let mut library = Library::new();
-    /// # let module = library.create_module().build();
-    /// # let u32_ty = library.get_uint_type(32);
-    /// # let function = module.create_function(&mut library).with_name("func").with_return_type(u32_ty).with_arg("a", u32_ty).with_arg("b", u32_ty).build();
-    /// # let block = function.create_block(&mut library).build();
-    /// # let x = function.get_arg(&library, 0);
-    /// # let y = function.get_arg(&library, 1);
-    /// # let mut instruction_builder = block.create_instructions(&mut library);
+    /// # let mut context = Context::new();
+    /// # let module = context.create_module().build();
+    /// # let u32_ty = context.get_uint_type(32);
+    /// # let function = module.create_function(&mut context).with_name("func").with_return_type(u32_ty).with_arg("a", u32_ty).with_arg("b", u32_ty).build();
+    /// # let block = function.create_block(&mut context).build();
+    /// # let x = function.get_arg(&context, 0);
+    /// # let y = function.get_arg(&context, 1);
+    /// # let mut instruction_builder = block.create_instructions(&mut context);
     /// # let location = None;
     /// # let condition = instruction_builder.cmp_ge(x, y, location);
     /// let select = instruction_builder.select(condition, x, y, location);
@@ -1369,10 +1369,10 @@ impl<'a> InstructionBuilder<'a> {
         y: Value,
         location: Option<Location>,
     ) -> Value {
-        assert!(condition.get_type(self.library).is_boolean(self.library));
-        assert_eq!(x.get_type(self.library), y.get_type(self.library));
+        assert!(condition.get_type(self.context).is_boolean(self.context));
+        assert_eq!(x.get_type(self.context), y.get_type(self.context));
         self.make_value(Instruction::Select(
-            x.get_type(self.library),
+            x.get_type(self.context),
             condition,
             x,
             y,
@@ -1391,23 +1391,23 @@ impl<'a> InstructionBuilder<'a> {
     ///
     /// ```
     /// # use yair::*;
-    /// # let mut library = Library::new();
-    /// # let module = library.create_module().build();
-    /// # let u32_ty = library.get_uint_type(32);
-    /// # let u32_ptr_ty = library.get_pointer_type(Domain::Cpu);
-    /// # let u32_array_ty = library.get_array_type(u32_ty, 42);
-    /// # let struct_ty = library.get_struct_type(&[ u32_ptr_ty, u32_array_ty, u32_ty ]);
-    /// # let ptr_ty = library.get_pointer_type(Domain::Cpu);
-    /// # let function = module.create_function(&mut library).with_name("func").with_return_type(u32_ptr_ty).with_arg("a", ptr_ty).build();
-    /// # let block = function.create_block(&mut library).build();
-    /// # let ptr = function.get_arg(&library, 0);
-    /// # let i0 = library.get_int_constant(8, 0);
-    /// # let i1 = library.get_uint_constant(32, 1);
+    /// # let mut context = Context::new();
+    /// # let module = context.create_module().build();
+    /// # let u32_ty = context.get_uint_type(32);
+    /// # let u32_ptr_ty = context.get_pointer_type(Domain::Cpu);
+    /// # let u32_array_ty = context.get_array_type(u32_ty, 42);
+    /// # let struct_ty = context.get_struct_type(&[ u32_ptr_ty, u32_array_ty, u32_ty ]);
+    /// # let ptr_ty = context.get_pointer_type(Domain::Cpu);
+    /// # let function = module.create_function(&mut context).with_name("func").with_return_type(u32_ptr_ty).with_arg("a", ptr_ty).build();
+    /// # let block = function.create_block(&mut context).build();
+    /// # let ptr = function.get_arg(&context, 0);
+    /// # let i0 = context.get_int_constant(8, 0);
+    /// # let i1 = context.get_uint_constant(32, 1);
     /// # let i2 = i0;
-    /// # let mut instruction_builder = block.create_instructions(&mut library);
+    /// # let mut instruction_builder = block.create_instructions(&mut context);
     /// # let location = None;
     /// let index_into = instruction_builder.index_into(struct_ty, ptr, &[ i0, i1, i2 ], location);
-    /// # assert_eq!(index_into.get_type(&library), ptr_ty);
+    /// # assert_eq!(index_into.get_type(&context), ptr_ty);
     /// ```
     pub fn index_into(
         &mut self,
@@ -1416,9 +1416,9 @@ impl<'a> InstructionBuilder<'a> {
         indices: &[Value],
         location: Option<Location>,
     ) -> Value {
-        let ptr_ty = ptr.get_type(self.library);
+        let ptr_ty = ptr.get_type(self.context);
 
-        assert!(ptr_ty.is_pointer(self.library));
+        assert!(ptr_ty.is_pointer(self.context));
         assert!(!indices.is_empty());
 
         self.make_value(Instruction::IndexInto(ty, ptr, indices.to_vec(), location))

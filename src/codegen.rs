@@ -1,4 +1,4 @@
-use crate::Library;
+use crate::Context;
 use std::io::{Seek, Write};
 use std::str::FromStr;
 
@@ -26,7 +26,7 @@ pub trait CodeGen {
     type Error;
 
     fn generate<W: Seek + Write>(
-        library: &Library,
+        context: &Context,
         triple: &str,
         output: CodeGenOutput,
         writer: &mut W,

@@ -85,11 +85,11 @@ impl Typed for Constant {
     ///
     /// ```
     /// # use yair::*;
-    /// # let mut library = Library::new();
-    /// # let constant = library.get_bool_constant(true);
-    /// let ty = constant.get_type(&library);
+    /// # let mut context = Context::new();
+    /// # let constant = context.get_bool_constant(true);
+    /// let ty = constant.get_type(&context);
     /// ```
-    fn get_type(&self, _: &Library) -> Type {
+    fn get_type(&self, _: &Context) -> Type {
         match self {
             Constant::Bool(_, ty) => *ty,
             Constant::Int(_, ty) => *ty,

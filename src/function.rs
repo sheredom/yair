@@ -38,7 +38,7 @@ pub struct Function(pub(crate) generational_arena::Index);
 
 pub struct FunctionDisplayer<'a> {
     pub(crate) function: Function,
-    pub(crate) library: &'a Library,
+    pub(crate) context: &'a Context,
 }
 
 impl<'a> std::fmt::Display for FunctionDisplayer<'a> {
@@ -48,7 +48,7 @@ impl<'a> std::fmt::Display for FunctionDisplayer<'a> {
     ) -> std::result::Result<(), std::fmt::Error> {
         write!(writer, "fn ")?;
 
-        let attributes = self.function.get_attributes(self.library);
+        let attributes = self.function.get_attributes(self.context);
 
         if !attributes.is_empty() {
             write!(writer, "[")?;
@@ -72,33 +72,33 @@ impl<'a> std::fmt::Display for FunctionDisplayer<'a> {
             writer,
             "{}(",
             self.function
-                .get_name(self.library)
-                .get_displayer(self.library)
+                .get_name(self.context)
+                .get_displayer(self.context)
         )?;
 
-        for i in 0..self.function.get_num_args(self.library) {
+        for i in 0..self.function.get_num_args(self.context) {
             if i > 0 {
                 writer.write_fmt(format_args!(", "))?;
             }
 
-            let arg = self.function.get_arg(self.library, i);
+            let arg = self.function.get_arg(self.context, i);
 
-            let arg_name = arg.get_name(self.library).get_displayer(self.library);
-            let ty_name = arg.get_type(self.library).get_displayer(self.library);
+            let arg_name = arg.get_name(self.context).get_displayer(self.context);
+            let ty_name = arg.get_type(self.context).get_displayer(self.context);
 
             writer.write_fmt(format_args!("{} : {}", arg_name, ty_name))?;
         }
 
         let ret_ty_name = self
             .function
-            .get_return_type(self.library)
-            .get_displayer(self.library);
-        let location = self.function.get_location(self.library);
+            .get_return_type(self.context)
+            .get_displayer(self.context);
+        let location = self.function.get_location(self.context);
 
         writer.write_fmt(format_args!(") : {}", ret_ty_name))?;
 
         if let Some(location) = location {
-            write!(writer, "{}", location.get_displayer(self.library))?;
+            write!(writer, "{}", location.get_displayer(self.context))?;
         }
 
         Ok(())
@@ -112,14 +112,14 @@ impl Function {
     ///
     /// ```
     /// # use yair::*;
-    /// # let mut library = Library::new();
-    /// # let original_module = library.create_module().build();
-    /// # let function = original_module.create_function(&mut library).with_name("foo").build();
-    /// let module = function.get_module(&library);
+    /// # let mut context = Context::new();
+    /// # let original_module = context.create_module().build();
+    /// # let function = original_module.create_function(&mut context).with_name("foo").build();
+    /// let module = function.get_module(&context);
     /// # assert_eq!(original_module, module);
     /// ```
-    pub fn get_module(&self, library: &Library) -> Module {
-        let function = &library.functions[self.0];
+    pub fn get_module(&self, context: &Context) -> Module {
+        let function = &context.functions[self.0];
         function.module
     }
 
@@ -129,14 +129,14 @@ impl Function {
     ///
     /// ```
     /// # use yair::*;
-    /// # let mut library = Library::new();
-    /// # let module = library.create_module().build();
-    /// # let function = module.create_function(&mut library).with_name("foo").build();
-    /// let name = function.get_name(&library);
-    /// # assert_eq!(name.as_str(&library), "foo");
+    /// # let mut context = Context::new();
+    /// # let module = context.create_module().build();
+    /// # let function = module.create_function(&mut context).with_name("foo").build();
+    /// let name = function.get_name(&context);
+    /// # assert_eq!(name.as_str(&context), "foo");
     /// ```
-    pub fn get_name(&self, library: &Library) -> Name {
-        let function = &library.functions[self.0];
+    pub fn get_name(&self, context: &Context) -> Name {
+        let function = &context.functions[self.0];
         function.name
     }
 
@@ -146,17 +146,17 @@ impl Function {
     ///
     /// ```
     /// # use yair::*;
-    /// # let mut library = Library::new();
-    /// # let module = library.create_module().build();
-    /// # let void_ty = library.get_void_type();
-    /// # let function = module.create_function(&mut library).with_name("foo").build();
-    /// let return_type = function.get_return_type(&library);
+    /// # let mut context = Context::new();
+    /// # let module = context.create_module().build();
+    /// # let void_ty = context.get_void_type();
+    /// # let function = module.create_function(&mut context).with_name("foo").build();
+    /// let return_type = function.get_return_type(&context);
     /// # assert_eq!(return_type, void_ty);
     /// ```
-    pub fn get_return_type(&self, library: &Library) -> Type {
-        let function = &library.functions[self.0];
+    pub fn get_return_type(&self, context: &Context) -> Type {
+        let function = &context.functions[self.0];
 
-        match library.types[function.function_type.0] {
+        match context.types[function.function_type.0] {
             TypePayload::Function(return_type, _) => return_type,
             _ => panic!("Function type was wrong"),
         }
@@ -168,15 +168,15 @@ impl Function {
     ///
     /// ```
     /// # use yair::*;
-    /// # let mut library = Library::new();
-    /// # let module = library.create_module().build();
-    /// # let ty = library.get_int_type(8);
-    /// # let function = module.create_function(&mut library).with_name("func").with_arg("arg", ty).build();
-    /// let arg = function.get_arg(&library, 0);
-    /// # assert_eq!(arg.get_type(&library), ty);
+    /// # let mut context = Context::new();
+    /// # let module = context.create_module().build();
+    /// # let ty = context.get_int_type(8);
+    /// # let function = module.create_function(&mut context).with_name("func").with_arg("arg", ty).build();
+    /// let arg = function.get_arg(&context, 0);
+    /// # assert_eq!(arg.get_type(&context), ty);
     /// ```
-    pub fn get_arg(&self, library: &Library, index: usize) -> Value {
-        let function = &library.functions[self.0];
+    pub fn get_arg(&self, context: &Context, index: usize) -> Value {
+        let function = &context.functions[self.0];
 
         assert!(
             index < function.arguments.len(),
@@ -194,22 +194,22 @@ impl Function {
     ///
     /// ```
     /// # use yair::*;
-    /// # let mut library = Library::new();
-    /// # let module = library.create_module().build();
-    /// # let ty = library.get_int_type(8);
-    /// # let function = module.create_function(&mut library).with_name("func").with_arg("arg", ty).build();
-    /// let num_args = function.get_num_args(&library);
+    /// # let mut context = Context::new();
+    /// # let module = context.create_module().build();
+    /// # let ty = context.get_int_type(8);
+    /// # let function = module.create_function(&mut context).with_name("func").with_arg("arg", ty).build();
+    /// let num_args = function.get_num_args(&context);
     /// # assert_eq!(1, num_args);
     /// ```
-    pub fn get_num_args(&self, library: &Library) -> usize {
-        let function = &library.functions[self.0];
+    pub fn get_num_args(&self, context: &Context) -> usize {
+        let function = &context.functions[self.0];
 
         function.arguments.len()
     }
 
     /// Check if a block is the entry block of a function.
-    pub fn is_entry_block(&self, library: &Library, block: Block) -> bool {
-        let function = &library.functions[self.0];
+    pub fn is_entry_block(&self, context: &Context, block: Block) -> bool {
+        let function = &context.functions[self.0];
 
         if function.blocks.is_empty() {
             false
@@ -224,13 +224,13 @@ impl Function {
     ///
     /// ```
     /// # use yair::*;
-    /// # let mut library = Library::new();
-    /// # let module = library.create_module().build();
-    /// # let function = module.create_function(&mut library).with_name("func").build();;
-    /// let block_builder = function.create_block(&mut library);
+    /// # let mut context = Context::new();
+    /// # let module = context.create_module().build();
+    /// # let function = module.create_function(&mut context).with_name("func").build();;
+    /// let block_builder = function.create_block(&mut context);
     /// ```
-    pub fn create_block<'a>(&self, library: &'a mut Library) -> BlockBuilder<'a> {
-        BlockBuilder::with_library_and_function(library, *self)
+    pub fn create_block<'a>(&self, context: &'a mut Context) -> BlockBuilder<'a> {
+        BlockBuilder::with_context_and_function(context, *self)
     }
 
     /// Get the attributes on the function.
@@ -239,14 +239,14 @@ impl Function {
     ///
     /// ```
     /// # use yair::*;
-    /// # let mut library = Library::new();
-    /// # let module = library.create_module().with_name("module").build();
-    /// # let function = module.create_function(&mut library).with_name("func").with_attributes(FunctionAttributes::only(FunctionAttribute::Export)).build();
-    /// let attributes = function.get_attributes(&library);
+    /// # let mut context = Context::new();
+    /// # let module = context.create_module().with_name("module").build();
+    /// # let function = module.create_function(&mut context).with_name("func").with_attributes(FunctionAttributes::only(FunctionAttribute::Export)).build();
+    /// let attributes = function.get_attributes(&context);
     /// # assert!(attributes.contains(FunctionAttribute::Export));
     /// ```
-    pub fn get_attributes(&self, library: &Library) -> FunctionAttributes {
-        let function = &library.functions[self.0];
+    pub fn get_attributes(&self, context: &Context) -> FunctionAttributes {
+        let function = &context.functions[self.0];
 
         function.attributes
     }
@@ -257,16 +257,16 @@ impl Function {
     ///
     /// ```
     /// # use yair::*;
-    /// # let mut library = Library::new();
-    /// # let module = library.create_module().build();
-    /// # let function = module.create_function(&mut library).with_name("func").build();;
-    /// let block_a = function.create_block(&mut library).build();
-    /// let block_b = function.create_block(&mut library).build();
-    /// let blocks = function.get_blocks(&library);
+    /// # let mut context = Context::new();
+    /// # let module = context.create_module().build();
+    /// # let function = module.create_function(&mut context).with_name("func").build();;
+    /// let block_a = function.create_block(&mut context).build();
+    /// let block_b = function.create_block(&mut context).build();
+    /// let blocks = function.get_blocks(&context);
     /// assert_eq!(blocks.count(), 2);
     /// ```
-    pub fn get_blocks(&self, library: &Library) -> BlockIterator {
-        let function = &library.functions[self.0];
+    pub fn get_blocks(&self, context: &Context) -> BlockIterator {
+        let function = &context.functions[self.0];
         BlockIterator::new(&function.blocks)
     }
 
@@ -276,15 +276,15 @@ impl Function {
     ///
     /// ```
     /// # use yair::*;
-    /// # let mut library = Library::new();
-    /// # let module = library.create_module().build();
-    /// # let u32_ty = library.get_uint_type(32);
-    /// # let function = module.create_function(&mut library).with_name("func").with_arg("a", u32_ty).build();
-    /// let mut args = function.get_args(&library);
-    /// assert_eq!(args.nth(0).unwrap().get_type(&library), u32_ty);
+    /// # let mut context = Context::new();
+    /// # let module = context.create_module().build();
+    /// # let u32_ty = context.get_uint_type(32);
+    /// # let function = module.create_function(&mut context).with_name("func").with_arg("a", u32_ty).build();
+    /// let mut args = function.get_args(&context);
+    /// assert_eq!(args.nth(0).unwrap().get_type(&context), u32_ty);
     /// ```
-    pub fn get_args(&self, library: &Library) -> ValueIterator {
-        let function = &library.functions[self.0];
+    pub fn get_args(&self, context: &Context) -> ValueIterator {
+        let function = &context.functions[self.0];
         ValueIterator::new(&function.arguments)
     }
 
@@ -294,31 +294,31 @@ impl Function {
     ///
     /// ```
     /// # use yair::*;
-    /// # let mut library = Library::new();
-    /// # let module = library.create_module().build();
-    /// # let function = module.create_function(&mut library).with_name("func").build();;
-    /// let location = function.get_location(&library);
+    /// # let mut context = Context::new();
+    /// # let module = context.create_module().build();
+    /// # let function = module.create_function(&mut context).with_name("func").build();;
+    /// let location = function.get_location(&context);
     /// # assert_eq!(None, location);
-    /// # let location = library.get_location("foo.ya", 0, 13);
-    /// # let function = module.create_function(&mut library).with_name("func").with_location(location).build();;
-    /// # let location = function.get_location(&library);
+    /// # let location = context.get_location("foo.ya", 0, 13);
+    /// # let function = module.create_function(&mut context).with_name("func").with_location(location).build();;
+    /// # let location = function.get_location(&context);
     /// # assert!(location.is_some());
     /// ```
-    pub fn get_location(&self, library: &Library) -> Option<Location> {
-        let function = &library.functions[self.0];
+    pub fn get_location(&self, context: &Context) -> Option<Location> {
+        let function = &context.functions[self.0];
         function.location
     }
 
-    pub fn get_displayer<'a>(&self, library: &'a Library) -> FunctionDisplayer<'a> {
+    pub fn get_displayer<'a>(&self, context: &'a Context) -> FunctionDisplayer<'a> {
         FunctionDisplayer {
             function: *self,
-            library,
+            context,
         }
     }
 }
 
 pub struct FunctionBuilder<'a> {
-    library: &'a mut Library,
+    context: &'a mut Context,
     module: Module,
     name: &'a str,
     return_type: Type,
@@ -329,11 +329,11 @@ pub struct FunctionBuilder<'a> {
 }
 
 impl<'a> FunctionBuilder<'a> {
-    pub(crate) fn with_library_and_module(library: &'a mut Library, module: Module) -> Self {
-        let void_ty = library.get_void_type();
+    pub(crate) fn with_context_and_module(context: &'a mut Context, module: Module) -> Self {
+        let void_ty = context.get_void_type();
 
         FunctionBuilder {
-            library,
+            context,
             module,
             name: "",
             return_type: void_ty,
@@ -350,9 +350,9 @@ impl<'a> FunctionBuilder<'a> {
     ///
     /// ```
     /// # use yair::*;
-    /// # let mut library = Library::new();
-    /// # let module = library.create_module().build();
-    /// # let function_builder = module.create_function(&mut library);
+    /// # let mut context = Context::new();
+    /// # let module = context.create_module().build();
+    /// # let function_builder = module.create_function(&mut context);
     /// function_builder.with_name("func");
     /// ```
     pub fn with_name(mut self, name: &'a str) -> Self {
@@ -368,10 +368,10 @@ impl<'a> FunctionBuilder<'a> {
     ///
     /// ```
     /// # use yair::*;
-    /// # let mut library = Library::new();
-    /// # let module = library.create_module().build();
-    /// # let u32_ty = library.get_uint_type(32);
-    /// # let function_builder = module.create_function(&mut library);
+    /// # let mut context = Context::new();
+    /// # let module = context.create_module().build();
+    /// # let u32_ty = context.get_uint_type(32);
+    /// # let function_builder = module.create_function(&mut context);
     /// function_builder.with_return_type(u32_ty);
     /// ```
     pub fn with_return_type(mut self, return_type: Type) -> Self {
@@ -387,11 +387,11 @@ impl<'a> FunctionBuilder<'a> {
     ///
     /// ```
     /// # use yair::*;
-    /// # let mut library = Library::new();
-    /// # let module = library.create_module().build();
-    /// # let i8_ty = library.get_int_type(8);
-    /// # let u32_ty = library.get_uint_type(32);
-    /// # let function_builder = module.create_function(&mut library);
+    /// # let mut context = Context::new();
+    /// # let module = context.create_module().build();
+    /// # let i8_ty = context.get_int_type(8);
+    /// # let u32_ty = context.get_uint_type(32);
+    /// # let function_builder = module.create_function(&mut context);
     /// function_builder.with_arg("a", i8_ty).with_arg("b", u32_ty);
     /// ```
     pub fn with_arg(mut self, argument_name: &'a str, argument_type: Type) -> Self {
@@ -408,9 +408,9 @@ impl<'a> FunctionBuilder<'a> {
     ///
     /// ```
     /// # use yair::*;
-    /// # let mut library = Library::new();
-    /// # let module = library.create_module().build();
-    /// # let builder = module.create_function(&mut library);
+    /// # let mut context = Context::new();
+    /// # let module = context.create_module().build();
+    /// # let builder = module.create_function(&mut context);
     /// builder.with_attributes(FunctionAttributes::only(FunctionAttribute::Export));
     /// ```
     pub fn with_attributes(mut self, attributes: FunctionAttributes) -> Self {
@@ -426,10 +426,10 @@ impl<'a> FunctionBuilder<'a> {
     ///
     /// ```
     /// # use yair::*;
-    /// # let mut library = Library::new();
-    /// # let location = library.get_location("foo.ya", 0, 13);
-    /// # let module = library.create_module().build();
-    /// # let builder = module.create_function(&mut library);
+    /// # let mut context = Context::new();
+    /// # let location = context.get_location("foo.ya", 0, 13);
+    /// # let module = context.create_module().build();
+    /// # let builder = module.create_function(&mut context);
     /// builder.with_location(location);
     /// ```
     pub fn with_location(mut self, loc: Location) -> Self {
@@ -443,21 +443,21 @@ impl<'a> FunctionBuilder<'a> {
     ///
     /// ```
     /// # use yair::*;
-    /// # let mut library = Library::new();
-    /// # let module = library.create_module().build();
-    /// # let function_builder = module.create_function(&mut library).with_name("func");
+    /// # let mut context = Context::new();
+    /// # let module = context.create_module().build();
+    /// # let function_builder = module.create_function(&mut context).with_name("func");
     /// let function = function_builder.build();
     /// ```
     pub fn build(self) -> Function {
         debug_assert!(!self.name.is_empty(), "name must be non-0 in length");
 
         let function_type = self
-            .library
+            .context
             .get_function_type(self.return_type, &self.argument_types);
 
         let mut function = FunctionPayload {
             module: self.module,
-            name: self.library.get_name(self.name),
+            name: self.context.get_name(self.name),
             function_type,
             arguments: Vec::new(),
             blocks: Vec::new(),
@@ -466,18 +466,18 @@ impl<'a> FunctionBuilder<'a> {
         };
 
         for (argument_name, argument_type) in self.argument_names.iter().zip(self.argument_types) {
-            let name = self.library.get_name(argument_name);
+            let name = self.context.get_name(argument_name);
 
-            let argument = self.library.values.insert(ValuePayload::Argument(Argument {
+            let argument = self.context.values.insert(ValuePayload::Argument(Argument {
                 name,
                 ty: argument_type,
             }));
             function.arguments.push(Value(argument));
         }
 
-        let func = Function(self.library.functions.insert(function));
+        let func = Function(self.context.functions.insert(function));
 
-        self.library.modules[self.module.0].functions.push(func);
+        self.context.modules[self.module.0].functions.push(func);
 
         func
     }

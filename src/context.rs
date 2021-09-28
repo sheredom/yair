@@ -5,7 +5,7 @@ use radix_trie::Trie;
 use std::collections::HashMap;
 
 #[cfg_attr(feature = "io", derive(Serialize, Deserialize))]
-pub struct Library {
+pub struct Context {
     pub(crate) modules: Arena<ModulePayload>,
     pub(crate) types: Arena<TypePayload>,
     pub(crate) functions: Arena<FunctionPayload>,
@@ -34,17 +34,17 @@ pub struct Library {
     undefs: HashMap<Type, Value>,
 }
 
-impl Library {
-    /// Create a new library.
+impl Context {
+    /// Create a new context.
     ///
     /// # Examples
     ///
     /// ```
     /// # use yair::*;
-    /// let library = Library::new();
+    /// let context = Context::new();
     /// ```
-    pub fn new() -> Library {
-        Library {
+    pub fn new() -> Context {
+        Context {
             modules: Arena::new(),
             types: Arena::new(),
             functions: Arena::new(),
@@ -80,25 +80,25 @@ impl Library {
     ///
     /// ```
     /// # use yair::*;
-    /// # let mut library = Library::new();
-    /// let module_builder = library.create_module();
+    /// # let mut context = Context::new();
+    /// let module_builder = context.create_module();
     /// ```
     pub fn create_module(&mut self) -> ModuleBuilder {
-        ModuleBuilder::with_library(self)
+        ModuleBuilder::with_context(self)
     }
 
-    /// Get all the modules in the library.
+    /// Get all the modules in the context.
     ///
     /// # Examples
     ///
     /// ```
     /// # use yair::*;
-    /// # let mut library = Library::new();
-    /// let module_a = library.create_module().with_name("a").build();
-    /// let module_b = library.create_module().with_name("b").build();
-    /// let mut modules = library.get_modules();
-    /// assert_eq!(modules.nth(0).unwrap().get_name(&library).as_str(&library), "a");
-    /// assert_eq!(modules.nth(0).unwrap().get_name(&library).as_str(&library), "b");
+    /// # let mut context = Context::new();
+    /// let module_a = context.create_module().with_name("a").build();
+    /// let module_b = context.create_module().with_name("b").build();
+    /// let mut modules = context.get_modules();
+    /// assert_eq!(modules.nth(0).unwrap().get_name(&context).as_str(&context), "a");
+    /// assert_eq!(modules.nth(0).unwrap().get_name(&context).as_str(&context), "b");
     /// ```
     pub fn get_modules(&self) -> ModuleIterator {
         ModuleIterator::new(&self.modules)
@@ -110,9 +110,9 @@ impl Library {
     ///
     /// ```
     /// # use yair::*;
-    /// # let mut library = Library::new();
-    /// # let module = library.create_module().build();
-    /// let ty = library.get_void_type();
+    /// # let mut context = Context::new();
+    /// # let module = context.create_module().build();
+    /// let ty = context.get_void_type();
     /// ```
     pub fn get_void_type(&mut self) -> Type {
         match self.void_ty {
@@ -130,9 +130,9 @@ impl Library {
     ///
     /// ```
     /// # use yair::*;
-    /// # let mut library = Library::new();
-    /// # let module = library.create_module().build();
-    /// let ty = library.get_bool_type();
+    /// # let mut context = Context::new();
+    /// # let module = context.create_module().build();
+    /// let ty = context.get_bool_type();
     /// ```
     pub fn get_bool_type(&mut self) -> Type {
         match self.bool_ty {
@@ -153,9 +153,9 @@ impl Library {
     ///
     /// ```
     /// # use yair::*;
-    /// # let mut library = Library::new();
-    /// # let module = library.create_module().build();
-    /// let i32_ty = library.get_int_type(32);
+    /// # let mut context = Context::new();
+    /// # let module = context.create_module().build();
+    /// let i32_ty = context.get_int_type(32);
     /// ```
     pub fn get_int_type(&mut self, bits: u8) -> Type {
         let option = match bits {
@@ -184,9 +184,9 @@ impl Library {
     ///
     /// ```
     /// # use yair::*;
-    /// # let mut library = Library::new();
-    /// # let module = library.create_module().build();
-    /// let u32_ty = library.get_uint_type(32);
+    /// # let mut context = Context::new();
+    /// # let module = context.create_module().build();
+    /// let u32_ty = context.get_uint_type(32);
     /// ```
     pub fn get_uint_type(&mut self, bits: u8) -> Type {
         let option = match bits {
@@ -215,9 +215,9 @@ impl Library {
     ///
     /// ```
     /// # use yair::*;
-    /// # let mut library = Library::new();
-    /// # let module = library.create_module().build();
-    /// let u32_ty = library.get_uint_type(32);
+    /// # let mut context = Context::new();
+    /// # let module = context.create_module().build();
+    /// let u32_ty = context.get_uint_type(32);
     /// ```
     pub fn get_float_type(&mut self, bits: u8) -> Type {
         let option = match bits {
@@ -246,10 +246,10 @@ impl Library {
     ///
     /// ```
     /// # use yair::*;
-    /// # let mut library = Library::new();
-    /// # let module = library.create_module().build();
-    /// # let u32_ty = library.get_uint_type(32);
-    /// let vec_ty = library.get_vector_type(u32_ty, 8);
+    /// # let mut context = Context::new();
+    /// # let module = context.create_module().build();
+    /// # let u32_ty = context.get_uint_type(32);
+    /// let vec_ty = context.get_vector_type(u32_ty, 8);
     /// ```
     pub fn get_vector_type(&mut self, element: Type, width: u8) -> Type {
         match &self.types[element.0] {
@@ -289,10 +289,10 @@ impl Library {
     ///
     /// ```
     /// # use yair::*;
-    /// # let mut library = Library::new();
-    /// # let module = library.create_module().build();
-    /// let ptr_ty = library.get_pointer_type(Domain::Cpu);
-    /// # assert!(ptr_ty.is_pointer(&library));
+    /// # let mut context = Context::new();
+    /// # let module = context.create_module().build();
+    /// let ptr_ty = context.get_pointer_type(Domain::Cpu);
+    /// # assert!(ptr_ty.is_pointer(&context));
     /// ```
     pub fn get_pointer_type(&mut self, domain: Domain) -> Type {
         match self.ptr_tys.get(&domain) {
@@ -311,12 +311,12 @@ impl Library {
     ///
     /// ```
     /// # use yair::*;
-    /// # let mut library = Library::new();
-    /// # let module = library.create_module().build();
-    /// # let void_ty = library.get_void_type();
-    /// # let i8_ty = library.get_int_type(8);
-    /// # let u16_ty = library.get_uint_type(16);
-    /// let func_ty = library.get_function_type(void_ty, &[i8_ty, u16_ty]);
+    /// # let mut context = Context::new();
+    /// # let module = context.create_module().build();
+    /// # let void_ty = context.get_void_type();
+    /// # let i8_ty = context.get_int_type(8);
+    /// # let u16_ty = context.get_uint_type(16);
+    /// let func_ty = context.get_function_type(void_ty, &[i8_ty, u16_ty]);
     /// ```
     pub fn get_function_type(&mut self, return_type: Type, argument_types: &[Type]) -> Type {
         Type(
@@ -331,10 +331,10 @@ impl Library {
     ///
     /// ```
     /// # use yair::*;
-    /// # let mut library = Library::new();
-    /// # let module = library.create_module().build();
-    /// # let u32_ty = library.get_uint_type(32);
-    /// let array_ty = library.get_array_type(u32_ty, 42);
+    /// # let mut context = Context::new();
+    /// # let module = context.create_module().build();
+    /// # let u32_ty = context.get_uint_type(32);
+    /// let array_ty = context.get_array_type(u32_ty, 42);
     /// ```
     pub fn get_array_type(&mut self, element: Type, len: usize) -> Type {
         match self.array_tys.get(&(element, len)) {
@@ -353,12 +353,12 @@ impl Library {
     ///
     /// ```
     /// # use yair::*;
-    /// # let mut library = Library::new();
-    /// # let u32_ty = library.get_uint_type(32);
-    /// # let array_ty = library.get_array_type(u32_ty, 42);
-    /// # let bool_ty = library.get_bool_type();
-    /// let struct_ty = library.get_struct_type(&[ u32_ty, bool_ty, array_ty ]);
-    /// # assert_eq!(struct_ty, library.get_struct_type(&[ u32_ty, bool_ty, array_ty ]));
+    /// # let mut context = Context::new();
+    /// # let u32_ty = context.get_uint_type(32);
+    /// # let array_ty = context.get_array_type(u32_ty, 42);
+    /// # let bool_ty = context.get_bool_type();
+    /// let struct_ty = context.get_struct_type(&[ u32_ty, bool_ty, array_ty ]);
+    /// # assert_eq!(struct_ty, context.get_struct_type(&[ u32_ty, bool_ty, array_ty ]));
     /// ```
     pub fn get_struct_type(&mut self, elements: &[Type]) -> Type {
         match self.struct_tys.get(&elements.to_vec()) {
@@ -390,9 +390,9 @@ impl Library {
     ///
     /// ```
     /// # use yair::*;
-    /// # let mut library = Library::new();
-    /// # let module = library.create_module().build();
-    /// let location = library.get_location("foo.ya", 0, 13);
+    /// # let mut context = Context::new();
+    /// # let module = context.create_module().build();
+    /// let location = context.get_location("foo.ya", 0, 13);
     /// ```
     pub fn get_location(&mut self, filename: &str, line: usize, column: usize) -> Location {
         Location {
@@ -408,10 +408,10 @@ impl Library {
     ///
     /// ```
     /// # use yair::*;
-    /// # let mut library = Library::new();
-    /// # let module = library.create_module().build();
-    /// # let u32_ty = library.get_uint_type(32);
-    /// let undef = library.get_undef(u32_ty);
+    /// # let mut context = Context::new();
+    /// # let module = context.create_module().build();
+    /// # let u32_ty = context.get_uint_type(32);
+    /// let undef = context.get_undef(u32_ty);
     /// ```
     pub fn get_undef(&mut self, ty: Type) -> Value {
         match self.undefs.get(&ty) {
@@ -426,9 +426,9 @@ impl Library {
     ///
     /// ```
     /// # use yair::*;
-    /// # let mut library = Library::new();
-    /// # let module = library.create_module().build();
-    /// let constant = library.get_bool_constant(true);
+    /// # let mut context = Context::new();
+    /// # let module = context.create_module().build();
+    /// let constant = context.get_bool_constant(true);
     /// ```
     pub fn get_bool_constant(&mut self, b: bool) -> Value {
         let constant = Constant::Bool(b, self.get_bool_type());
@@ -444,9 +444,9 @@ impl Library {
     ///
     /// ```
     /// # use yair::*;
-    /// # let mut library = Library::new();
-    /// # let module = library.create_module().build();
-    /// let constant = library.get_int_constant(8, 42);
+    /// # let mut context = Context::new();
+    /// # let module = context.create_module().build();
+    /// let constant = context.get_int_constant(8, 42);
     /// ```
     pub fn get_int_constant(&mut self, bits: u8, cnst: i64) -> Value {
         let constant = Constant::Int(cnst, self.get_int_type(bits));
@@ -462,9 +462,9 @@ impl Library {
     ///
     /// ```
     /// # use yair::*;
-    /// # let mut library = Library::new();
-    /// # let module = library.create_module().build();
-    /// let constant = library.get_uint_constant(16, 42);
+    /// # let mut context = Context::new();
+    /// # let module = context.create_module().build();
+    /// let constant = context.get_uint_constant(16, 42);
     /// ```
     pub fn get_uint_constant(&mut self, bits: u8, cnst: u64) -> Value {
         let constant = Constant::UInt(cnst, self.get_uint_type(bits));
@@ -480,9 +480,9 @@ impl Library {
     ///
     /// ```
     /// # use yair::*;
-    /// # let mut library = Library::new();
-    /// # let module = library.create_module().build();
-    /// let constant = library.get_float_constant(64, 42.0);
+    /// # let mut context = Context::new();
+    /// # let module = context.create_module().build();
+    /// let constant = context.get_float_constant(64, 42.0);
     /// ```
     pub fn get_float_constant(&mut self, bits: u8, cnst: f64) -> Value {
         let constant = Constant::Float(cnst, self.get_float_type(bits));
@@ -498,11 +498,11 @@ impl Library {
     ///
     /// ```
     /// # use yair::*;
-    /// # let mut library = Library::new();
-    /// # let module = library.create_module().build();
-    /// # let void_ty = library.get_void_type();
-    /// # let ty = library.get_pointer_type(Domain::Cpu);
-    /// let constant = library.get_pointer_constant_null(ty);
+    /// # let mut context = Context::new();
+    /// # let module = context.create_module().build();
+    /// # let void_ty = context.get_void_type();
+    /// # let ty = context.get_pointer_type(Domain::Cpu);
+    /// let constant = context.get_pointer_constant_null(ty);
     /// ```
     pub fn get_pointer_constant_null(&mut self, ty: Type) -> Value {
         let constant = Constant::Pointer(ty);
@@ -518,13 +518,13 @@ impl Library {
     ///
     /// ```
     /// # use yair::*;
-    /// # let mut library = Library::new();
-    /// # let module = library.create_module().build();
-    /// # let a = library.get_uint_constant(32, 13);
-    /// # let b = library.get_uint_constant(32, 42);
-    /// # let u32_ty = library.get_uint_type(32);
-    /// # let ty = library.get_array_type(u32_ty, 2);
-    /// let constant = library.get_composite_constant(ty, &[a, b]);
+    /// # let mut context = Context::new();
+    /// # let module = context.create_module().build();
+    /// # let a = context.get_uint_constant(32, 13);
+    /// # let b = context.get_uint_constant(32, 42);
+    /// # let u32_ty = context.get_uint_type(32);
+    /// # let ty = context.get_array_type(u32_ty, 2);
+    /// let constant = context.get_composite_constant(ty, &[a, b]);
     /// ```
     pub fn get_composite_constant(&mut self, ty: Type, elems: &[Value]) -> Value {
         let constant = Constant::Composite(elems.to_vec(), ty);
@@ -540,8 +540,8 @@ impl Library {
     ///
     /// ```
     /// # use yair::*;
-    /// # let mut library = Library::new();
-    /// let result = library.verify();
+    /// # let mut context = Context::new();
+    /// let result = context.verify();
     /// # assert!(result.is_ok());
     /// ```
     pub fn verify(&self) -> Result<(), VerifyError> {
@@ -553,7 +553,7 @@ impl Library {
     }
 }
 
-impl Default for Library {
+impl Default for Context {
     fn default() -> Self {
         Self::new()
     }

@@ -1,4 +1,4 @@
-use crate::Library;
+use crate::Context;
 
 pub trait JitFn<Args, Output> {
     fn run(&self, a: Args) -> Output;
@@ -9,7 +9,7 @@ pub trait JitGen {
 
     fn build_jit_fn<'a, Args: 'static, Output: 'static>(
         &'a self,
-        library: &'a Library,
+        context: &'a Context,
         entry_point: &str,
     ) -> Result<Box<dyn JitFn<Args, Output>>, Self::Error>;
 }

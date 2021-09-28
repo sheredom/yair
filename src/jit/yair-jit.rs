@@ -15,19 +15,19 @@ use yair::llvm::Llvm;
 #[cfg(feature = "llvm")]
 use yair::JitGen;
 
-use yair::Library;
+use yair::Context;
 
 #[cfg(feature = "llvm")]
-fn run_with_llvm(library: &Library, job: &str) {
+fn run_with_llvm(context: &Context, job: &str) {
     let codegen = Llvm::new(embedded_triple::get()).unwrap();
 
-    let jit_fn = codegen.build_jit_fn(library, job).unwrap();
+    let jit_fn = codegen.build_jit_fn(context, job).unwrap();
 
     jit_fn.run(())
 }
 
 #[cfg(not(feature = "llvm"))]
-fn run_with_llvm(_: &Library, _: &str) {}
+fn run_with_llvm(_: &Context, _: &str) {}
 
 fn main() {
     let yaml = load_yaml!("yair-jit.yml");
@@ -35,7 +35,7 @@ fn main() {
 
     let input = matches.value_of("input").unwrap();
 
-    let library: Library = if input == "-" {
+    let context: Context = if input == "-" {
         rmp_serde::from_read(io::stdin())
     } else {
         let file = File::open(input).unwrap();
@@ -52,6 +52,6 @@ fn main() {
     let job = matches.value_of("job").unwrap();
 
     if backend == "LLVM" {
-        run_with_llvm(&library, job);
+        run_with_llvm(&context, job);
     }
 }

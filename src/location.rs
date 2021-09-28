@@ -17,23 +17,23 @@ impl Location {
         self.column
     }
 
-    pub fn get_displayer<'a>(&self, library: &'a Library) -> LocationDisplayer<'a> {
+    pub fn get_displayer<'a>(&self, context: &'a Context) -> LocationDisplayer<'a> {
         LocationDisplayer {
             loc: *self,
-            library,
+            context,
         }
     }
 }
 
 impl Named for Location {
-    fn get_name(&self, _: &Library) -> Name {
+    fn get_name(&self, _: &Context) -> Name {
         self.filename
     }
 }
 
 pub struct LocationDisplayer<'a> {
     pub(crate) loc: Location,
-    pub(crate) library: &'a Library,
+    pub(crate) context: &'a Context,
 }
 
 impl<'a> std::fmt::Display for LocationDisplayer<'a> {
@@ -44,7 +44,7 @@ impl<'a> std::fmt::Display for LocationDisplayer<'a> {
         write!(
             writer,
             " !{}:{:?}:{:?}",
-            self.loc.get_name(self.library).get_displayer(self.library),
+            self.loc.get_name(self.context).get_displayer(self.context),
             self.loc.get_line(),
             self.loc.get_column(),
         )

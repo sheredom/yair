@@ -12,7 +12,7 @@ pub struct Block(pub(crate) generational_arena::Index);
 
 pub struct BlockDisplayer<'a> {
     pub(crate) block: Block,
-    pub(crate) library: &'a Library,
+    pub(crate) context: &'a Context,
 }
 
 impl<'a> std::fmt::Display for BlockDisplayer<'a> {
@@ -22,18 +22,18 @@ impl<'a> std::fmt::Display for BlockDisplayer<'a> {
     ) -> std::result::Result<(), std::fmt::Error> {
         write!(writer, "b{}(", self.block.get_unique_index())?;
 
-        for i in 0..self.block.get_num_args(self.library) {
+        for i in 0..self.block.get_num_args(self.context) {
             if i > 0 {
                 write!(writer, ", ")?;
             }
 
-            let arg = self.block.get_arg(self.library, i);
+            let arg = self.block.get_arg(self.context, i);
 
             write!(
                 writer,
                 "{} : {}",
-                arg.get_displayer(self.library),
-                arg.get_type(self.library).get_displayer(self.library)
+                arg.get_displayer(self.context),
+                arg.get_type(self.context).get_displayer(self.context)
             )?;
         }
 
@@ -54,17 +54,17 @@ impl Block {
     ///
     /// ```
     /// # use yair::*;
-    /// # let mut library = Library::new();
-    /// # let module = library.create_module().build();
-    /// # let function = module.create_function(&mut library).with_name("func").build();
-    /// # let ty = library.get_uint_type(32);
-    /// # let _ = function.create_block(&mut library).build();
-    /// let block = function.create_block(&mut library).with_arg(ty).build();
-    /// let arg = block.get_arg(&library, 0);
-    /// assert_eq!(arg.get_type(&library), ty);
+    /// # let mut context = Context::new();
+    /// # let module = context.create_module().build();
+    /// # let function = module.create_function(&mut context).with_name("func").build();
+    /// # let ty = context.get_uint_type(32);
+    /// # let _ = function.create_block(&mut context).build();
+    /// let block = function.create_block(&mut context).with_arg(ty).build();
+    /// let arg = block.get_arg(&context, 0);
+    /// assert_eq!(arg.get_type(&context), ty);
     /// ```
-    pub fn get_arg(&self, library: &Library, index: usize) -> Value {
-        let block = &library.blocks[self.0];
+    pub fn get_arg(&self, context: &Context, index: usize) -> Value {
+        let block = &context.blocks[self.0];
 
         assert!(
             index < block.arguments.len(),
@@ -82,17 +82,17 @@ impl Block {
     ///
     /// ```
     /// # use yair::*;
-    /// # let mut library = Library::new();
-    /// # let module = library.create_module().build();
-    /// # let function = module.create_function(&mut library).with_name("func").build();
-    /// # let ty = library.get_uint_type(32);
-    /// # let _ = function.create_block(&mut library).build();
-    /// let block = function.create_block(&mut library).with_arg(ty).build();
-    /// let num_args = block.get_num_args(&library);
+    /// # let mut context = Context::new();
+    /// # let module = context.create_module().build();
+    /// # let function = module.create_function(&mut context).with_name("func").build();
+    /// # let ty = context.get_uint_type(32);
+    /// # let _ = function.create_block(&mut context).build();
+    /// let block = function.create_block(&mut context).with_arg(ty).build();
+    /// let num_args = block.get_num_args(&context);
     /// assert_eq!(num_args, 1);
     /// ```
-    pub fn get_num_args(&self, library: &Library) -> usize {
-        let block = &library.blocks[self.0];
+    pub fn get_num_args(&self, context: &Context) -> usize {
+        let block = &context.blocks[self.0];
 
         block.arguments.len()
     }
@@ -103,14 +103,14 @@ impl Block {
     ///
     /// ```
     /// # use yair::*;
-    /// # let mut library = Library::new();
-    /// # let module = library.create_module().build();
-    /// # let function = module.create_function(&mut library).with_name("func").build();
-    /// # let block = function.create_block(&mut library).build();
-    /// let instruction_builder = block.create_instructions(&mut library);
+    /// # let mut context = Context::new();
+    /// # let module = context.create_module().build();
+    /// # let function = module.create_function(&mut context).with_name("func").build();
+    /// # let block = function.create_block(&mut context).build();
+    /// let instruction_builder = block.create_instructions(&mut context);
     /// ```
-    pub fn create_instructions<'a>(&self, library: &'a mut Library) -> InstructionBuilder<'a> {
-        InstructionBuilder::with_library_and_block(library, *self)
+    pub fn create_instructions<'a>(&self, context: &'a mut Context) -> InstructionBuilder<'a> {
+        InstructionBuilder::with_context_and_block(context, *self)
     }
 
     /// Get all the instructions in a block.
@@ -119,21 +119,21 @@ impl Block {
     ///
     /// ```
     /// # use yair::*;
-    /// # let mut library = Library::new();
-    /// # let module = library.create_module().build();
-    /// # let u32_ty = library.get_uint_type(32);
-    /// # let function = module.create_function(&mut library).with_name("func").build();
-    /// # let _ = function.create_block(&mut library).build();
-    /// # let block = function.create_block(&mut library).build();
-    /// # let constant = library.get_uint_constant(32, 42);
-    /// let mut instruction_builder = block.create_instructions(&mut library);
+    /// # let mut context = Context::new();
+    /// # let module = context.create_module().build();
+    /// # let u32_ty = context.get_uint_type(32);
+    /// # let function = module.create_function(&mut context).with_name("func").build();
+    /// # let _ = function.create_block(&mut context).build();
+    /// # let block = function.create_block(&mut context).build();
+    /// # let constant = context.get_uint_constant(32, 42);
+    /// let mut instruction_builder = block.create_instructions(&mut context);
     /// let instruction = instruction_builder.stack_alloc("😀", u32_ty, None);
     /// instruction_builder.ret(None);
-    /// let mut instructions = block.get_insts(&library);
+    /// let mut instructions = block.get_insts(&context);
     /// assert_eq!(instructions.nth(0).unwrap(), instruction);
     /// ```
-    pub fn get_insts(&self, library: &Library) -> ValueIterator {
-        let block = &library.blocks[self.0];
+    pub fn get_insts(&self, context: &Context) -> ValueIterator {
+        let block = &context.blocks[self.0];
         ValueIterator::new(&block.instructions)
     }
 
@@ -143,16 +143,16 @@ impl Block {
     ///
     /// ```
     /// # use yair::*;
-    /// # let mut library = Library::new();
-    /// # let module = library.create_module().build();
-    /// # let u32_ty = library.get_uint_type(32);
-    /// # let function = module.create_function(&mut library).with_name("func").with_arg("a", u32_ty).build();
-    /// # let block = function.create_block(&mut library).with_arg(u32_ty).build();
-    /// let mut args = block.get_args(&library);
-    /// assert_eq!(args.nth(0).unwrap().get_type(&library), u32_ty);
+    /// # let mut context = Context::new();
+    /// # let module = context.create_module().build();
+    /// # let u32_ty = context.get_uint_type(32);
+    /// # let function = module.create_function(&mut context).with_name("func").with_arg("a", u32_ty).build();
+    /// # let block = function.create_block(&mut context).with_arg(u32_ty).build();
+    /// let mut args = block.get_args(&context);
+    /// assert_eq!(args.nth(0).unwrap().get_type(&context), u32_ty);
     /// ```
-    pub fn get_args(&self, library: &Library) -> ValueIterator {
-        let block = &library.blocks[self.0];
+    pub fn get_args(&self, context: &Context) -> ValueIterator {
+        let block = &context.blocks[self.0];
         ValueIterator::new(&block.arguments)
     }
 
@@ -162,36 +162,36 @@ impl Block {
     ///
     /// ```
     /// # use yair::*;
-    /// # let mut library = Library::new();
-    /// # let module = library.create_module().build();
-    /// # let u32_ty = library.get_uint_type(32);
-    /// # let function = module.create_function(&mut library).with_name("func").with_arg("a", u32_ty).build();
-    /// # let block = function.create_block(&mut library).with_arg(u32_ty).build();
-    /// let mut args = block.get_args_mut(&mut library);
+    /// # let mut context = Context::new();
+    /// # let module = context.create_module().build();
+    /// # let u32_ty = context.get_uint_type(32);
+    /// # let function = module.create_function(&mut context).with_name("func").with_arg("a", u32_ty).build();
+    /// # let block = function.create_block(&mut context).with_arg(u32_ty).build();
+    /// let mut args = block.get_args_mut(&mut context);
     /// # args.push(u32_ty);
     /// ```
-    pub fn get_args_mut<'a>(&self, library: &'a mut Library) -> BlockArguments<'a> {
-        BlockArguments::new(library, *self)
+    pub fn get_args_mut<'a>(&self, context: &'a mut Context) -> BlockArguments<'a> {
+        BlockArguments::new(context, *self)
     }
 
-    pub fn get_displayer<'a>(&self, library: &'a Library) -> BlockDisplayer<'a> {
+    pub fn get_displayer<'a>(&self, context: &'a Context) -> BlockDisplayer<'a> {
         BlockDisplayer {
             block: *self,
-            library,
+            context,
         }
     }
 }
 
 pub struct BlockBuilder<'a> {
-    library: &'a mut Library,
+    context: &'a mut Context,
     function: Function,
     argument_types: Vec<Type>,
 }
 
 impl<'a> BlockBuilder<'a> {
-    pub(crate) fn with_library_and_function(library: &'a mut Library, function: Function) -> Self {
+    pub(crate) fn with_context_and_function(context: &'a mut Context, function: Function) -> Self {
         BlockBuilder {
-            library,
+            context,
             function,
             argument_types: Default::default(),
         }
@@ -205,12 +205,12 @@ impl<'a> BlockBuilder<'a> {
     ///
     /// ```
     /// # use yair::*;
-    /// # let mut library = Library::new();
-    /// # let module = library.create_module().build();
-    /// # let function = module.create_function(&mut library).with_name("func").build();
-    /// # let i8_ty = library.get_int_type(8);
-    /// # let u32_ty = library.get_uint_type(32);
-    /// # let block_builder = function.create_block(&mut library);
+    /// # let mut context = Context::new();
+    /// # let module = context.create_module().build();
+    /// # let function = module.create_function(&mut context).with_name("func").build();
+    /// # let i8_ty = context.get_int_type(8);
+    /// # let u32_ty = context.get_uint_type(32);
+    /// # let block_builder = function.create_block(&mut context);
     /// block_builder.with_arg(i8_ty).with_arg(u32_ty);
     /// ```
     pub fn with_arg(mut self, ty: Type) -> Self {
@@ -224,10 +224,10 @@ impl<'a> BlockBuilder<'a> {
     ///
     /// ```
     /// # use yair::*;
-    /// # let mut library = Library::new();
-    /// # let module = library.create_module().build();
-    /// # let function = module.create_function(&mut library).with_name("func").build();
-    /// # let block_builder = function.create_block(&mut library);
+    /// # let mut context = Context::new();
+    /// # let module = context.create_module().build();
+    /// # let function = module.create_function(&mut context).with_name("func").build();
+    /// # let block_builder = function.create_block(&mut context);
     /// let block = block_builder.build();
     /// ```
     pub fn build(self) -> Block {
@@ -236,19 +236,19 @@ impl<'a> BlockBuilder<'a> {
             instructions: Vec::new(),
         };
 
-        let name = self.library.get_name("");
+        let name = self.context.get_name("");
 
-        let function = &mut self.library.functions[self.function.0];
+        let function = &mut self.context.functions[self.function.0];
 
         for argument_type in self.argument_types {
-            let argument = self.library.values.insert(ValuePayload::Argument(Argument {
+            let argument = self.context.values.insert(ValuePayload::Argument(Argument {
                 name,
                 ty: argument_type,
             }));
             block.arguments.push(Value(argument));
         }
 
-        let block = Block(self.library.blocks.insert(block));
+        let block = Block(self.context.blocks.insert(block));
 
         function.blocks.push(block);
 

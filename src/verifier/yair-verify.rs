@@ -7,7 +7,7 @@ extern crate yair;
 use clap::App;
 use std::fs::File;
 use std::io::{self};
-use yair::Library;
+use yair::Context;
 
 fn main() {
     let yaml = load_yaml!("yair-verify.yml");
@@ -15,7 +15,7 @@ fn main() {
 
     let input = matches.value_of("input").unwrap();
 
-    let library: Library = if input == "-" {
+    let context: Context = if input == "-" {
         rmp_serde::from_read(io::stdin())
     } else {
         let file = File::open(input).unwrap();
@@ -23,7 +23,7 @@ fn main() {
     }
     .expect("Could not open malformed YAIR binary object");
 
-    match library.verify() {
+    match context.verify() {
         Ok(_) => (),
         Err(e) => println!("{}", e),
     }
