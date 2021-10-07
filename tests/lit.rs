@@ -80,7 +80,7 @@ mod tests {
     fn lit() {
         lit::run::tests(lit::event_handler::Default::default(), |config| {
             config.add_search_path("tests/lit/all");
-            config.add_extension("ya");
+            config.add_extension("yail");
 
             config.constants.insert("yair_as".to_owned(), yair_as_exe());
             config
