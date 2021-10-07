@@ -39,9 +39,9 @@ When this feature is enabled, two additional binaries are produced alongside the
 
 Additionally, there is a `yair::io` module that lets users read/write the textual or binary representation into a yair `Library` that they can work with.
 
-#### .ya Files
+#### .yail Files
 
-The human readable representation of yair are .ya files. An example file is:
+The human readable representation of yair are .yail files. An example file is:
 
 ```
 mod "😀" {
@@ -53,7 +53,7 @@ mod "😀" {
 }
 ```
 
-Constants in .ya files are slightly strange - constants as used in the `Library` object are unique per the value and type combination for that given constant. But in the intermediate representation, constants are treated like any other value within the body of a basic block:
+Constants in .yail files are slightly strange - constants as used in the `Library` object are unique per the value and type combination for that given constant. But in the intermediate representation, constants are treated like any other value within the body of a basic block:
 
 ```
 mod "😀" {
