@@ -8,7 +8,7 @@ mod tests {
     use std::io::Cursor;
     use test::Bencher;
 
-    fn splat_adds() -> Library {
+    fn splat_adds() -> Context {
         let mut context = Context::new();
         let module = context.create_module().build();
         let u32_ty = context.get_uint_type(32);
@@ -32,12 +32,12 @@ mod tests {
 
         instruction_builder.ret_val(result, location);
 
-        library
+        context
     }
 
     #[bench]
     fn bench_splat_adds(b: &mut Bencher) {
-        let library = splat_adds();
+        let context = splat_adds();
 
         let mut cursor = Cursor::new(Vec::new());
 
