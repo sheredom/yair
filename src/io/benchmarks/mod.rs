@@ -9,7 +9,7 @@ mod tests {
     #[bench]
     fn create_library(b: &mut Bencher) {
         b.iter(|| {
-            let _ = context::new();
+            let _ = Context::new();
         });
     }
 

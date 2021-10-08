@@ -1,0 +1,8 @@
+// RUN: @yair_as @file | @yair_jit - --backend LLVM --function "😀::foo"
+
+mod "😀" {
+  fn [export] foo() : void {
+      body():
+        ret
+  }
+}

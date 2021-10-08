@@ -9,7 +9,7 @@ on:
 jobs:
   lint:
     name: Lint
-    runs-on: ubuntu-16.04
+    runs-on: ubuntu-18.04
     steps:
     - uses: actions/checkout@v2
 
@@ -57,7 +57,7 @@ jobs:
   test-llvm-feature:
     strategy:
       matrix:
-        os: [ubuntu-16.04, windows-latest, macOS-latest]
+        os: [ubuntu-18.04, windows-latest, macOS-latest]
     runs-on: ${{ matrix.os }}
     steps:
     - uses: actions/checkout@v2
@@ -65,9 +65,9 @@ jobs:
       run: powershell.exe -NoP -NonI -Command "Invoke-WebRequest https://github.com/WAVM/WAVM-LLVM/releases/download/12.x/Win64_Release.zip -O Win64_Release.zip"
     - if: matrix.os == 'windows-latest'
       run: powershell.exe -NoP -NonI -Command "Expand-Archive '.\Win64_Release.zip' '.\llvm\'"
-    - if: matrix.os == 'ubuntu-16.04'
+    - if: matrix.os == 'ubuntu-18.04'
       run: wget https://github.com/WAVM/WAVM-LLVM/releases/download/12.x/Ubuntu1604_Release.zip
-    - if: matrix.os == 'ubuntu-16.04'
+    - if: matrix.os == 'ubuntu-18.04'
       run: unzip -d llvm Ubuntu1604_Release.zip
     - if: matrix.os == 'macOS-latest'
       run: wget https://github.com/WAVM/WAVM-LLVM/releases/download/12.x/MacOS_Release.zip
@@ -80,7 +80,7 @@ jobs:
   benchmark:
     strategy:
       matrix:
-        os: [ubuntu-16.04, windows-latest, macOS-latest]
+        os: [ubuntu-18.04, windows-latest, macOS-latest]
     runs-on: ${{ matrix.os }}
     steps:
     - uses: actions/checkout@v2
@@ -88,9 +88,9 @@ jobs:
       run: powershell.exe -NoP -NonI -Command "Invoke-WebRequest https://github.com/WAVM/WAVM-LLVM/releases/download/12.x/Win64_Release.zip -O Win64_Release.zip"
     - if: matrix.os == 'windows-latest'
       run: powershell.exe -NoP -NonI -Command "Expand-Archive '.\Win64_Release.zip' '.\llvm\'"
-    - if: matrix.os == 'ubuntu-16.04'
+    - if: matrix.os == 'ubuntu-18.04'
       run: wget https://github.com/WAVM/WAVM-LLVM/releases/download/12.x/Ubuntu1604_Release.zip
-    - if: matrix.os == 'ubuntu-16.04'
+    - if: matrix.os == 'ubuntu-18.04'
       run: unzip -d llvm Ubuntu1604_Release.zip
     - if: matrix.os == 'macOS-latest'
       run: wget https://github.com/WAVM/WAVM-LLVM/releases/download/12.x/MacOS_Release.zip

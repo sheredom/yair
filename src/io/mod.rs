@@ -1908,7 +1908,7 @@ impl<'a> Assembler<'a> {
 
 pub fn assemble(file: FileId, data: &str) -> Result<Context, Diagnostic> {
     let mut context = Context::new();
-    let assembler = Assembler::new(file, &data);
+    let assembler = Assembler::new(file, data);
 
     match assembler.build(&mut context) {
         Ok(_) => Ok(context),
@@ -2026,7 +2026,7 @@ fn write_if_constant(
             "      {} = const {} {}",
             value.get_displayer(context),
             value.get_type(context).get_displayer(context),
-            get_constant_literal(context, &value)
+            get_constant_literal(context, value)
         )?;
     }
 

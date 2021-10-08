@@ -13,10 +13,16 @@ args:
         help: What backend to use to JIT with
         takes_value: true
         default_value: "LLVM"
-    - job:
-        short: j
-        long: job
-        value_name: JOB
-        help: What job to JIT exceute
+    - function:
+        short: f
+        long: function
+        value_name: FUNCTION
+        help: What function to JIT exceute
         takes_value: true
         required: true
+    - gold:
+        short: g
+        long: gold
+        value_name: GOLD
+        help: The golden value that the result of the function must match
+        takes_value: true

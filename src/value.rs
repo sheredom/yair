@@ -111,7 +111,7 @@ impl Value {
     /// ```
     pub fn get_constant<'a>(&self, context: &'a Context) -> &'a Constant {
         match &context.values[self.0] {
-            ValuePayload::Constant(c) => &c,
+            ValuePayload::Constant(c) => c,
             _ => panic!("Cannot get the constant from a non-constant value"),
         }
     }
@@ -157,7 +157,7 @@ impl Value {
     /// ```
     pub fn get_inst<'a>(&self, context: &'a Context) -> &'a Instruction {
         match &context.values[self.0] {
-            ValuePayload::Instruction(i) => &i,
+            ValuePayload::Instruction(i) => i,
             _ => panic!("Cannot get the instruction from a non-instruction value"),
         }
     }
