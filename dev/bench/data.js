@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1633689201609,
+  "lastUpdate": 1633689270770,
   "repoUrl": "https://github.com/sheredom/yair",
   "entries": {
     "Rust Benchmark": [
@@ -2071,6 +2071,70 @@ window.BENCHMARK_DATA = {
             "name": "llvm__benchmarks__tests__bench_splat_adds",
             "value": 4631055,
             "range": "± 1032029",
+            "unit": "ns/iter"
+          }
+        ]
+      }
+    ],
+    "Rust Benchmark on ubuntu-18.04": [
+      {
+        "commit": {
+          "author": {
+            "name": "sheredom",
+            "username": "sheredom"
+          },
+          "committer": {
+            "name": "sheredom",
+            "username": "sheredom"
+          },
+          "id": "af5a3d2721d295ec8f0367bc26463ba374e7ea29",
+          "message": "Renaming all files from .ya to .yail.",
+          "timestamp": "2021-10-01T14:02:58Z",
+          "url": "https://github.com/sheredom/yair/pull/21/commits/af5a3d2721d295ec8f0367bc26463ba374e7ea29"
+        },
+        "date": 1633689270068,
+        "tool": "cargo",
+        "benches": [
+          {
+            "name": "io__benchmarks__tests__create_block",
+            "value": 48,
+            "range": "± 7",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "io__benchmarks__tests__create_function",
+            "value": 155,
+            "range": "± 7",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "io__benchmarks__tests__create_global",
+            "value": 148,
+            "range": "± 9",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "io__benchmarks__tests__create_instruction",
+            "value": 43,
+            "range": "± 4",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "io__benchmarks__tests__create_library",
+            "value": 291,
+            "range": "± 12",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "io__benchmarks__tests__create_module",
+            "value": 42,
+            "range": "± 7",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "llvm__benchmarks__tests__bench_splat_adds",
+            "value": 3060816,
+            "range": "± 110265",
             "unit": "ns/iter"
           }
         ]
