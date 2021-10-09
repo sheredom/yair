@@ -1,0 +1,9 @@
+// RUN: @compiler --emit yair @file
+// XFAIL:
+// CHECK: mod
+
+/* Some multi line // comment
+that span multiple
+lines */
+
+/*/ Make sure this is tested too */

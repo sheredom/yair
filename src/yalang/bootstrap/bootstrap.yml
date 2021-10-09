@@ -1,17 +1,17 @@
-name: yair-dis
+name: bootstrap
 version: "0.0.1"
-author: Neil Henning <sheredom@gmail.com>
-about: Disassemble a YAIR binary file (.yair) to a YAIR text file (.yail).
+author: Neil Henning <neil.henning@hey.com>
+about: Compile a .ya file.
 args:
     - input:
-        help: The input .yair file (or - for stdin)
+        help: The input .ya file (or - for stdin)
         required: true
         index: 1
     - output:
         short: o
         long: output
         value_name: FILE
-        help: Where to write the output disassembled .yail file (or - for stdout)
+        help: Where to write the output compiled file (or - for stdout)
         takes_value: true
         default_value: "-"
     - color:
@@ -21,3 +21,10 @@ args:
         takes_value: true
         default_value: "auto"
         possible_values: [ "auto", "always", "ansi", "never" ]
+    - emit:
+        long: emit
+        value_name: KIND
+        help: What kind of output to emit
+        takes_value: true
+        default_value: "native"
+        possible_values: [ "native", "yair" ]
