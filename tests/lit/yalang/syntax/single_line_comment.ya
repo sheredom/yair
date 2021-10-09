@@ -1,0 +1,5 @@
+// RUN: @compiler --emit yair @file
+// XFAIL:
+// CHECK: mod
+          
+// Some single line comment // this shouldn't matter /

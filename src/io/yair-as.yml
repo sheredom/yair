@@ -1,10 +1,10 @@
 name: yair-as
 version: "0.0.1"
 author: Neil Henning <sheredom@gmail.com>
-about: Assemble a YAIR text file (.ya) to a YAIR binary file (.yair).
+about: Assemble a YAIR text file (.yail) to a YAIR binary file (.yair).
 args:
     - input:
-        help: The input .ya file (or - for stdin)
+        help: The input .yail file (or - for stdin)
         required: true
         index: 1
     - output:

@@ -58,22 +58,15 @@ mod tests {
             .to_string()
     }
 
-    #[cfg(not(feature = "llvm"))]
-    fn add_yair_llvm(_: &mut lit::Config) {}
-
-    #[cfg(feature = "llvm")]
-    fn add_yair_llvm(config: &mut lit::Config) {
-        let yair_llvm_exe = bin_dir()
-            .join(format!("yair-llvm{}", env::consts::EXE_SUFFIX))
-            .to_str()
-            .unwrap()
-            .to_string();
-
-        config.add_search_path("tests/lit/llvm");
-
+    fn add_common(config: &mut lit::Config) {
         config
             .constants
-            .insert("yair_llvm".to_owned(), yair_llvm_exe);
+            .insert("arch".to_owned(), consts::ARCH.to_owned());
+        config
+            .constants
+            .insert("os".to_owned(), consts::OS.to_owned());
+
+        config.shell = lit_shell_exe();
     }
 
     #[test]
@@ -92,16 +85,69 @@ mod tests {
             config
                 .constants
                 .insert("yair_jit".to_owned(), yair_jit_exe());
+
+            add_common(config);
+        })
+        .expect("Lit tests failed");
+    }
+
+    #[cfg(feature = "llvm")]
+    fn yair_llvm_exe() -> String {
+        bin_dir()
+            .join(format!("yair-llvm{}", env::consts::EXE_SUFFIX))
+            .to_str()
+            .unwrap()
+            .to_string()
+    }
+
+    #[cfg(feature = "llvm")]
+    #[test]
+    fn llvm() {
+        lit::run::tests(lit::event_handler::Default::default(), |config| {
+            config.add_search_path("tests/lit/llvm");
+            config.add_extension("yail");
+
+            config.constants.insert("yair_as".to_owned(), yair_as_exe());
             config
                 .constants
-                .insert("arch".to_owned(), consts::ARCH.to_owned());
+                .insert("yair_dis".to_owned(), yair_dis_exe());
             config
                 .constants
-                .insert("os".to_owned(), consts::OS.to_owned());
+                .insert("yair_verify".to_owned(), yair_verify_exe());
+            config
+                .constants
+                .insert("yair_jit".to_owned(), yair_jit_exe());
 
-            add_yair_llvm(config);
+            config
+                .constants
+                .insert("yair_llvm".to_owned(), yair_llvm_exe());
 
-            config.shell = lit_shell_exe();
+            add_common(config);
+        })
+        .expect("Lit tests failed");
+    }
+
+    #[cfg(feature = "yalang")]
+    fn yalang_bootstrap_exe() -> String {
+        bin_dir()
+            .join(format!("bootstrap{}", env::consts::EXE_SUFFIX))
+            .to_str()
+            .unwrap()
+            .to_string()
+    }
+
+    #[cfg(feature = "yalang")]
+    #[test]
+    fn yalang_bootstrap() {
+        lit::run::tests(lit::event_handler::Default::default(), |config| {
+            config.add_search_path("tests/lit/yalang");
+            config.add_extension("ya");
+
+            config
+                .constants
+                .insert("compiler".to_owned(), yalang_bootstrap_exe());
+
+            add_common(config);
         })
         .expect("Lit tests failed");
     }
