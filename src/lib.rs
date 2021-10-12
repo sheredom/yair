@@ -133,7 +133,10 @@ impl<'a> std::fmt::Display for NameDisplayer<'a> {
         writer: &mut std::fmt::Formatter<'_>,
     ) -> std::result::Result<(), std::fmt::Error> {
         let name = self.name.as_str(self.context);
-        if name.chars().all(|c| c.is_ascii_alphanumeric() || c == '_') {
+
+        if name.is_empty() {
+            write!(writer, "\"\"")
+        } else if name.chars().all(|c| c.is_ascii_alphanumeric() || c == '_') {
             write!(writer, "{}", name)
         } else {
             write!(writer, "\"{}\"", name)
