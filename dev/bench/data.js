@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1634075789829,
+  "lastUpdate": 1634076053171,
   "repoUrl": "https://github.com/sheredom/yair",
   "entries": {
     "Rust Benchmark": [
@@ -3685,6 +3685,48 @@ window.BENCHMARK_DATA = {
             "name": "llvm__benchmarks__tests__bench_splat_adds",
             "value": 3214228,
             "range": "± 557250",
+            "unit": "ns/iter"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "611171+sheredom@users.noreply.github.com",
+            "name": "Neil Henning",
+            "username": "sheredom"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "a95dd9486755a9bad1f09a31bbcace0727d0fc25",
+          "message": "Merge pull request #23 from sheredom/yalang/parse-empty-function\n\nAdd empty function parsing to yalang.",
+          "timestamp": "2021-10-12T22:57:33+01:00",
+          "tree_id": "f4f57d958151ba7acc0242ce53abbdbfaca8e0cd",
+          "url": "https://github.com/sheredom/yair/commit/a95dd9486755a9bad1f09a31bbcace0727d0fc25"
+        },
+        "date": 1634076052387,
+        "tool": "cargo",
+        "benches": [
+          {
+            "name": "io__benchmarks__tests__create_block",
+            "value": 50,
+            "range": "± 6",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "io__benchmarks__tests__create_function",
+            "value": 148,
+            "range": "± 20",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "io__benchmarks__tests__create_global",
+            "value": 151,
+            "range": "± 8",
             "unit": "ns/iter"
           }
         ]
