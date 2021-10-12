@@ -425,7 +425,7 @@ impl<'a> FunctionBuilder<'a> {
     pub fn with_args(mut self, arguments: &[(&'a str, Type)]) -> Self {
         for argument in arguments {
             self.argument_names.push(argument.0);
-            self.argument_types.push(argument.1); 
+            self.argument_types.push(argument.1);
         }
         self
     }

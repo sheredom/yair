@@ -236,7 +236,7 @@ impl<'a> BlockBuilder<'a> {
     /// ```
     pub fn with_args(mut self, arguments: &[Type]) -> Self {
         for argument in arguments {
-            self.argument_types.push(*argument); 
+            self.argument_types.push(*argument);
         }
         self
     }

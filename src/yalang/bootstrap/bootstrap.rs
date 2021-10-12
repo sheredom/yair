@@ -6,7 +6,6 @@ extern crate codemap;
 use clap::App;
 use codemap::{CodeMap, Span};
 use std::collections::HashMap;
-use std::fmt;
 use std::fs::File;
 use std::io::Write;
 use std::io::{self, Read};
@@ -176,7 +175,7 @@ impl<'a> Parser<'a> {
             self.context.create_module().with_name(&self.module).build()
         };
 
-        let mut function = module
+        let function = module
             .create_function(self.context)
             .with_name(identifier)
             .with_return_type(return_ty)
@@ -189,7 +188,10 @@ impl<'a> Parser<'a> {
 
         self.skip_comments_or_whitespace()?;
 
-        let args: Vec<yair::Type> = function.get_args(self.context).map(|v| v.get_type(self.context)).collect();
+        let args: Vec<yair::Type> = function
+            .get_args(self.context)
+            .map(|v| v.get_type(self.context))
+            .collect();
 
         let mut builder = function.create_block(self.context);
 
@@ -200,7 +202,7 @@ impl<'a> Parser<'a> {
         let block = builder.build();
 
         let mut builder = block.create_instructions(self.context);
-        let mut paused = builder.pause_building();
+        let paused = builder.pause_building();
 
         loop {
             if self.is_char('}') {
@@ -258,7 +260,7 @@ impl<'a> Parser<'a> {
 
         self.skip_comments_or_whitespace()?;
 
-        let ty = self.parse_type(Some(&identifier))?;
+        let _ty = self.parse_type(Some(&identifier))?;
 
         self.skip_comments_or_whitespace()?;
 
@@ -282,7 +284,6 @@ impl<'a> Parser<'a> {
                 )?;
                 span
             }
-            _ => todo!(),
         };
 
         let location = self.codemap.look_up_span(span);
