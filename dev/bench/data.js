@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1634076064314,
+  "lastUpdate": 1634076286516,
   "repoUrl": "https://github.com/sheredom/yair",
   "entries": {
     "Rust Benchmark": [
@@ -3207,6 +3207,72 @@ window.BENCHMARK_DATA = {
             "name": "llvm__benchmarks__tests__bench_splat_adds",
             "value": 4652075,
             "range": "± 517338",
+            "unit": "ns/iter"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "611171+sheredom@users.noreply.github.com",
+            "name": "Neil Henning",
+            "username": "sheredom"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "a95dd9486755a9bad1f09a31bbcace0727d0fc25",
+          "message": "Merge pull request #23 from sheredom/yalang/parse-empty-function\n\nAdd empty function parsing to yalang.",
+          "timestamp": "2021-10-12T22:57:33+01:00",
+          "tree_id": "f4f57d958151ba7acc0242ce53abbdbfaca8e0cd",
+          "url": "https://github.com/sheredom/yair/commit/a95dd9486755a9bad1f09a31bbcace0727d0fc25"
+        },
+        "date": 1634076281742,
+        "tool": "cargo",
+        "benches": [
+          {
+            "name": "io__benchmarks__tests__create_block",
+            "value": 58,
+            "range": "± 16",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "io__benchmarks__tests__create_function",
+            "value": 233,
+            "range": "± 50",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "io__benchmarks__tests__create_global",
+            "value": 228,
+            "range": "± 42",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "io__benchmarks__tests__create_instruction",
+            "value": 53,
+            "range": "± 14",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "io__benchmarks__tests__create_library",
+            "value": 719,
+            "range": "± 167",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "io__benchmarks__tests__create_module",
+            "value": 55,
+            "range": "± 18",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "llvm__benchmarks__tests__bench_splat_adds",
+            "value": 4598880,
+            "range": "± 902556",
             "unit": "ns/iter"
           }
         ]
