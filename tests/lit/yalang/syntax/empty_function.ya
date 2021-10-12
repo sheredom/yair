@@ -1,0 +1,9 @@
+// RUN: @compiler --emit yair @file
+// CHECK: mod "" {
+// CHECK: fn func() : void {
+// CHECK:   b0():
+// CHECK:     ret !"/Users/neil/Code/yair/tests/lit/yalang/syntax/empty_function.ya":9:26
+// CHECK:   }
+// CHECK: }
+ 
+func : function() : void {}

@@ -317,6 +317,13 @@ impl Function {
     }
 }
 
+impl Typed for Function {
+    fn get_type(&self, context: &Context) -> Type {
+        let function = &context.functions[self.0];
+        function.function_type
+    }
+}
+
 pub struct FunctionBuilder<'a> {
     context: &'a mut Context,
     module: Module,
@@ -397,6 +404,29 @@ impl<'a> FunctionBuilder<'a> {
     pub fn with_arg(mut self, argument_name: &'a str, argument_type: Type) -> Self {
         self.argument_names.push(argument_name);
         self.argument_types.push(argument_type);
+        self
+    }
+
+    /// Add many arguments to a function.
+    ///
+    /// The default is no argument types.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # use yair::*;
+    /// # let mut context = Context::new();
+    /// # let module = context.create_module().build();
+    /// # let i8_ty = context.get_int_type(8);
+    /// # let u32_ty = context.get_uint_type(32);
+    /// # let function_builder = module.create_function(&mut context);
+    /// function_builder.with_args(&[("a", i8_ty), ("b", u32_ty)]);
+    /// ```
+    pub fn with_args(mut self, arguments: &[(&'a str, Type)]) -> Self {
+        for argument in arguments {
+            self.argument_names.push(argument.0);
+            self.argument_types.push(argument.1); 
+        }
         self
     }
 

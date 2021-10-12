@@ -218,6 +218,29 @@ impl<'a> BlockBuilder<'a> {
         self
     }
 
+    /// Add many arguments to a function.
+    ///
+    /// The default is no argument types.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # use yair::*;
+    /// # let mut context = Context::new();
+    /// # let module = context.create_module().build();
+    /// # let function = module.create_function(&mut context).with_name("func").build();
+    /// # let i8_ty = context.get_int_type(8);
+    /// # let u32_ty = context.get_uint_type(32);
+    /// # let block_builder = function.create_block(&mut context);
+    /// block_builder.with_args(&[i8_ty, u32_ty]);
+    /// ```
+    pub fn with_args(mut self, arguments: &[Type]) -> Self {
+        for argument in arguments {
+            self.argument_types.push(*argument); 
+        }
+        self
+    }
+
     /// Finalize and build the block.
     ///
     /// # Examples

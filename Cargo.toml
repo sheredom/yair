@@ -70,5 +70,5 @@ required-features = ["io"]
 
 [[bin]]
 name = "bootstrap"
-path = "src/yalang/bootstrap/bin.rs"
+path = "src/yalang/bootstrap/bootstrap.rs"
 required-features = ["yalang"]
