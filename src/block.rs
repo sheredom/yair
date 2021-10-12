@@ -218,7 +218,7 @@ impl<'a> BlockBuilder<'a> {
         self
     }
 
-    /// Add many arguments to a function.
+    /// Add many arguments to a block.
     ///
     /// The default is no argument types.
     ///
