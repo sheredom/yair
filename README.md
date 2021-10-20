@@ -1,10 +1,10 @@
-# 🦉 yair
+# 🦜 yair
 
 [![Actions Status](https://github.com/sheredom/yair/workflows/Rust/badge.svg)](https://github.com/sheredom/yair/actions)
 [![Crates.io](https://img.shields.io/crates/v/yair.svg)](https://crates.io/crates/yair)
 [![API Docs](https://docs.rs/mio/badge.svg)](https://docs.rs/yair)
 
-**Y**et **A**nother **I**ntermediate **R**epresentation (pronounced Ya! IR) is a compiler intermediate representation written entirely in Rust. Key design decisions make the representation unique:
+**Y**et **A**nother **I**ntermediate **R**epresentation (pronounced Yarrrr! (like a pirate!)) is a compiler intermediate representation written entirely in Rust. Key design decisions make the representation unique:
 
 - Single Static Assignment representation [\[1\]](#References-1).
 - No Φ (phi) nodes, basic blocks take arguments instead [\[2\]](#References-2).
