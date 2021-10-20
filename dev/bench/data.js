@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1634196598166,
+  "lastUpdate": 1634744968269,
   "repoUrl": "https://github.com/sheredom/yair",
   "entries": {
     "Rust Benchmark": [
@@ -4243,6 +4243,44 @@ window.BENCHMARK_DATA = {
             "name": "llvm__benchmarks__tests__bench_splat_adds",
             "value": 3056804,
             "range": "± 295818",
+            "unit": "ns/iter"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "sheredom",
+            "username": "sheredom"
+          },
+          "committer": {
+            "name": "sheredom",
+            "username": "sheredom"
+          },
+          "id": "bbecc38e4c0ff63b7baba710df907ef9b02eec6d",
+          "message": "Use logos for lexing to clean up the code a lot.",
+          "timestamp": "2021-10-14T07:19:34Z",
+          "url": "https://github.com/sheredom/yair/pull/25/commits/bbecc38e4c0ff63b7baba710df907ef9b02eec6d"
+        },
+        "date": 1634744967510,
+        "tool": "cargo",
+        "benches": [
+          {
+            "name": "io__benchmarks__tests__create_block",
+            "value": 38,
+            "range": "± 26",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "io__benchmarks__tests__create_function",
+            "value": 134,
+            "range": "± 4",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "io__benchmarks__tests__create_global",
+            "value": 120,
+            "range": "± 36",
             "unit": "ns/iter"
           }
         ]
