@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1634745535436,
+  "lastUpdate": 1634745659891,
   "repoUrl": "https://github.com/sheredom/yair",
   "entries": {
     "Rust Benchmark": [
@@ -4467,6 +4467,68 @@ window.BENCHMARK_DATA = {
             "name": "io__benchmarks__tests__create_global",
             "value": 120,
             "range": "± 36",
+            "unit": "ns/iter"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "sheredom",
+            "username": "sheredom"
+          },
+          "committer": {
+            "name": "sheredom",
+            "username": "sheredom"
+          },
+          "id": "044b45cd787f5981705c53505faebcd898c2c5c9",
+          "message": "Use logos for lexing to clean up the code a lot.",
+          "timestamp": "2021-10-14T07:19:34Z",
+          "url": "https://github.com/sheredom/yair/pull/25/commits/044b45cd787f5981705c53505faebcd898c2c5c9"
+        },
+        "date": 1634745658620,
+        "tool": "cargo",
+        "benches": [
+          {
+            "name": "io__benchmarks__tests__create_block",
+            "value": 61,
+            "range": "± 8",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "io__benchmarks__tests__create_function",
+            "value": 189,
+            "range": "± 84",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "io__benchmarks__tests__create_global",
+            "value": 156,
+            "range": "± 50",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "io__benchmarks__tests__create_instruction",
+            "value": 56,
+            "range": "± 27",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "io__benchmarks__tests__create_library",
+            "value": 304,
+            "range": "± 84",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "io__benchmarks__tests__create_module",
+            "value": 56,
+            "range": "± 26",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "llvm__benchmarks__tests__bench_splat_adds",
+            "value": 3593293,
+            "range": "± 1071599",
             "unit": "ns/iter"
           }
         ]
