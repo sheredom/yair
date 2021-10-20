@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1634759004187,
+  "lastUpdate": 1634759240268,
   "repoUrl": "https://github.com/sheredom/yair",
   "entries": {
     "Rust Benchmark": [
@@ -4223,6 +4223,72 @@ window.BENCHMARK_DATA = {
             "name": "llvm__benchmarks__tests__bench_splat_adds",
             "value": 4455925,
             "range": "± 500063",
+            "unit": "ns/iter"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "611171+sheredom@users.noreply.github.com",
+            "name": "Neil Henning",
+            "username": "sheredom"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "3fe7b23ec5c920ae835fdeabdc91d20591a67183",
+          "message": "Merge pull request #26 from sheredom/feature/pirate-themed-logo\n\nHow did I miss that you could pronounce YAIR like a pirate - changing the mascot of the project to a parrot.",
+          "timestamp": "2021-10-20T20:40:01+01:00",
+          "tree_id": "c4d9d43941a5fb2e9f6c9cbd7f7fc0f941746189",
+          "url": "https://github.com/sheredom/yair/commit/3fe7b23ec5c920ae835fdeabdc91d20591a67183"
+        },
+        "date": 1634759235218,
+        "tool": "cargo",
+        "benches": [
+          {
+            "name": "io__benchmarks__tests__create_block",
+            "value": 57,
+            "range": "± 12",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "io__benchmarks__tests__create_function",
+            "value": 235,
+            "range": "± 50",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "io__benchmarks__tests__create_global",
+            "value": 250,
+            "range": "± 43",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "io__benchmarks__tests__create_instruction",
+            "value": 50,
+            "range": "± 14",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "io__benchmarks__tests__create_library",
+            "value": 695,
+            "range": "± 89",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "io__benchmarks__tests__create_module",
+            "value": 52,
+            "range": "± 7",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "llvm__benchmarks__tests__bench_splat_adds",
+            "value": 4460350,
+            "range": "± 607128",
             "unit": "ns/iter"
           }
         ]
