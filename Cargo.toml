@@ -20,6 +20,7 @@ codespan-reporting = { version = "0.7.0", optional = true }
 duct = { version = "0.13.4", optional = true }
 rmp-serde = { version = "0.15.1", optional = true }
 codemap = { version = "0.1.3", optional = true }
+logos = { version = "0.12.0", optional = true }
 
 llvm-sys = { version = "110.0.1", features = ["no-llvm-linking"], optional = true }
 libc = { version = "0.2.92", optional = true }
@@ -34,7 +35,7 @@ lit = "1.0.3"
 io = ["clap", "codespan", "codespan-reporting", "duct", "rmp-serde"]
 llvm = ["llvm-sys", "libc"]
 lld = ["llvm"]
-yalang = ["io", "codemap"]
+yalang = ["io", "codemap", "logos"]
 nightly = []
 default = ["io"]
 
