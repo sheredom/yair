@@ -40,8 +40,8 @@ enum Token {
     #[regex("[_a-zA-Z][_a-zA-Z0-9]*")]
     Identifier,
 
-    #[regex("[1-9][0-9]*")]
-    Integer,
+    #[regex("[+-]?([0-9]+([.][0-9]*)?([eE][+-]?[0-9]+)?|[.][0-9]+([eE][+-]?[0-9]+)?)")]
+    Float,
 
     // Logos requires one token variant to handle errors,
     // it can be named anything you wish.
@@ -107,8 +107,8 @@ impl<'a> Parser<'a> {
         ty: Type,
         context: &mut yair::Context,
     ) -> Result<yair::Value, ParseError> {
-        if ty.is_integral(context) {
-            self.expect_symbol(Token::Integer)?;
+        if ty.is_int(context) {
+            self.expect_symbol(Token::Float)?;
 
             let str = self.lexer.slice();
 
@@ -116,6 +116,32 @@ impl<'a> Parser<'a> {
                 let bits = ty.get_bits(context) as u8;
 
                 Ok(context.get_int_constant(bits, i))
+            } else {
+                // Make an error for this
+                todo!();
+            }
+        } else if ty.is_uint(context) {
+            self.expect_symbol(Token::Float)?;
+
+            let str = self.lexer.slice();
+
+            if let Ok(i) = str.parse::<u64>() {
+                let bits = ty.get_bits(context) as u8;
+
+                Ok(context.get_uint_constant(bits, i))
+            } else {
+                // Make an error for this
+                todo!();
+            }
+        } else if ty.is_float(context) {
+            self.expect_symbol(Token::Float)?;
+
+            let str = self.lexer.slice();
+
+            if let Ok(i) = str.parse::<f64>() {
+                let bits = ty.get_bits(context) as u8;
+
+                Ok(context.get_float_constant(bits, i))
             } else {
                 // Make an error for this
                 todo!();
@@ -140,10 +166,9 @@ impl<'a> Parser<'a> {
     fn parse_expression(
         &mut self,
         ty: Type,
-        context: &mut yair::Context,
-        _paused: &mut PausedInstructionBuilder,
+        builder: &mut InstructionBuilder,
     ) -> Result<yair::Value, ParseError> {
-        let val = self.parse_constant(ty, context)?;
+        let val = self.parse_constant(ty, builder.borrow_context())?;
 
         Ok(val)
     }
@@ -210,22 +235,16 @@ impl<'a> Parser<'a> {
             match self.lexer.next() {
                 Some(Token::RCurly) => {
                     if return_is_void {
-                        let paused = builder.pause_building();
-                        let location = self.get_location(context);
-                        builder = InstructionBuilder::resume_building(context, paused);
+                        let location = self.get_location(builder.borrow_context());
                         builder.ret(location);
                     }
 
                     break;
                 }
                 Some(Token::Return) => {
-                    let mut paused = builder.pause_building();
-                    let expr = self.parse_expression(return_ty, context, &mut paused)?;
-                    builder = InstructionBuilder::resume_building(context, paused);
+                    let expr = self.parse_expression(return_ty, &mut builder)?;
 
-                    let paused = builder.pause_building();
-                    let location = self.get_location(context);
-                    builder = InstructionBuilder::resume_building(context, paused);
+                    let location = self.get_location(builder.borrow_context());
                     builder.ret_val(expr, location);
 
                     // TODO: This is a total bodge to make the borrow checker happy. Maybe consider adding a Default::default() to the builder for these cases?
