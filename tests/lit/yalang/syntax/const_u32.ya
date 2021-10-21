@@ -1,0 +1,12 @@
+// RUN: @compiler --emit yair @file
+// CHECK: mod "" {
+// CHECK: fn func() : u32 {
+// CHECK:   b0():
+// CHECK:     v0 = const u32 42
+// CHECK:     ret v0
+// CHECK:   }
+// CHECK: }
+ 
+func : function() : u32 {
+    return 42;
+}
