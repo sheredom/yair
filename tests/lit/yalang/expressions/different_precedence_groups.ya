@@ -1,0 +1,9 @@
+// RUN: @compiler --emit yair @file
+
+// CHECK: Operators '+' and '&' are in different precedence groups
+// CHECK: different_precedence_groups.ya:8:15
+// CHECK: different_precedence_groups.ya:8:20
+
+func : function() : i8 {
+    return 42 + 13 & 4;
+}
