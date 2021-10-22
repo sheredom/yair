@@ -1,0 +1,14 @@
+// RUN: @compiler --emit yair @file
+// CHECK: mod "" {
+// CHECK: fn func() : i16 {
+// CHECK:   b0():
+// CHECK:     v0 = const i16 42
+// CHECK:     v1 = const i16 13
+// CHECK:     v2 = div v0, v1
+// CHECK:     ret v2
+// CHECK:   }
+// CHECK: }
+ 
+func : function() : i16 {
+    return 42 / 13;
+}
