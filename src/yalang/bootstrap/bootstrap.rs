@@ -14,7 +14,20 @@ use std::sync::Arc;
 use yair::io::*;
 use yair::*;
 
-#[derive(Logos, Debug, PartialEq)]
+#[derive(PartialEq, Eq)]
+enum PrecedenceGroup {
+    Arithmetic,
+}
+
+fn get_precedence(x: Token) -> (PrecedenceGroup, u8) {
+    match x {
+        Token::Mul | Token::Div | Token::Mod => (PrecedenceGroup::Arithmetic, 0),
+        Token::Add | Token::Sub => (PrecedenceGroup::Arithmetic, 1),
+        _ => todo!(),
+    }
+}
+
+#[derive(Logos, Copy, Clone, Debug, PartialEq)]
 enum Token {
     #[token("return")]
     Return,
@@ -36,6 +49,21 @@ enum Token {
 
     #[token(")")]
     RParen,
+
+    #[token("+")]
+    Add,
+
+    #[token("-")]
+    Sub,
+
+    #[token("*")]
+    Mul,
+
+    #[token("/")]
+    Div,
+
+    #[token("%")]
+    Mod,
 
     #[regex("[_a-zA-Z][_a-zA-Z0-9]*")]
     Identifier,
@@ -60,6 +88,8 @@ type Range = std::ops::Range<usize>;
 enum ParseError {
     UnexpectedEndOfFile,
     ExpectedTokenNotFound(Token, Range),
+    InvalidExpression(Range),
+    OperatorsInDifferentPrecedenceGroups(Range, Token, Range, Token),
 }
 
 #[allow(dead_code)]
@@ -86,10 +116,18 @@ impl<'a> Parser<'a> {
         }
     }
 
-    fn get_location(&mut self, context: &mut yair::Context) -> Option<yair::Location> {
-        let span = self.file.span;
-
+    fn get_current_location(&mut self, context: &mut yair::Context) -> Option<yair::Location> {
         let range = self.lexer.span();
+
+        self.get_location(range, context)
+    }
+
+    fn get_location(
+        &mut self,
+        range: Range,
+        context: &mut yair::Context,
+    ) -> Option<yair::Location> {
+        let span = self.file.span;
 
         let span = span.subspan(range.start as u64, range.end as u64);
 
@@ -108,8 +146,6 @@ impl<'a> Parser<'a> {
         context: &mut yair::Context,
     ) -> Result<yair::Value, ParseError> {
         if ty.is_int(context) {
-            self.expect_symbol(Token::Float)?;
-
             let str = self.lexer.slice();
 
             if let Ok(i) = str.parse::<i64>() {
@@ -121,8 +157,6 @@ impl<'a> Parser<'a> {
                 todo!();
             }
         } else if ty.is_uint(context) {
-            self.expect_symbol(Token::Float)?;
-
             let str = self.lexer.slice();
 
             if let Ok(i) = str.parse::<u64>() {
@@ -134,8 +168,6 @@ impl<'a> Parser<'a> {
                 todo!();
             }
         } else if ty.is_float(context) {
-            self.expect_symbol(Token::Float)?;
-
             let str = self.lexer.slice();
 
             if let Ok(i) = str.parse::<f64>() {
@@ -163,14 +195,133 @@ impl<'a> Parser<'a> {
         }
     }
 
+    fn apply(
+        &mut self,
+        operand_stack: &mut Vec<(Range, yair::Value)>,
+        operator_stack: &mut Vec<(Range, Token)>,
+        builder: &mut InstructionBuilder,
+    ) -> Result<(), ParseError> {
+        let y = operand_stack.pop().unwrap();
+        let x = operand_stack.pop().unwrap();
+
+        let op = if let Some(op) = operator_stack.pop() {
+            op
+        } else {
+            // No operator between operands `42 13`
+            return Err(ParseError::InvalidExpression(y.0));
+        };
+
+        let location = self.get_location(op.0.clone(), builder.borrow_context());
+
+        let expr = match op.1 {
+            Token::Add => builder.add(x.1, y.1, location),
+            Token::Sub => builder.sub(x.1, y.1, location),
+            Token::Mul => builder.mul(x.1, y.1, location),
+            Token::Div => builder.div(x.1, y.1, location),
+            Token::Mod => builder.rem(x.1, y.1, location),
+            _ => todo!(),
+        };
+
+        operand_stack.push((op.0, expr));
+
+        Ok(())
+    }
+
+    fn apply_if_lower_precedence_and_push_operator(
+        &mut self,
+        x: (Range, Token),
+        operand_stack: &mut Vec<(Range, yair::Value)>,
+        operator_stack: &mut Vec<(Range, Token)>,
+        builder: &mut InstructionBuilder,
+    ) -> Result<(), ParseError> {
+        let x_precedence = get_precedence(x.1);
+
+        while !operator_stack.is_empty() {
+            let y = operator_stack.last().unwrap();
+
+            let y_precedence = get_precedence(y.1);
+
+            if x_precedence.0 != y_precedence.0 {
+                return Err(ParseError::OperatorsInDifferentPrecedenceGroups(
+                    y.0.clone(),
+                    y.1,
+                    x.0.clone(),
+                    x.1,
+                ));
+            }
+
+            if x_precedence.1 < y_precedence.1 {
+                break;
+            }
+
+            self.apply(operand_stack, operator_stack, builder)?;
+        }
+
+        operator_stack.push(x);
+
+        Ok(())
+    }
+
     fn parse_expression(
         &mut self,
         ty: Type,
         builder: &mut InstructionBuilder,
     ) -> Result<yair::Value, ParseError> {
-        let val = self.parse_constant(ty, builder.borrow_context())?;
+        let mut operand_stack = Vec::new();
+        let mut operator_stack = Vec::new();
 
-        Ok(val)
+        loop {
+            match self.lexer.next() {
+                Some(Token::Float) => operand_stack.push((
+                    self.lexer.span(),
+                    self.parse_constant(ty, builder.borrow_context())?,
+                )),
+                Some(Token::Add) => self.apply_if_lower_precedence_and_push_operator(
+                    (self.lexer.span(), Token::Add),
+                    &mut operand_stack,
+                    &mut &mut operator_stack,
+                    builder,
+                )?,
+                Some(Token::Sub) => self.apply_if_lower_precedence_and_push_operator(
+                    (self.lexer.span(), Token::Sub),
+                    &mut operand_stack,
+                    &mut &mut operator_stack,
+                    builder,
+                )?,
+                Some(Token::Mul) => self.apply_if_lower_precedence_and_push_operator(
+                    (self.lexer.span(), Token::Mul),
+                    &mut operand_stack,
+                    &mut &mut operator_stack,
+                    builder,
+                )?,
+                Some(Token::Div) => self.apply_if_lower_precedence_and_push_operator(
+                    (self.lexer.span(), Token::Div),
+                    &mut operand_stack,
+                    &mut &mut operator_stack,
+                    builder,
+                )?,
+                Some(Token::Mod) => self.apply_if_lower_precedence_and_push_operator(
+                    (self.lexer.span(), Token::Mod),
+                    &mut operand_stack,
+                    &mut &mut operator_stack,
+                    builder,
+                )?,
+                Some(Token::Semicolon) => break,
+                Some(_) => todo!(),
+                None => todo!(),
+            }
+        }
+
+        // Handle the case where an expression is malformed like `foo=;`
+        if operand_stack.is_empty() {
+            return Err(ParseError::InvalidExpression(self.lexer.span()));
+        }
+
+        while operand_stack.len() != 1 {
+            self.apply(&mut operand_stack, &mut operator_stack, builder)?;
+        }
+
+        Ok(operand_stack.pop().unwrap().1)
     }
 
     fn parse_function(
@@ -235,22 +386,21 @@ impl<'a> Parser<'a> {
             match self.lexer.next() {
                 Some(Token::RCurly) => {
                     if return_is_void {
-                        let location = self.get_location(builder.borrow_context());
+                        let location = self.get_current_location(builder.borrow_context());
                         builder.ret(location);
                     }
 
                     break;
                 }
                 Some(Token::Return) => {
+                    let location = self.get_current_location(builder.borrow_context());
+
                     let expr = self.parse_expression(return_ty, &mut builder)?;
 
-                    let location = self.get_location(builder.borrow_context());
                     builder.ret_val(expr, location);
 
                     // TODO: This is a total bodge to make the borrow checker happy. Maybe consider adding a Default::default() to the builder for these cases?
                     builder = block.create_instructions(context);
-
-                    self.expect_symbol(Token::Semicolon)?;
                 }
                 Some(_) =>
                 /* Handle other statements */
@@ -324,9 +474,52 @@ impl<'a> Parser<'a> {
                 writeln!(fmt, "error: Unexpected end of file")?;
                 (data.len() - 1)..data.len()
             }
-            ParseError::ExpectedTokenNotFound(token, range) => {
-                writeln!(fmt, "error: Expected token '{:?}' not found", token)?;
+            ParseError::ExpectedTokenNotFound(_, range) => {
+                let span = self.file.span;
+
+                let span = span.subspan(range.start as u64, range.end as u64);
+
+                let str = self.file.source_slice(span);
+
+                writeln!(fmt, "error: Expected token '{}' not found", str)?;
                 range
+            }
+            ParseError::InvalidExpression(range) => {
+                writeln!(fmt, "error: Invalid expression")?;
+                range
+            }
+            ParseError::OperatorsInDifferentPrecedenceGroups(x_range, _, y_range, _) => {
+                let span = self.file.span;
+                let span = span.subspan(x_range.start as u64, x_range.end as u64);
+                let x_str = self.file.source_slice(span);
+
+                let span = self.file.span;
+                let span = span.subspan(y_range.start as u64, y_range.end as u64);
+                let y_str = self.file.source_slice(span);
+
+                writeln!(
+                    fmt,
+                    "error: Operators '{}' and '{}' are in different precedence groups",
+                    x_str, y_str
+                )?;
+
+                let span = self.file.span;
+
+                let span = span.subspan(x_range.start as u64, x_range.end as u64);
+
+                let location = self.codemap.look_up_span(span);
+
+                writeln!(
+                    fmt,
+                    "{}:{}:{}",
+                    location.file.name(),
+                    location.begin.line + 1,
+                    location.begin.column + 1
+                )?;
+
+                writeln!(fmt, "and:")?;
+
+                y_range
             }
         };
 

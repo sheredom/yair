@@ -1,0 +1,18 @@
+// RUN: @compiler --emit yair @file
+// CHECK: mod "" {
+// CHECK: fn func() : u32 {
+// CHECK:   b0():
+// CHECK:     v0 = const u32 42
+// CHECK:     v1 = const u32 13
+// CHECK:     v2 = mul v0, v1
+// CHECK:     v3 = const u32 4
+// CHECK:     v4 = const u32 53
+// CHECK:     v5 = div v3, v4
+// CHECK:     v6 = add v2, v5
+// CHECK:     ret v6
+// CHECK:   }
+// CHECK: }
+ 
+func : function() : u32 {
+    return 42 * 13 + 4 / 53;
+}
