@@ -17,12 +17,16 @@ use yair::*;
 #[derive(PartialEq, Eq)]
 enum PrecedenceGroup {
     Arithmetic,
+    Bitwise,
 }
 
 fn get_precedence(x: Token) -> (PrecedenceGroup, u8) {
     match x {
         Token::Mul | Token::Div | Token::Mod => (PrecedenceGroup::Arithmetic, 0),
         Token::Add | Token::Sub => (PrecedenceGroup::Arithmetic, 1),
+        Token::And => (PrecedenceGroup::Bitwise, 0),
+        Token::Or => (PrecedenceGroup::Bitwise, 1),
+        Token::Xor => (PrecedenceGroup::Bitwise, 2),
         _ => todo!(),
     }
 }
@@ -64,6 +68,15 @@ enum Token {
 
     #[token("%")]
     Mod,
+
+    #[token("&")]
+    And,
+
+    #[token("|")]
+    Or,
+
+    #[token("^")]
+    Xor,
 
     #[regex("[_a-zA-Z][_a-zA-Z0-9]*")]
     Identifier,
@@ -219,6 +232,9 @@ impl<'a> Parser<'a> {
             Token::Mul => builder.mul(x.1, y.1, location),
             Token::Div => builder.div(x.1, y.1, location),
             Token::Mod => builder.rem(x.1, y.1, location),
+            Token::And => builder.and(x.1, y.1, location),
+            Token::Or => builder.or(x.1, y.1, location),
+            Token::Xor => builder.xor(x.1, y.1, location),
             _ => todo!(),
         };
 
@@ -302,6 +318,24 @@ impl<'a> Parser<'a> {
                 )?,
                 Some(Token::Mod) => self.apply_if_lower_precedence_and_push_operator(
                     (self.lexer.span(), Token::Mod),
+                    &mut operand_stack,
+                    &mut &mut operator_stack,
+                    builder,
+                )?,
+                Some(Token::And) => self.apply_if_lower_precedence_and_push_operator(
+                    (self.lexer.span(), Token::And),
+                    &mut operand_stack,
+                    &mut &mut operator_stack,
+                    builder,
+                )?,
+                Some(Token::Or) => self.apply_if_lower_precedence_and_push_operator(
+                    (self.lexer.span(), Token::Or),
+                    &mut operand_stack,
+                    &mut &mut operator_stack,
+                    builder,
+                )?,
+                Some(Token::Xor) => self.apply_if_lower_precedence_and_push_operator(
+                    (self.lexer.span(), Token::Xor),
                     &mut operand_stack,
                     &mut &mut operator_stack,
                     builder,
@@ -517,7 +551,21 @@ impl<'a> Parser<'a> {
                     location.begin.column + 1
                 )?;
 
-                writeln!(fmt, "and:")?;
+                let span = self.file.span;
+
+                let span = span.subspan(x_range.start as u64, x_range.end as u64);
+
+                let pos = span.low();
+
+                let line = self.file.find_line(pos);
+
+                let str = self.file.source_line(line);
+
+                writeln!(fmt, "  {}", str)?;
+
+                let line_col = self.file.find_line_col(pos);
+
+                writeln!(fmt, "  {}^", " ".repeat(line_col.column))?;
 
                 y_range
             }
@@ -537,9 +585,17 @@ impl<'a> Parser<'a> {
             location.begin.column + 1
         )?;
 
-        let str = self.file.source_slice(span);
+        let pos = span.low();
 
-        writeln!(fmt, "{}", str)?;
+        let line = self.file.find_line(pos);
+
+        let str = self.file.source_line(line);
+
+        writeln!(fmt, "  {}", str)?;
+
+        let line_col = self.file.find_line_col(pos);
+
+        writeln!(fmt, "  {}^", " ".repeat(line_col.column))?;
 
         Ok(())
     }
