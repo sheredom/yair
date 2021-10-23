@@ -2,17 +2,17 @@
 // CHECK: mod "" {
 // CHECK: fn func() : u32 {
 // CHECK:   b0():
-// CHECK:     v0 = const u32 42
-// CHECK:     v1 = const u32 13
-// CHECK:     v2 = mul v0, v1
-// CHECK:     v3 = const u32 4
-// CHECK:     v4 = const u32 53
-// CHECK:     v5 = div v3, v4
-// CHECK:     v6 = add v2, v5
-// CHECK:     ret v6
+// CHECK:     [[a:\w+]] = const u32 42
+// CHECK:     [[b:\w+]] = const u32 13
+// CHECK:     [[ab:\w+]] = mul $$a, $$b
+// CHECK:     [[c:\w+]] = const u32 4
+// CHECK:     [[d:\w+]] = const u32 53
+// CHECK:     [[cd:\w+]] = div $$c, $$d
+// CHECK:     [[result:\w+]] = add $$ab, $$cd
+// CHECK:     ret $$result
 // CHECK:   }
 // CHECK: }
  
 func : function() : u32 {
-    return 42 * 13 + 4 / 53;
+    return (42 as u32) * 13 + (4 as u32) / 53;
 }

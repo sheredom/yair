@@ -22,6 +22,7 @@
     - Calling a function in a conflicting domain (call GPU from CPU).
   - Maybe restrict variables to non-any non-gpu?
     - At the least we should have some form of thread_local (shared) variables, and cpu globals too. But any else doesn't really make sense I think?
+  - Check for casts to the same type as the value.
 - Add a cranelift code generation library.
 - Add an optimizer!
 - Explain the syntax of the IR:

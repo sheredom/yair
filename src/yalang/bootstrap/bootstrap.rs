@@ -18,6 +18,21 @@ use yair::*;
 enum PrecedenceGroup {
     Arithmetic,
     Bitwise,
+    Cast,
+    Parenthesis,
+}
+
+#[derive(Debug)]
+enum OperandKind {
+    Concrete(yair::Value),
+    Float(f64),
+    Integer(u64),
+}
+
+#[derive(Debug)]
+struct Operand {
+    range: Range,
+    kind: OperandKind,
 }
 
 fn get_precedence(x: Token) -> (PrecedenceGroup, u8) {
@@ -27,8 +42,18 @@ fn get_precedence(x: Token) -> (PrecedenceGroup, u8) {
         Token::And => (PrecedenceGroup::Bitwise, 0),
         Token::Or => (PrecedenceGroup::Bitwise, 1),
         Token::Xor => (PrecedenceGroup::Bitwise, 2),
+        Token::As => (PrecedenceGroup::Cast, 0),
+        Token::LParen | Token::RParen => (PrecedenceGroup::Parenthesis, u8::MAX),
         _ => todo!(),
     }
+}
+
+fn is_unary(x: Token) -> bool {
+    matches!(x, Token::As)
+    /*match x {
+        Token::As => true,
+        _ => false,
+    }*/
 }
 
 #[derive(Logos, Copy, Clone, Debug, PartialEq)]
@@ -78,8 +103,14 @@ enum Token {
     #[token("^")]
     Xor,
 
+    #[token("as")]
+    As,
+
     #[regex("[_a-zA-Z][_a-zA-Z0-9]*")]
     Identifier,
+
+    #[regex("[1-9][0-9]*", priority = 2)]
+    Integer,
 
     #[regex("[+-]?([0-9]+([.][0-9]*)?([eE][+-]?[0-9]+)?|[.][0-9]+([eE][+-]?[0-9]+)?)")]
     Float,
@@ -103,6 +134,8 @@ enum ParseError {
     ExpectedTokenNotFound(Token, Range),
     InvalidExpression(Range),
     OperatorsInDifferentPrecedenceGroups(Range, Token, Range, Token),
+    TypesDoNotMatch(Range, yair::Type, Range, yair::Type),
+    InvalidNonConcreteConstantsUsed(Range, Range),
 }
 
 #[allow(dead_code)]
@@ -153,49 +186,6 @@ impl<'a> Parser<'a> {
         ))
     }
 
-    fn parse_constant(
-        &mut self,
-        ty: Type,
-        context: &mut yair::Context,
-    ) -> Result<yair::Value, ParseError> {
-        if ty.is_int(context) {
-            let str = self.lexer.slice();
-
-            if let Ok(i) = str.parse::<i64>() {
-                let bits = ty.get_bits(context) as u8;
-
-                Ok(context.get_int_constant(bits, i))
-            } else {
-                // Make an error for this
-                todo!();
-            }
-        } else if ty.is_uint(context) {
-            let str = self.lexer.slice();
-
-            if let Ok(i) = str.parse::<u64>() {
-                let bits = ty.get_bits(context) as u8;
-
-                Ok(context.get_uint_constant(bits, i))
-            } else {
-                // Make an error for this
-                todo!();
-            }
-        } else if ty.is_float(context) {
-            let str = self.lexer.slice();
-
-            if let Ok(i) = str.parse::<f64>() {
-                let bits = ty.get_bits(context) as u8;
-
-                Ok(context.get_float_constant(bits, i))
-            } else {
-                // Make an error for this
-                todo!();
-            }
-        } else {
-            todo!();
-        }
-    }
-
     fn expect_symbol(&mut self, token: Token) -> Result<(), ParseError> {
         if let Some(next) = self.lexer.next() {
             if next == token {
@@ -210,43 +200,207 @@ impl<'a> Parser<'a> {
 
     fn apply(
         &mut self,
-        operand_stack: &mut Vec<(Range, yair::Value)>,
+        operand_stack: &mut Vec<Operand>,
         operator_stack: &mut Vec<(Range, Token)>,
         builder: &mut InstructionBuilder,
     ) -> Result<(), ParseError> {
         let y = operand_stack.pop().unwrap();
-        let x = operand_stack.pop().unwrap();
 
         let op = if let Some(op) = operator_stack.pop() {
             op
         } else {
             // No operator between operands `42 13`
-            return Err(ParseError::InvalidExpression(y.0));
+            return Err(ParseError::InvalidExpression(y.range));
         };
 
-        let location = self.get_location(op.0.clone(), builder.borrow_context());
+        if is_unary(op.1) {
+            todo!();
+        } else {
+            let x = operand_stack.pop().unwrap();
 
-        let expr = match op.1 {
-            Token::Add => builder.add(x.1, y.1, location),
-            Token::Sub => builder.sub(x.1, y.1, location),
-            Token::Mul => builder.mul(x.1, y.1, location),
-            Token::Div => builder.div(x.1, y.1, location),
-            Token::Mod => builder.rem(x.1, y.1, location),
-            Token::And => builder.and(x.1, y.1, location),
-            Token::Or => builder.or(x.1, y.1, location),
-            Token::Xor => builder.xor(x.1, y.1, location),
-            _ => todo!(),
-        };
+            let (x_value, y_value) = match x.kind {
+                OperandKind::Concrete(x_value) => match y.kind {
+                    OperandKind::Concrete(y_value) => {
+                        let x_ty = x_value.get_type(builder.borrow_context());
+                        let y_ty = y_value.get_type(builder.borrow_context());
 
-        operand_stack.push((op.0, expr));
+                        if x_ty != y_ty {
+                            return Err(ParseError::TypesDoNotMatch(x.range, x_ty, y.range, y_ty));
+                        }
 
-        Ok(())
+                        (x_value, y_value)
+                    }
+                    OperandKind::Float(y_float) => {
+                        let x_ty = x_value.get_type(builder.borrow_context());
+
+                        if !x_ty.is_float(builder.borrow_context()) {
+                            let bits = x_ty.get_bits(builder.borrow_context());
+
+                            let y_value = builder
+                                .borrow_context()
+                                .get_float_constant(bits as u8, y_float);
+
+                            (x_value, y_value)
+                        } else {
+                            todo!()
+                        }
+                    }
+                    OperandKind::Integer(y_int) => {
+                        let x_ty = x_value.get_type(builder.borrow_context());
+
+                        if x_ty.is_float(builder.borrow_context()) {
+                            let bits = x_ty.get_bits(builder.borrow_context());
+
+                            let y_value = builder
+                                .borrow_context()
+                                .get_float_constant(bits as u8, y_int as f64);
+
+                            (x_value, y_value)
+                        } else if x_ty.is_int(builder.borrow_context()) {
+                            let bits = x_ty.get_bits(builder.borrow_context());
+
+                            let y_value = builder
+                                .borrow_context()
+                                .get_int_constant(bits as u8, y_int as i64);
+
+                            (x_value, y_value)
+                        } else if x_ty.is_uint(builder.borrow_context()) {
+                            let bits = x_ty.get_bits(builder.borrow_context());
+
+                            let y_value = builder
+                                .borrow_context()
+                                .get_uint_constant(bits as u8, y_int);
+
+                            (x_value, y_value)
+                        } else {
+                            todo!()
+                        }
+                    }
+                },
+                OperandKind::Float(x_float) => match y.kind {
+                    OperandKind::Concrete(y_value) => {
+                        let y_ty = y_value.get_type(builder.borrow_context());
+
+                        if !y_ty.is_float(builder.borrow_context()) {
+                            let bits = y_ty.get_bits(builder.borrow_context());
+
+                            let x_value = builder
+                                .borrow_context()
+                                .get_float_constant(bits as u8, x_float);
+
+                            (x_value, y_value)
+                        } else {
+                            todo!()
+                        }
+                    }
+                    _ => {
+                        return Err(ParseError::InvalidNonConcreteConstantsUsed(
+                            x.range, y.range,
+                        ))
+                    }
+                },
+                OperandKind::Integer(x_int) => match y.kind {
+                    OperandKind::Concrete(y_value) => {
+                        let y_ty = y_value.get_type(builder.borrow_context());
+
+                        if y_ty.is_float(builder.borrow_context()) {
+                            let bits = y_ty.get_bits(builder.borrow_context());
+
+                            let x_value = builder
+                                .borrow_context()
+                                .get_float_constant(bits as u8, x_int as f64);
+
+                            (x_value, y_value)
+                        } else if y_ty.is_int(builder.borrow_context()) {
+                            let bits = y_ty.get_bits(builder.borrow_context());
+
+                            let x_value = builder
+                                .borrow_context()
+                                .get_int_constant(bits as u8, x_int as i64);
+
+                            (x_value, y_value)
+                        } else if y_ty.is_uint(builder.borrow_context()) {
+                            let bits = y_ty.get_bits(builder.borrow_context());
+
+                            let x_value = builder
+                                .borrow_context()
+                                .get_uint_constant(bits as u8, x_int);
+
+                            (x_value, y_value)
+                        } else {
+                            todo!()
+                        }
+                    }
+                    _ => {
+                        return Err(ParseError::InvalidNonConcreteConstantsUsed(
+                            x.range, y.range,
+                        ))
+                    }
+                },
+            };
+
+            let location = self.get_location(op.0.clone(), builder.borrow_context());
+
+            let expr = match op.1 {
+                Token::Add => builder.add(x_value, y_value, location),
+                Token::Sub => builder.sub(x_value, y_value, location),
+                Token::Mul => builder.mul(x_value, y_value, location),
+                Token::Div => builder.div(x_value, y_value, location),
+                Token::Mod => builder.rem(x_value, y_value, location),
+                Token::And => builder.and(x_value, y_value, location),
+                Token::Or => builder.or(x_value, y_value, location),
+                Token::Xor => builder.xor(x_value, y_value, location),
+                _ => todo!(),
+            };
+
+            operand_stack.push(Operand {
+                range: op.0,
+                kind: OperandKind::Concrete(expr),
+            });
+
+            Ok(())
+        }
+    }
+
+    fn check_precedence(&mut self, x: (Range, Token), y: (Range, Token)) -> Result<(), ParseError> {
+        let x_precedence = get_precedence(x.1);
+        let y_precedence = get_precedence(y.1);
+
+        if x_precedence.0 == PrecedenceGroup::Parenthesis
+            || y_precedence.0 == PrecedenceGroup::Parenthesis
+        {
+            // Parenthesis sit outside precedence groups because they are used to form pairs of precedence groups.
+            Ok(())
+        } else if x_precedence.0 != y_precedence.0 {
+            Err(ParseError::OperatorsInDifferentPrecedenceGroups(
+                y.0.clone(),
+                y.1,
+                x.0.clone(),
+                x.1,
+            ))
+        } else {
+            Ok(())
+        }
     }
 
     fn apply_if_lower_precedence_and_push_operator(
         &mut self,
         x: (Range, Token),
-        operand_stack: &mut Vec<(Range, yair::Value)>,
+        operand_stack: &mut Vec<Operand>,
+        operator_stack: &mut Vec<(Range, Token)>,
+        builder: &mut InstructionBuilder,
+    ) -> Result<(), ParseError> {
+        self.apply_if_lower_precedence(x.clone(), operand_stack, operator_stack, builder)?;
+
+        operator_stack.push(x);
+
+        Ok(())
+    }
+
+    fn apply_if_lower_precedence(
+        &mut self,
+        x: (Range, Token),
+        operand_stack: &mut Vec<Operand>,
         operator_stack: &mut Vec<(Range, Token)>,
         builder: &mut InstructionBuilder,
     ) -> Result<(), ParseError> {
@@ -255,16 +409,14 @@ impl<'a> Parser<'a> {
         while !operator_stack.is_empty() {
             let y = operator_stack.last().unwrap();
 
-            let y_precedence = get_precedence(y.1);
-
-            if x_precedence.0 != y_precedence.0 {
-                return Err(ParseError::OperatorsInDifferentPrecedenceGroups(
-                    y.0.clone(),
-                    y.1,
-                    x.0.clone(),
-                    x.1,
-                ));
+            if x.1 == Token::RParen && y.1 == Token::LParen {
+                operator_stack.pop();
+                break;
             }
+
+            self.check_precedence(x.clone(), y.clone())?;
+
+            let y_precedence = get_precedence(y.1);
 
             if x_precedence.1 < y_precedence.1 {
                 break;
@@ -273,9 +425,23 @@ impl<'a> Parser<'a> {
             self.apply(operand_stack, operator_stack, builder)?;
         }
 
-        operator_stack.push(x);
-
         Ok(())
+    }
+
+    fn parse_integer(&mut self, _: &mut Context) -> Result<u64, ParseError> {
+        if let Ok(i) = self.lexer.slice().parse::<u64>() {
+            Ok(i)
+        } else {
+            todo!()
+        }
+    }
+
+    fn parse_float(&mut self, _: &mut Context) -> Result<f64, ParseError> {
+        if let Ok(f) = self.lexer.slice().parse::<f64>() {
+            Ok(f)
+        } else {
+            todo!()
+        }
     }
 
     fn parse_expression(
@@ -284,14 +450,80 @@ impl<'a> Parser<'a> {
         builder: &mut InstructionBuilder,
     ) -> Result<yair::Value, ParseError> {
         let mut operand_stack = Vec::new();
-        let mut operator_stack = Vec::new();
+        let mut operator_stack: Vec<(Range, Token)> = Vec::new();
 
         loop {
             match self.lexer.next() {
-                Some(Token::Float) => operand_stack.push((
-                    self.lexer.span(),
-                    self.parse_constant(ty, builder.borrow_context())?,
-                )),
+                Some(Token::Integer) => operand_stack.push(Operand {
+                    range: self.lexer.span(),
+                    kind: OperandKind::Integer(self.parse_integer(builder.borrow_context())?),
+                }),
+                Some(Token::Float) => operand_stack.push(Operand {
+                    range: self.lexer.span(),
+                    kind: OperandKind::Float(self.parse_float(builder.borrow_context())?),
+                }),
+                Some(Token::LParen) => operator_stack.push((self.lexer.span(), Token::LParen)),
+                Some(Token::RParen) => self.apply_if_lower_precedence(
+                    (self.lexer.span(), Token::RParen),
+                    &mut operand_stack,
+                    &mut operator_stack,
+                    builder,
+                )?,
+                Some(Token::As) => {
+                    let range = self.lexer.span();
+
+                    if !operator_stack.is_empty() {
+                        self.check_precedence(
+                            (range.clone(), Token::As),
+                            operator_stack.last().unwrap().clone(),
+                        )?;
+                    }
+
+                    let ty = self.parse_type(None, builder.borrow_context())?;
+
+                    let expr = if let Some(x) = operand_stack.pop() {
+                        match x.kind {
+                            OperandKind::Concrete(v) => {
+                                let location =
+                                    self.get_location(range.clone(), builder.borrow_context());
+                                builder.cast(v, ty, location)
+                            }
+                            OperandKind::Float(f) => {
+                                if ty.is_float(builder.borrow_context()) {
+                                    let bits = ty.get_bits(builder.borrow_context());
+                                    builder.borrow_context().get_float_constant(bits as u8, f)
+                                } else {
+                                    todo!()
+                                }
+                            }
+                            OperandKind::Integer(i) => {
+                                if ty.is_float(builder.borrow_context()) {
+                                    let bits = ty.get_bits(builder.borrow_context());
+                                    builder
+                                        .borrow_context()
+                                        .get_float_constant(bits as u8, i as f64)
+                                } else if ty.is_int(builder.borrow_context()) {
+                                    let bits = ty.get_bits(builder.borrow_context());
+                                    builder
+                                        .borrow_context()
+                                        .get_int_constant(bits as u8, i as i64)
+                                } else if ty.is_uint(builder.borrow_context()) {
+                                    let bits = ty.get_bits(builder.borrow_context());
+                                    builder.borrow_context().get_uint_constant(bits as u8, i)
+                                } else {
+                                    todo!()
+                                }
+                            }
+                        }
+                    } else {
+                        todo!()
+                    };
+
+                    operand_stack.push(Operand {
+                        range: range.clone(),
+                        kind: OperandKind::Concrete(expr),
+                    });
+                }
                 Some(Token::Add) => self.apply_if_lower_precedence_and_push_operator(
                     (self.lexer.span(), Token::Add),
                     &mut operand_stack,
@@ -355,7 +587,39 @@ impl<'a> Parser<'a> {
             self.apply(&mut operand_stack, &mut operator_stack, builder)?;
         }
 
-        Ok(operand_stack.pop().unwrap().1)
+        let operand = operand_stack.pop().unwrap();
+
+        let expr = match operand.kind {
+            OperandKind::Concrete(v) => v,
+            OperandKind::Float(f) => {
+                if ty.is_float(builder.borrow_context()) {
+                    let bits = ty.get_bits(builder.borrow_context());
+                    builder.borrow_context().get_float_constant(bits as u8, f)
+                } else {
+                    todo!();
+                }
+            }
+            OperandKind::Integer(i) => {
+                if ty.is_float(builder.borrow_context()) {
+                    let bits = ty.get_bits(builder.borrow_context());
+                    builder
+                        .borrow_context()
+                        .get_float_constant(bits as u8, i as f64)
+                } else if ty.is_int(builder.borrow_context()) {
+                    let bits = ty.get_bits(builder.borrow_context());
+                    builder
+                        .borrow_context()
+                        .get_int_constant(bits as u8, i as i64)
+                } else if ty.is_uint(builder.borrow_context()) {
+                    let bits = ty.get_bits(builder.borrow_context());
+                    builder.borrow_context().get_uint_constant(bits as u8, i)
+                } else {
+                    todo!();
+                }
+            }
+        };
+
+        Ok(expr)
     }
 
     fn parse_function(
@@ -501,6 +765,7 @@ impl<'a> Parser<'a> {
         &self,
         e: ParseError,
         data: &str,
+        context: &mut yair::Context,
         fmt: &mut std::io::Stderr,
     ) -> Result<(), io::Error> {
         let range = match e {
@@ -508,14 +773,8 @@ impl<'a> Parser<'a> {
                 writeln!(fmt, "error: Unexpected end of file")?;
                 (data.len() - 1)..data.len()
             }
-            ParseError::ExpectedTokenNotFound(_, range) => {
-                let span = self.file.span;
-
-                let span = span.subspan(range.start as u64, range.end as u64);
-
-                let str = self.file.source_slice(span);
-
-                writeln!(fmt, "error: Expected token '{}' not found", str)?;
+            ParseError::ExpectedTokenNotFound(token, range) => {
+                writeln!(fmt, "error: Expected token '{:?}' not found", token)?;
                 range
             }
             ParseError::InvalidExpression(range) => {
@@ -536,6 +795,81 @@ impl<'a> Parser<'a> {
                     "error: Operators '{}' and '{}' are in different precedence groups",
                     x_str, y_str
                 )?;
+
+                let span = self.file.span;
+
+                let span = span.subspan(x_range.start as u64, x_range.end as u64);
+
+                let location = self.codemap.look_up_span(span);
+
+                writeln!(
+                    fmt,
+                    "{}:{}:{}",
+                    location.file.name(),
+                    location.begin.line + 1,
+                    location.begin.column + 1
+                )?;
+
+                let span = self.file.span;
+
+                let span = span.subspan(x_range.start as u64, x_range.end as u64);
+
+                let pos = span.low();
+
+                let line = self.file.find_line(pos);
+
+                let str = self.file.source_line(line);
+
+                writeln!(fmt, "  {}", str)?;
+
+                let line_col = self.file.find_line_col(pos);
+
+                writeln!(fmt, "  {}^", " ".repeat(line_col.column))?;
+
+                y_range
+            }
+            ParseError::TypesDoNotMatch(x_range, x_ty, y_range, y_ty) => {
+                writeln!(
+                    fmt,
+                    "error: Types '{}' and '{}' do not match",
+                    x_ty.get_displayer(context),
+                    y_ty.get_displayer(context),
+                )?;
+
+                let span = self.file.span;
+
+                let span = span.subspan(x_range.start as u64, x_range.end as u64);
+
+                let location = self.codemap.look_up_span(span);
+
+                writeln!(
+                    fmt,
+                    "{}:{}:{}",
+                    location.file.name(),
+                    location.begin.line + 1,
+                    location.begin.column + 1
+                )?;
+
+                let span = self.file.span;
+
+                let span = span.subspan(x_range.start as u64, x_range.end as u64);
+
+                let pos = span.low();
+
+                let line = self.file.find_line(pos);
+
+                let str = self.file.source_line(line);
+
+                writeln!(fmt, "  {}", str)?;
+
+                let line_col = self.file.find_line_col(pos);
+
+                writeln!(fmt, "  {}^", " ".repeat(line_col.column))?;
+
+                y_range
+            }
+            ParseError::InvalidNonConcreteConstantsUsed(x_range, y_range) => {
+                writeln!(fmt, "error: Invalid non-concrete constant used")?;
 
                 let span = self.file.span;
 
@@ -622,7 +956,7 @@ fn main() {
 
     if let Err(e) = parser.parse(&mut context) {
         parser
-            .display_error(e, &data, &mut std::io::stderr())
+            .display_error(e, &data, &mut context, &mut std::io::stderr())
             .unwrap();
         std::process::exit(1);
     }
