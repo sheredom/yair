@@ -1,0 +1,11 @@
+// RUN: @compiler --emit yair @file
+// CHECK: mod "" {
+// CHECK: fn func(a : i32) : i32 {
+// CHECK:   b0([[a:\w+]] : i32):
+// CHECK:     ret $$a
+// CHECK:   }
+// CHECK: }
+ 
+func : function(a : i32) : i32 {
+  return a;
+}

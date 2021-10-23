@@ -106,6 +106,9 @@ enum Token {
     #[token("as")]
     As,
 
+    #[token(",")]
+    Comma,
+
     #[regex("[_a-zA-Z][_a-zA-Z0-9]*")]
     Identifier,
 
@@ -136,6 +139,7 @@ enum ParseError {
     OperatorsInDifferentPrecedenceGroups(Range, Token, Range, Token),
     TypesDoNotMatch(Range, yair::Type, Range, yair::Type),
     InvalidNonConcreteConstantsUsed(Range, Range),
+    UnknownIdentifier(Range),
 }
 
 #[allow(dead_code)]
@@ -145,6 +149,8 @@ struct Parser<'a> {
     functions: HashMap<&'a str, yair::Function>,
     module: String,
     lexer: logos::Lexer<'a, Token>,
+    identifiers: HashMap<&'a str, yair::Value>,
+    scoped_identifiers: Vec<Vec<&'a str>>,
 }
 
 impl<'a> Parser<'a> {
@@ -159,6 +165,8 @@ impl<'a> Parser<'a> {
             functions: HashMap::new(),
             module: "".to_string(),
             lexer: Token::lexer(&data),
+            identifiers: HashMap::new(),
+            scoped_identifiers: Vec::new(),
         }
     }
 
@@ -573,6 +581,18 @@ impl<'a> Parser<'a> {
                     builder,
                 )?,
                 Some(Token::Semicolon) => break,
+                Some(Token::Identifier) => {
+                    let identifier = self.lexer.slice();
+
+                    if let Some(identifier) = self.identifiers.get(identifier) {
+                        operand_stack.push(Operand {
+                            range: self.lexer.span(),
+                            kind: OperandKind::Concrete(*identifier),
+                        });
+                    } else {
+                        return Err(ParseError::UnknownIdentifier(self.lexer.span()));
+                    }
+                }
                 Some(_) => todo!(),
                 None => todo!(),
             }
@@ -622,6 +642,14 @@ impl<'a> Parser<'a> {
         Ok(expr)
     }
 
+    fn pop_scope(&mut self) {
+        for identifier in self.scoped_identifiers.last().unwrap().iter() {
+            self.identifiers.remove(identifier).unwrap();
+        }
+
+        self.scoped_identifiers.pop();
+    }
+
     fn parse_function(
         &mut self,
         identifier: &str,
@@ -629,14 +657,39 @@ impl<'a> Parser<'a> {
     ) -> Result<yair::Type, ParseError> {
         self.expect_symbol(Token::LParen)?;
 
+        let mut args = Vec::new();
+
+        let mut parsed_one_arg = false;
+
         loop {
             match self.lexer.next() {
                 Some(Token::RParen) => break,
-                Some(_) =>
-                /* Actually parse arguments */
-                {
-                    todo!()
+                Some(Token::Identifier) => {
+                    let name = self.lexer.slice();
+
+                    if Some(Token::Colon) != self.lexer.next() {
+                        return Err(ParseError::ExpectedTokenNotFound(
+                            Token::Colon,
+                            self.lexer.span(),
+                        ));
+                    }
+
+                    // TODO: We should check that we aren't parsing a function definition again here!
+                    let ty = self.parse_type(Some(&identifier), context)?;
+
+                    args.push((name, ty));
+
+                    parsed_one_arg = true;
                 }
+                Some(Token::Comma) => {
+                    if !parsed_one_arg {
+                        return Err(ParseError::ExpectedTokenNotFound(
+                            Token::Comma,
+                            self.lexer.span(),
+                        ));
+                    }
+                }
+                Some(_) => return Err(ParseError::InvalidExpression(self.lexer.span())),
                 None => return Err(ParseError::UnexpectedEndOfFile),
             }
         }
@@ -658,23 +711,31 @@ impl<'a> Parser<'a> {
             .create_function(context)
             .with_name(identifier)
             .with_return_type(return_ty)
+            .with_args(&args)
             .build();
+
+        self.scoped_identifiers.push(Vec::new());
 
         // TODO: support function declarations!
         self.expect_symbol(Token::LCurly)?;
 
-        let args: Vec<yair::Type> = function
+        let arg_types: Vec<yair::Type> = function
             .get_args(context)
             .map(|v| v.get_type(context))
             .collect();
 
         let mut builder = function.create_block(context);
 
-        for arg in args {
+        for arg in arg_types {
             builder = builder.with_arg(arg);
         }
 
         let block = builder.build();
+
+        for arg in args.iter().zip(block.get_args(context)) {
+            self.identifiers.insert(arg.0 .0, arg.1);
+            self.scoped_identifiers.last_mut().unwrap().push(arg.0 .0);
+        }
 
         let return_is_void = return_ty.is_void(context);
 
@@ -708,6 +769,8 @@ impl<'a> Parser<'a> {
                 None => return Err(ParseError::UnexpectedEndOfFile),
             }
         }
+
+        self.pop_scope();
 
         Ok(function.get_type(context))
     }
@@ -902,6 +965,15 @@ impl<'a> Parser<'a> {
                 writeln!(fmt, "  {}^", " ".repeat(line_col.column))?;
 
                 y_range
+            }
+            ParseError::UnknownIdentifier(range) => {
+                let span = self.file.span;
+                let span = span.subspan(range.start as u64, range.end as u64);
+                let str = self.file.source_slice(span);
+
+                writeln!(fmt, "error: Unknown identifier '{}' used", str)?;
+
+                range
             }
         };
 
