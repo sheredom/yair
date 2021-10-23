@@ -1,0 +1,13 @@
+// RUN: @compiler --emit yair @file
+// CHECK: mod "" {
+// CHECK: fn func(a : i32, b : u32) : u32 {
+// CHECK:   b0([[a:\w+]] : i32, [[b:\w+]] : u32):
+// CHECK:     [[cast:\w+]] = cast $$a to u32
+// CHECK:     [[result:\w+]] = mul $$cast, $$b
+// CHECK:     ret $$result
+// CHECK:   }
+// CHECK: }
+ 
+func : function(a : i32, b : u32) : u32 {
+  return (a as u32) * b;
+}
