@@ -2,13 +2,13 @@
 // CHECK: mod "" {
 // CHECK: fn func() : i16 {
 // CHECK:   b0():
-// CHECK:     v0 = const i16 42
-// CHECK:     v1 = const i16 13
-// CHECK:     v2 = div v0, v1
-// CHECK:     ret v2
+// CHECK:     [[a:\w+]] = const i16 42
+// CHECK:     [[b:\w+]] = const i16 13
+// CHECK:     [[result:\w+]] = div $$a, $$b
+// CHECK:     ret $$result
 // CHECK:   }
 // CHECK: }
  
 func : function() : i16 {
-    return 42 / 13;
+    return 42 / (13 as i16);
 }

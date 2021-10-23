@@ -2,13 +2,13 @@
 // CHECK: mod "" {
 // CHECK: fn func() : i8 {
 // CHECK:   b0():
-// CHECK:     v0 = const i8 42
-// CHECK:     v1 = const i8 13
-// CHECK:     v2 = xor v0, v1
-// CHECK:     ret v2
+// CHECK:     [[a:\w+]] = const i8 42
+// CHECK:     [[b:\w+]] = const i8 13
+// CHECK:     [[result:\w+]] = xor $$a, $$b
+// CHECK:     ret $$result
 // CHECK:   }
 // CHECK: }
  
 func : function() : i8 {
-    return 42 ^ 13;
+    return 42 ^ (13 as i8);
 }

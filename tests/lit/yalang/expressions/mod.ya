@@ -10,5 +10,5 @@
 // CHECK: }
  
 func : function() : i16 {
-    return 42 % 13;
+    return (42 as i16) % 13;
 }
