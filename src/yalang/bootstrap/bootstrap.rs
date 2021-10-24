@@ -20,6 +20,7 @@ enum PrecedenceGroup {
     Bitwise,
     Cast,
     Parenthesis,
+    Comparison,
 }
 
 #[derive(Debug)]
@@ -44,6 +45,7 @@ fn get_precedence(x: Token) -> (PrecedenceGroup, u8) {
         Token::Xor => (PrecedenceGroup::Bitwise, 2),
         Token::As => (PrecedenceGroup::Cast, 0),
         Token::LParen | Token::RParen => (PrecedenceGroup::Parenthesis, u8::MAX),
+        Token::Equality => (PrecedenceGroup::Comparison, 0),
         _ => todo!(),
     }
 }
@@ -109,6 +111,9 @@ enum Token {
     #[token(",")]
     Comma,
 
+    #[token("==")]
+    Equality,
+
     #[regex("[_a-zA-Z][_a-zA-Z0-9]*")]
     Identifier,
 
@@ -140,6 +145,7 @@ enum ParseError {
     TypesDoNotMatch(Range, yair::Type, Range, yair::Type),
     InvalidNonConcreteConstantsUsed(Range, Range),
     UnknownIdentifier(Range),
+    ComparisonOperatorsAlwaysNeedParenthesis(Range, Token, Range, Token),
 }
 
 #[allow(dead_code)]
@@ -358,6 +364,7 @@ impl<'a> Parser<'a> {
                 Token::And => builder.and(x_value, y_value, location),
                 Token::Or => builder.or(x_value, y_value, location),
                 Token::Xor => builder.xor(x_value, y_value, location),
+                Token::Equality => builder.cmp_eq(x_value, y_value, location),
                 _ => todo!(),
             };
 
@@ -374,7 +381,16 @@ impl<'a> Parser<'a> {
         let x_precedence = get_precedence(x.1);
         let y_precedence = get_precedence(y.1);
 
-        if x_precedence.0 == PrecedenceGroup::Parenthesis
+        if x_precedence.0 == PrecedenceGroup::Comparison
+            || y_precedence.0 == PrecedenceGroup::Comparison
+        {
+            Err(ParseError::ComparisonOperatorsAlwaysNeedParenthesis(
+                y.0.clone(),
+                y.1,
+                x.0.clone(),
+                x.1,
+            ))
+        } else if x_precedence.0 == PrecedenceGroup::Parenthesis
             || y_precedence.0 == PrecedenceGroup::Parenthesis
         {
             // Parenthesis sit outside precedence groups because they are used to form pairs of precedence groups.
@@ -532,54 +548,27 @@ impl<'a> Parser<'a> {
                         kind: OperandKind::Concrete(expr),
                     });
                 }
-                Some(Token::Add) => self.apply_if_lower_precedence_and_push_operator(
-                    (self.lexer.span(), Token::Add),
-                    &mut operand_stack,
-                    &mut &mut operator_stack,
-                    builder,
-                )?,
-                Some(Token::Sub) => self.apply_if_lower_precedence_and_push_operator(
-                    (self.lexer.span(), Token::Sub),
-                    &mut operand_stack,
-                    &mut &mut operator_stack,
-                    builder,
-                )?,
-                Some(Token::Mul) => self.apply_if_lower_precedence_and_push_operator(
-                    (self.lexer.span(), Token::Mul),
-                    &mut operand_stack,
-                    &mut &mut operator_stack,
-                    builder,
-                )?,
-                Some(Token::Div) => self.apply_if_lower_precedence_and_push_operator(
-                    (self.lexer.span(), Token::Div),
-                    &mut operand_stack,
-                    &mut &mut operator_stack,
-                    builder,
-                )?,
-                Some(Token::Mod) => self.apply_if_lower_precedence_and_push_operator(
-                    (self.lexer.span(), Token::Mod),
-                    &mut operand_stack,
-                    &mut &mut operator_stack,
-                    builder,
-                )?,
-                Some(Token::And) => self.apply_if_lower_precedence_and_push_operator(
-                    (self.lexer.span(), Token::And),
-                    &mut operand_stack,
-                    &mut &mut operator_stack,
-                    builder,
-                )?,
-                Some(Token::Or) => self.apply_if_lower_precedence_and_push_operator(
-                    (self.lexer.span(), Token::Or),
-                    &mut operand_stack,
-                    &mut &mut operator_stack,
-                    builder,
-                )?,
-                Some(Token::Xor) => self.apply_if_lower_precedence_and_push_operator(
-                    (self.lexer.span(), Token::Xor),
-                    &mut operand_stack,
-                    &mut &mut operator_stack,
-                    builder,
-                )?,
+                Some(x)
+                    if matches!(
+                        x,
+                        Token::Add
+                            | Token::Sub
+                            | Token::Mul
+                            | Token::Div
+                            | Token::Mod
+                            | Token::And
+                            | Token::Or
+                            | Token::Xor
+                            | Token::Equality
+                    ) =>
+                {
+                    self.apply_if_lower_precedence_and_push_operator(
+                        (self.lexer.span(), x),
+                        &mut operand_stack,
+                        &mut &mut operator_stack,
+                        builder,
+                    )?
+                }
                 Some(Token::Semicolon) => break,
                 Some(Token::Identifier) => {
                     let identifier = self.lexer.slice();
@@ -790,6 +779,7 @@ impl<'a> Parser<'a> {
         match identifier.as_str() {
             "function" => self.parse_function(name.unwrap(), context),
             "void" => Ok(context.get_void_type()),
+            "bool" => Ok(context.get_bool_type()),
             "i8" => Ok(context.get_int_type(8)),
             "i16" => Ok(context.get_int_type(16)),
             "i32" => Ok(context.get_int_type(32)),
@@ -974,6 +964,53 @@ impl<'a> Parser<'a> {
                 writeln!(fmt, "error: Unknown identifier '{}' used", str)?;
 
                 range
+            }
+            ParseError::ComparisonOperatorsAlwaysNeedParenthesis(x_range, _, y_range, _) => {
+                let span = self.file.span;
+                let span = span.subspan(x_range.start as u64, x_range.end as u64);
+                let x_str = self.file.source_slice(span);
+
+                let span = self.file.span;
+                let span = span.subspan(y_range.start as u64, y_range.end as u64);
+                let y_str = self.file.source_slice(span);
+
+                writeln!(
+                    fmt,
+                    "error: Comparison operators always need parenthesis in expressions: '{}' and '{}'",
+                    x_str, y_str
+                )?;
+
+                let span = self.file.span;
+
+                let span = span.subspan(x_range.start as u64, x_range.end as u64);
+
+                let location = self.codemap.look_up_span(span);
+
+                writeln!(
+                    fmt,
+                    "{}:{}:{}",
+                    location.file.name(),
+                    location.begin.line + 1,
+                    location.begin.column + 1
+                )?;
+
+                let span = self.file.span;
+
+                let span = span.subspan(x_range.start as u64, x_range.end as u64);
+
+                let pos = span.low();
+
+                let line = self.file.find_line(pos);
+
+                let str = self.file.source_line(line);
+
+                writeln!(fmt, "  {}", str)?;
+
+                let line_col = self.file.find_line_col(pos);
+
+                writeln!(fmt, "  {}^", " ".repeat(line_col.column))?;
+
+                y_range
             }
         };
 
