@@ -45,7 +45,12 @@ fn get_precedence(x: Token) -> (PrecedenceGroup, u8) {
         Token::Xor => (PrecedenceGroup::Bitwise, 2),
         Token::As => (PrecedenceGroup::Cast, 0),
         Token::LParen | Token::RParen => (PrecedenceGroup::Parenthesis, u8::MAX),
-        Token::Equality => (PrecedenceGroup::Comparison, 0),
+        Token::Equals
+        | Token::NotEquals
+        | Token::LessThan
+        | Token::LessThanEquals
+        | Token::GreaterThan
+        | Token::GreaterThanEquals => (PrecedenceGroup::Comparison, 0),
         _ => todo!(),
     }
 }
@@ -112,7 +117,22 @@ enum Token {
     Comma,
 
     #[token("==")]
-    Equality,
+    Equals,
+
+    #[token("!=")]
+    NotEquals,
+
+    #[token("<")]
+    LessThan,
+
+    #[token("<=")]
+    LessThanEquals,
+
+    #[token(">")]
+    GreaterThan,
+
+    #[token(">=")]
+    GreaterThanEquals,
 
     #[regex("[_a-zA-Z][_a-zA-Z0-9]*")]
     Identifier,
@@ -364,7 +384,12 @@ impl<'a> Parser<'a> {
                 Token::And => builder.and(x_value, y_value, location),
                 Token::Or => builder.or(x_value, y_value, location),
                 Token::Xor => builder.xor(x_value, y_value, location),
-                Token::Equality => builder.cmp_eq(x_value, y_value, location),
+                Token::Equals => builder.cmp_eq(x_value, y_value, location),
+                Token::NotEquals => builder.cmp_ne(x_value, y_value, location),
+                Token::LessThan => builder.cmp_lt(x_value, y_value, location),
+                Token::LessThanEquals => builder.cmp_le(x_value, y_value, location),
+                Token::GreaterThan => builder.cmp_gt(x_value, y_value, location),
+                Token::GreaterThanEquals => builder.cmp_ge(x_value, y_value, location),
                 _ => todo!(),
             };
 
@@ -559,7 +584,12 @@ impl<'a> Parser<'a> {
                             | Token::And
                             | Token::Or
                             | Token::Xor
-                            | Token::Equality
+                            | Token::Equals
+                            | Token::NotEquals
+                            | Token::LessThan
+                            | Token::LessThanEquals
+                            | Token::GreaterThan
+                            | Token::GreaterThanEquals
                     ) =>
                 {
                     self.apply_if_lower_precedence_and_push_operator(
