@@ -1,0 +1,18 @@
+// RUN: @compiler --emit yair @file
+// CHECK: mod "" {
+// CHECK: fn func() : f32 {
+// CHECK:   b0():
+// CHECK:     [[var:\w+]] = stackalloc var, f32
+// CHECK:     br b1()
+// CHECK:   b1():
+// CHECK:     [[const:\w+]] = const f32 4.2e1
+// CHECK:     store f32, $$var, $$const
+// CHECK:     [[result:\w+]] = load f32, $$var
+// CHECK:     ret $$result
+// CHECK:   }
+// CHECK: }
+ 
+func : function() : f32 {
+    var : f32 = 42.0;
+    return var;
+}

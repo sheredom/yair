@@ -134,6 +134,9 @@ enum Token {
     #[token(">=")]
     GreaterThanEquals,
 
+    #[token("=")]
+    Assignment,
+
     #[regex("[_a-zA-Z][_a-zA-Z0-9]*")]
     Identifier,
 
@@ -143,8 +146,6 @@ enum Token {
     #[regex("[+-]?([0-9]+([.][0-9]*)?([eE][+-]?[0-9]+)?|[.][0-9]+([eE][+-]?[0-9]+)?)")]
     Float,
 
-    // Logos requires one token variant to handle errors,
-    // it can be named anything you wish.
     #[error]
     // Skip whitespace.
     #[regex(r"[ \t\r\n\f]+", logos::skip)]
@@ -176,7 +177,7 @@ struct Parser<'a> {
     functions: HashMap<&'a str, yair::Function>,
     module: String,
     lexer: logos::Lexer<'a, Token>,
-    identifiers: HashMap<&'a str, yair::Value>,
+    identifiers: HashMap<&'a str, (yair::Type, yair::Value)>,
     scoped_identifiers: Vec<Vec<&'a str>>,
 }
 
@@ -464,6 +465,14 @@ impl<'a> Parser<'a> {
         Ok(())
     }
 
+    fn next_token(&mut self) -> Result<Token, ParseError> {
+        if let Some(next) = self.lexer.next() {
+            Ok(next)
+        } else {
+            Err(ParseError::UnexpectedEndOfFile)
+        }
+    }
+
     fn apply_if_lower_precedence(
         &mut self,
         x: (Range, Token),
@@ -622,10 +631,14 @@ impl<'a> Parser<'a> {
                 Some(Token::Identifier) => {
                     let identifier = self.lexer.slice();
 
+                    let location = self.get_current_location(builder.borrow_context());
+
                     if let Some(identifier) = self.identifiers.get(identifier) {
+                        let expr = builder.load(identifier.0, identifier.1, location);
+
                         operand_stack.push(Operand {
                             range: self.lexer.span(),
-                            kind: OperandKind::Concrete(*identifier),
+                            kind: OperandKind::Concrete(expr),
                         });
                     } else {
                         return Err(ParseError::UnknownIdentifier(self.lexer.span()));
@@ -686,6 +699,18 @@ impl<'a> Parser<'a> {
         }
 
         self.scoped_identifiers.pop();
+    }
+
+    fn add_identifier(
+        &mut self,
+        identifier: &'a str,
+        ty: yair::Type,
+        value: yair::Value,
+    ) -> Result<(), ParseError> {
+        self.identifiers.insert(identifier, (ty, value));
+        self.scoped_identifiers.last_mut().unwrap().push(identifier);
+
+        Ok(())
     }
 
     fn parse_function(
@@ -752,8 +777,6 @@ impl<'a> Parser<'a> {
             .with_args(&args)
             .build();
 
-        self.scoped_identifiers.push(Vec::new());
-
         // TODO: support function declarations!
         self.expect_symbol(Token::LCurly)?;
 
@@ -768,12 +791,31 @@ impl<'a> Parser<'a> {
             builder = builder.with_arg(arg);
         }
 
+        let entry_block = builder.build();
+
+        self.scoped_identifiers.push(Vec::new());
+
+        let mut entry_block_builder = entry_block.create_instructions(context);
+
+        for arg in args.iter().enumerate() {
+            let value = entry_block.get_arg(entry_block_builder.borrow_context(), arg.0);
+            let ty = value.get_type(entry_block_builder.borrow_context());
+
+            let location = value.get_location(entry_block_builder.borrow_context());
+            let stack_alloc = entry_block_builder.stack_alloc(arg.1 .0, arg.1 .1, location);
+
+            entry_block_builder.store(ty, stack_alloc, value, location);
+
+            self.add_identifier(arg.1 .0, ty, stack_alloc)?;
+        }
+
+        let mut entry_block_paused_builder = entry_block_builder.pause_building();
+
+        let builder = function.create_block(context);
+
         let block = builder.build();
 
-        for arg in args.iter().zip(block.get_args(context)) {
-            self.identifiers.insert(arg.0 .0, arg.1);
-            self.scoped_identifiers.last_mut().unwrap().push(arg.0 .0);
-        }
+        let first_actual_block = block;
 
         let return_is_void = return_ty.is_void(context);
 
@@ -781,6 +823,40 @@ impl<'a> Parser<'a> {
 
         loop {
             match self.lexer.next() {
+                Some(Token::Identifier) => {
+                    let identifier = self.lexer.slice();
+
+                    match self.next_token()? {
+                        Token::Colon => {
+                            let location = self.get_current_location(builder.borrow_context());
+
+                            let ty = self.parse_type(None, builder.borrow_context())?;
+
+                            let stack_alloc = {
+                                let mut builder = InstructionBuilder::resume_building(
+                                    builder.borrow_context(),
+                                    entry_block_paused_builder,
+                                );
+
+                                let alloc = builder.stack_alloc(identifier, ty, location);
+
+                                entry_block_paused_builder = builder.pause_building();
+
+                                alloc
+                            };
+
+                            self.add_identifier(identifier, ty, stack_alloc)?;
+
+                            let expr = match self.next_token()? {
+                                Token::Assignment => self.parse_expression(ty, &mut builder)?,
+                                _ => todo!(),
+                            };
+
+                            builder.store(ty, stack_alloc, expr, location);
+                        }
+                        _ => todo!(),
+                    }
+                }
                 Some(Token::RCurly) => {
                     if return_is_void {
                         let location = self.get_current_location(builder.borrow_context());
@@ -809,6 +885,11 @@ impl<'a> Parser<'a> {
         }
 
         self.pop_scope();
+
+        let location = function.get_location(context);
+
+        let builder = InstructionBuilder::resume_building(context, entry_block_paused_builder);
+        builder.branch(first_actual_block, &[], location);
 
         Ok(function.get_type(context))
     }
