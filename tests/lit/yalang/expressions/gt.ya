@@ -1,0 +1,14 @@
+// RUN: @compiler --emit yair @file
+// CHECK: mod "" {
+// CHECK: fn func() : bool {
+// CHECK:   b0():
+// CHECK:     [[a:\w+]] = const f16 4.2e1
+// CHECK:     [[b:\w+]] = const f16 1.3e1
+// CHECK:     [[result:\w+]] = cmp gt $$a, $$b
+// CHECK:     ret $$result
+// CHECK:   }
+// CHECK: }
+ 
+func : function() : bool {
+    return (42 as f16) > 13;
+}
