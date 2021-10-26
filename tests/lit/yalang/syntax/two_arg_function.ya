@@ -2,8 +2,16 @@
 // CHECK: mod "" {
 // CHECK: fn func(a : i32, b : u32) : u32 {
 // CHECK:   b0([[a:\w+]] : i32, [[b:\w+]] : u32):
-// CHECK:     [[cast:\w+]] = cast $$a to u32
-// CHECK:     [[result:\w+]] = mul $$cast, $$b
+// CHECK:     [[aVar:\w+]] = stackalloc a, i32
+// CHECK:     store i32, $$aVar, $$a
+// CHECK:     [[bVar:\w+]] = stackalloc b, u32
+// CHECK:     store u32, $$bVar, $$b
+// CHECK:     br b1()
+// CHECK:   b1():
+// CHECK:     [[aLoad:\w+]] = load i32, $$aVar
+// CHECK:     [[aCast:\w+]] = cast $$aLoad to u32
+// CHECK:     [[bLoad:\w+]] = load u32, $$bVar
+// CHECK:     [[result:\w+]] = mul $$aCast, $$bLoad
 // CHECK:     ret $$result
 // CHECK:   }
 // CHECK: }
