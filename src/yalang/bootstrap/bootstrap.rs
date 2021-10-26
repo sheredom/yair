@@ -40,9 +40,10 @@ fn get_precedence(x: Token) -> (PrecedenceGroup, u8) {
     match x {
         Token::Mul | Token::Div | Token::Mod => (PrecedenceGroup::Arithmetic, 0),
         Token::Add | Token::Sub => (PrecedenceGroup::Arithmetic, 1),
-        Token::And => (PrecedenceGroup::Bitwise, 0),
-        Token::Or => (PrecedenceGroup::Bitwise, 1),
-        Token::Xor => (PrecedenceGroup::Bitwise, 2),
+        Token::Not => (PrecedenceGroup::Bitwise, 0),
+        Token::And => (PrecedenceGroup::Bitwise, 1),
+        Token::Or => (PrecedenceGroup::Bitwise, 2),
+        Token::Xor => (PrecedenceGroup::Bitwise, 3),
         Token::As => (PrecedenceGroup::Cast, 0),
         Token::LParen | Token::RParen => (PrecedenceGroup::Parenthesis, u8::MAX),
         Token::Equals
@@ -56,11 +57,7 @@ fn get_precedence(x: Token) -> (PrecedenceGroup, u8) {
 }
 
 fn is_unary(x: Token) -> bool {
-    matches!(x, Token::As)
-    /*match x {
-        Token::As => true,
-        _ => false,
-    }*/
+    matches!(x, Token::As | Token::Not)
 }
 
 #[derive(Logos, Copy, Clone, Debug, PartialEq)]
@@ -116,6 +113,9 @@ enum Token {
     #[token(",")]
     Comma,
 
+    #[token("!")]
+    Not,
+
     #[token("==")]
     Equals,
 
@@ -163,6 +163,7 @@ enum ParseError {
     InvalidExpression(Range),
     OperatorsInDifferentPrecedenceGroups(Range, Token, Range, Token),
     TypesDoNotMatch(Range, yair::Type, Range, yair::Type),
+    InvalidNonConcreteConstantUsed(Range),
     InvalidNonConcreteConstantsUsed(Range, Range),
     UnknownIdentifier(Range),
     ComparisonOperatorsAlwaysNeedParenthesis(Range, Token, Range, Token),
@@ -247,8 +248,27 @@ impl<'a> Parser<'a> {
             return Err(ParseError::InvalidExpression(y.range));
         };
 
+        let location = self.get_location(op.0.clone(), builder.borrow_context());
+
         if is_unary(op.1) {
-            todo!();
+            // TODO: Check that not has a int or bool type!
+
+            match y.kind {
+                OperandKind::Concrete(value) => {
+                    let expr = match op.1 {
+                        Token::Not => builder.not(value, location),
+                        _ => todo!(),
+                    };
+
+                    operand_stack.push(Operand {
+                        range: op.0,
+                        kind: OperandKind::Concrete(expr),
+                    });
+
+                    Ok(())
+                }
+                _ => Err(ParseError::InvalidNonConcreteConstantUsed(y.range)),
+            }
         } else {
             let x = operand_stack.pop().unwrap();
 
@@ -372,8 +392,6 @@ impl<'a> Parser<'a> {
                     }
                 },
             };
-
-            let location = self.get_location(op.0.clone(), builder.borrow_context());
 
             let expr = match op.1 {
                 Token::Add => builder.add(x_value, y_value, location),
@@ -581,6 +599,7 @@ impl<'a> Parser<'a> {
                             | Token::Mul
                             | Token::Div
                             | Token::Mod
+                            | Token::Not
                             | Token::And
                             | Token::Or
                             | Token::Xor
@@ -622,7 +641,7 @@ impl<'a> Parser<'a> {
             return Err(ParseError::InvalidExpression(self.lexer.span()));
         }
 
-        while operand_stack.len() != 1 {
+        while !operator_stack.is_empty() {
             self.apply(&mut operand_stack, &mut operator_stack, builder)?;
         }
 
@@ -985,6 +1004,11 @@ impl<'a> Parser<'a> {
                 writeln!(fmt, "  {}^", " ".repeat(line_col.column))?;
 
                 y_range
+            }
+            ParseError::InvalidNonConcreteConstantUsed(range) => {
+                writeln!(fmt, "error: Invalid non-concrete constant used")?;
+
+                range
             }
             ParseError::UnknownIdentifier(range) => {
                 let span = self.file.span;

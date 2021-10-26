@@ -1,0 +1,13 @@
+// RUN: @compiler --emit yair @file
+// CHECK: mod "" {
+// CHECK: fn func() : i8 {
+// CHECK:   b0():
+// CHECK:     [[a:\w+]] = const i8 13
+// CHECK:     [[result:\w+]] = not $$a
+// CHECK:     ret $$result
+// CHECK:   }
+// CHECK: }
+ 
+func : function() : i8 {
+    return !(13 as i8);
+}
