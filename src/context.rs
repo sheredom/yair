@@ -26,7 +26,7 @@ pub struct Context {
     half_ty: Option<Type>,
     float_ty: Option<Type>,
     double_ty: Option<Type>,
-    ptr_tys: HashMap<Domain, Type>,
+    ptr_tys: HashMap<(Type, Domain), Type>,
     vec_tys: HashMap<(Type, u8), Type>,
     array_tys: HashMap<(Type, usize), Type>,
     struct_tys: HashMap<Vec<Type>, Type>,
@@ -257,7 +257,7 @@ impl Context {
             TypePayload::Int(_) => (),
             TypePayload::UInt(_) => (),
             TypePayload::Float(_) => (),
-            TypePayload::Pointer(_) => (),
+            TypePayload::Pointer(_, _) => (),
             t => panic!("Unhandled element type for vector {:?}", t),
         }
 
@@ -291,15 +291,16 @@ impl Context {
     /// # use yair::*;
     /// # let mut context = Context::new();
     /// # let module = context.create_module().build();
-    /// let ptr_ty = context.get_pointer_type(Domain::Cpu);
+    /// # let ty = context.get_uint_type(32);
+    /// let ptr_ty = context.get_pointer_type(ty, Domain::Cpu);
     /// # assert!(ptr_ty.is_pointer(&context));
     /// ```
-    pub fn get_pointer_type(&mut self, domain: Domain) -> Type {
-        match self.ptr_tys.get(&domain) {
+    pub fn get_pointer_type(&mut self, element_ty: Type, domain: Domain) -> Type {
+        match self.ptr_tys.get(&(element_ty, domain)) {
             Some(ty) => *ty,
             None => {
-                let ty = Type(self.types.insert(TypePayload::Pointer(domain)));
-                self.ptr_tys.insert(domain, ty);
+                let ty = Type(self.types.insert(TypePayload::Pointer(element_ty, domain)));
+                self.ptr_tys.insert((element_ty, domain), ty);
                 ty
             }
         }
@@ -501,7 +502,7 @@ impl Context {
     /// # let mut context = Context::new();
     /// # let module = context.create_module().build();
     /// # let void_ty = context.get_void_type();
-    /// # let ty = context.get_pointer_type(Domain::Cpu);
+    /// # let ty = context.get_pointer_type(void_ty, Domain::Cpu);
     /// let constant = context.get_pointer_constant_null(ty);
     /// ```
     pub fn get_pointer_constant_null(&mut self, ty: Type) -> Value {

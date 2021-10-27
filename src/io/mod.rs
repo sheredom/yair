@@ -570,14 +570,16 @@ impl<'a> Assembler<'a> {
     }
 
     fn parse_pointer_type(&mut self, context: &mut Context) -> Result<Type, Diagnostic> {
-        // Skiop the '*'
+        // Skip the '*'
         self.bump_current();
 
         self.skip_comments_or_whitespace();
 
         let domain = self.parse_domain()?;
 
-        Ok(context.get_pointer_type(domain))
+        let element_ty = self.parse_type(context)?;
+
+        Ok(context.get_pointer_type(element_ty, domain))
     }
 
     fn parse_type(&mut self, context: &mut Context) -> Result<Type, Diagnostic> {
@@ -721,15 +723,7 @@ impl<'a> Assembler<'a> {
                 break;
             } else if self.pop_if_next_symbol("store")? {
                 let paused_builder = builder.pause_building();
-                let ty = self.parse_type(context)?;
                 builder = InstructionBuilder::resume_building(context, paused_builder);
-
-                if !self.pop_if_next_symbol(",")? {
-                    return Err(Diagnostic::new_error(
-                        "Expected ',' between arguments to an instruction",
-                        Label::new(self.file, self.single_char_span(), "here"),
-                    ));
-                }
 
                 let ptr = self.parse_value()?;
 
@@ -746,7 +740,7 @@ impl<'a> Assembler<'a> {
                 let loc = self.parse_loc(context)?;
                 builder = InstructionBuilder::resume_building(context, paused);
 
-                builder.store(ty, ptr, value, loc);
+                builder.store(ptr, value, loc);
             } else if self.pop_if_next_symbol("br")? {
                 let name = self.parse_identifier()?;
 
@@ -1280,15 +1274,7 @@ impl<'a> Assembler<'a> {
                     self.current_values.insert(identifier, value);
                 } else if self.pop_if_next_symbol("load")? {
                     let paused_builder = builder.pause_building();
-                    let ty = self.parse_type(context)?;
                     builder = InstructionBuilder::resume_building(context, paused_builder);
-
-                    if !self.pop_if_next_symbol(",")? {
-                        return Err(Diagnostic::new_error(
-                            "Expected ',' between arguments to an instruction",
-                            Label::new(self.file, self.single_char_span(), "here"),
-                        ));
-                    }
 
                     let ptr = self.parse_value()?;
 
@@ -1296,7 +1282,7 @@ impl<'a> Assembler<'a> {
                     let loc = self.parse_loc(context)?;
                     builder = InstructionBuilder::resume_building(context, paused);
 
-                    let value = builder.load(ty, ptr, loc);
+                    let value = builder.load(ptr, loc);
 
                     self.current_values.insert(identifier, value);
                 } else if self.pop_if_next_symbol("stackalloc")? {
@@ -1413,15 +1399,7 @@ impl<'a> Assembler<'a> {
                     self.current_values.insert(identifier, value);
                 } else if self.pop_if_next_symbol("indexinto")? {
                     let paused_builder = builder.pause_building();
-                    let ty = self.parse_type(context)?;
                     builder = InstructionBuilder::resume_building(context, paused_builder);
-
-                    if !self.pop_if_next_symbol(",")? {
-                        return Err(Diagnostic::new_error(
-                            "Expected ',' between arguments to an instruction",
-                            Label::new(self.file, self.single_char_span(), "here"),
-                        ));
-                    }
 
                     let ptr = self.parse_value()?;
 
@@ -1446,7 +1424,7 @@ impl<'a> Assembler<'a> {
                     let loc = self.parse_loc(context)?;
                     builder = InstructionBuilder::resume_building(context, paused);
 
-                    let value = builder.index_into(ty, ptr, &indices, loc);
+                    let value = builder.index_into(ptr, &indices, loc);
 
                     self.current_values.insert(identifier, value);
                 } else if self.pop_if_next_symbol("const")? {
@@ -1926,49 +1904,7 @@ fn get_domain(domain: Domain) -> &'static str {
 }
 
 fn get_type_name(context: &Context, ty: Type) -> String {
-    if ty.is_named_struct(context) {
-        format!("%{}", ty.get_name(context).get_displayer(context))
-    } else if ty.is_void(context) {
-        "void".to_string()
-    } else if ty.is_boolean(context) {
-        "bool".to_string()
-    } else if ty.is_vector(context) {
-        format!(
-            "<{}, {}>",
-            get_type_name(context, ty.get_element(context, 0)),
-            ty.get_len(context)
-        )
-    } else if ty.is_array(context) {
-        format!(
-            "[{}, {}]",
-            get_type_name(context, ty.get_element(context, 0)),
-            ty.get_len(context)
-        )
-    } else if ty.is_struct(context) {
-        let mut string = "{".to_string();
-
-        for i in 0..ty.get_len(context) {
-            if i != 0 {
-                string.push_str(", ");
-            }
-
-            string.push_str(&get_type_name(context, ty.get_element(context, i)));
-        }
-
-        string.push('}');
-
-        string
-    } else if ty.is_int(context) {
-        format!("i{}", ty.get_bits(context))
-    } else if ty.is_uint(context) {
-        format!("u{}", ty.get_bits(context))
-    } else if ty.is_float(context) {
-        format!("f{}", ty.get_bits(context))
-    } else if ty.is_pointer(context) {
-        format!("*{}", get_domain(ty.get_domain(context)))
-    } else {
-        std::unreachable!();
-    }
+    ty.get_displayer(context).to_string()
 }
 
 fn get_loc(context: &Context, loc: &Option<Location>) -> String {
@@ -2148,10 +2084,10 @@ pub fn disassemble(context: &Context, mut writer: impl std::io::Write) -> std::i
                         Instruction::BitCast(_, val, _) => {
                             write_if_constant(context, val, &mut writer)?;
                         }
-                        Instruction::Load(_, ptr, _) => {
+                        Instruction::Load(ptr, _) => {
                             write_if_constant(context, ptr, &mut writer)?;
                         }
-                        Instruction::Store(_, ptr, val, _) => {
+                        Instruction::Store(ptr, val, _) => {
                             write_if_constant(context, ptr, &mut writer)?;
                             write_if_constant(context, val, &mut writer)?;
                         }

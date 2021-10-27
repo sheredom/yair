@@ -8,7 +8,6 @@
 
 - Single Static Assignment representation [\[1\]](#References-1).
 - No Φ (phi) nodes, basic blocks take arguments instead [\[2\]](#References-2).
-- Pointers are type agnostic - they are just addresses into memory [\[3\]](#References-3).
 - Target agnostic representation for de-coupling of components.
 - Strong seperation between library components (you don't need to build, link, or use components you don't need).
 
@@ -23,6 +22,7 @@
   - Maybe restrict variables to non-any non-gpu?
     - At the least we should have some form of thread_local (shared) variables, and cpu globals too. But any else doesn't really make sense I think?
   - Check for casts to the same type as the value.
+  - Check for pointers in invalid domains being inside pointers of other domains (like stack pointer being stored into CPU memory).
 - Add a cranelift code generation library.
 - Add an optimizer!
 - Explain the syntax of the IR:
@@ -78,7 +78,3 @@ This means that constants behave like regular SSA notes for the purposes of the 
 ### References 2
 
 This approach is similar in some ways to the Swift Intermediate Language approach - [Swift's High-Level IR: A Case Study of Complementing LLVM IR with Language-Specific Optimization.](https://llvm.org/devmtg/2015-10/#talk7)
-
-### References 3
-
-This is similar to something that was proposed for LLVM in 2015 but not yet (as of January 2021) enacted - [Moving towards a singular pointer type](https://lists.llvm.org/pipermail/llvm-dev/2015-February/081822.html).

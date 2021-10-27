@@ -3,10 +3,10 @@
 // CHECK: fn func(a : i32) : i32 {
 // CHECK:   b0([[a:\w+]] : i32):
 // CHECK:     [[aVar:\w+]] = stackalloc a, i32
-// CHECK:     store i32, $$aVar, $$a
+// CHECK:     store $$aVar, $$a
 // CHECK:     br b1()
 // CHECK:   b1():
-// CHECK:     [[result:\w+]] = load i32, $$aVar
+// CHECK:     [[result:\w+]] = load $$aVar
 // CHECK:     ret $$result
 // CHECK:   }
 // CHECK: }

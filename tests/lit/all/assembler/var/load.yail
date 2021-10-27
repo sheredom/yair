@@ -9,8 +9,8 @@ mod "😀" {
   fn foo() : i8 {
     // CHECK: b0():
     bar():
-      // CHECK: [[result:\w+]] = load i8, $$v
-      r = load i8, my_var
+      // CHECK: [[result:\w+]] = load $$v
+      r = load my_var
       // CHECK: ret $$result
       ret r
   }

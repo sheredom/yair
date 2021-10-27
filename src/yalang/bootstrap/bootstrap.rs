@@ -634,7 +634,7 @@ impl<'a> Parser<'a> {
                     let location = self.get_current_location(builder.borrow_context());
 
                     if let Some(identifier) = self.identifiers.get(identifier) {
-                        let expr = builder.load(identifier.0, identifier.1, location);
+                        let expr = builder.load(identifier.1, location);
 
                         operand_stack.push(Operand {
                             range: self.lexer.span(),
@@ -804,7 +804,7 @@ impl<'a> Parser<'a> {
             let location = value.get_location(entry_block_builder.borrow_context());
             let stack_alloc = entry_block_builder.stack_alloc(arg.1 .0, arg.1 .1, location);
 
-            entry_block_builder.store(ty, stack_alloc, value, location);
+            entry_block_builder.store(stack_alloc, value, location);
 
             self.add_identifier(arg.1 .0, ty, stack_alloc)?;
         }
@@ -852,7 +852,7 @@ impl<'a> Parser<'a> {
                                 _ => todo!(),
                             };
 
-                            builder.store(ty, stack_alloc, expr, location);
+                            builder.store(stack_alloc, expr, location);
                         }
                         _ => todo!(),
                     }
@@ -1202,6 +1202,11 @@ fn main() {
         parser
             .display_error(e, &data, &mut context, &mut std::io::stderr())
             .unwrap();
+        std::process::exit(1);
+    }
+
+    if let Err(e) = context.verify() {
+        eprintln!("Verification error: {}", e);
         std::process::exit(1);
     }
 

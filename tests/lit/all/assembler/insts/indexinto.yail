@@ -2,12 +2,12 @@
 
 // CHECK: mod "😀"
 mod "😀" {
-  // CHECK: fn foo(ptr : *any, index : i32) : *any {
-  fn foo(ptr : *any, index : i32) : *any {
-    // CHECK: b0([[ptr:\w+]] : *any, [[index:\w+]] : i32):
-    bar(ptr : *any, index : i32):
-      // CHECK: [[r:\w+]] = indexinto i32, $$ptr, $$index
-      r = indexinto i32, ptr, index
+  // CHECK: fn foo(ptr : *any f64, index : i32) : *any f64 {
+  fn foo(ptr : *any f64, index : i32) : *any f64 {
+    // CHECK: b0([[ptr:\w+]] : *any f64, [[index:\w+]] : i32):
+    bar(ptr : *any f64, index : i32):
+      // CHECK: [[r:\w+]] = indexinto $$ptr, $$index
+      r = indexinto ptr, index
       // CHECK: ret $$r
       ret r
   }

@@ -1,0 +1,13 @@
+// RUN: @yair_as @file | @yair_verify -
+
+// CHECK: A stack_alloc must appear in the entry block:
+mod "😀" {
+  fn "🎄"() : void {
+    foo():
+      br bar()
+    bar():
+      // CHECK: [[a:\w+]] = stackalloc a, i32
+      a = stackalloc a, i32
+      ret
+  }
+}

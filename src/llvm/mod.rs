@@ -392,7 +392,12 @@ impl<'a> Helpers<'a> {
                 _ => unreachable!(),
             }
         } else if ty.is_pointer(context) {
-            Ok(unsafe { LLVMPointerType(LLVMInt8TypeInContext(self.codegen.context), 0) })
+            Ok(unsafe {
+                LLVMPointerType(
+                    self.get_or_insert_type(context, ty.get_element(context, 0))?,
+                    0,
+                )
+            })
         } else if ty.is_array(context) {
             let len = ty.get_len(context);
             let element = self.get_or_insert_type(context, ty.get_element(context, 0))?;
@@ -1038,17 +1043,14 @@ impl<'a> Helpers<'a> {
                         }
                     }
                 }
-                Instruction::IndexInto(ty, ptr, indices, _) => {
-                    let llvm_ty = self.get_or_insert_type(context, *ty)?;
-                    let llvm_ptr = self.get_or_insert_value(context, *ptr)?;
-
-                    let llvm_ptr_ty = unsafe { core::LLVMPointerType(llvm_ty, 0) };
-
-                    let llvm_cast = unsafe {
-                        core::LLVMBuildBitCast(builder, llvm_ptr, llvm_ptr_ty, instruction_name)
-                    };
-
+                Instruction::IndexInto(_, ptr, indices, _) => {
                     let mut llvm_indices = Vec::new();
+
+                    let llvm_ptr = self.get_or_insert_value(context, *ptr)?;
+                    let llvm_ptr_ty = self.get_or_insert_type(
+                        context,
+                        ptr.get_type(context).get_element(context, 0),
+                    )?;
 
                     for index in indices {
                         llvm_indices.push(self.get_or_insert_value(context, *index)?);
@@ -1057,8 +1059,8 @@ impl<'a> Helpers<'a> {
                     let llvm_gep = unsafe {
                         core::LLVMBuildInBoundsGEP2(
                             builder,
-                            llvm_ty,
-                            llvm_cast,
+                            llvm_ptr_ty,
+                            llvm_ptr,
                             llvm_indices.as_mut_ptr(),
                             llvm_indices.len() as libc::c_uint,
                             instruction_name,
@@ -1104,17 +1106,14 @@ impl<'a> Helpers<'a> {
                         }
                     }
                 }
-                Instruction::Load(ty, ptr, _) => {
-                    let llvm_ty = self.get_or_insert_type(context, *ty)?;
+                Instruction::Load(ptr, _) => {
+                    let llvm_ty = self.get_or_insert_type(
+                        context,
+                        ptr.get_type(context).get_element(context, 0),
+                    )?;
                     let llvm_ptr = self.get_or_insert_value(context, *ptr)?;
 
-                    let llvm_ptr_ty = unsafe { core::LLVMPointerType(llvm_ty, 0) };
-
-                    let llvm_cast = unsafe {
-                        core::LLVMBuildBitCast(builder, llvm_ptr, llvm_ptr_ty, instruction_name)
-                    };
-
-                    unsafe { core::LLVMBuildLoad2(builder, llvm_ty, llvm_cast, instruction_name) }
+                    unsafe { core::LLVMBuildLoad2(builder, llvm_ty, llvm_ptr, instruction_name) }
                 }
                 Instruction::Return(_) => unsafe { core::LLVMBuildRetVoid(builder) },
                 Instruction::ReturnValue(_, x, _) => {
@@ -1131,13 +1130,13 @@ impl<'a> Helpers<'a> {
                         core::LLVMBuildSelect(builder, llvm_cond, llvm_x, llvm_y, instruction_name)
                     }
                 }
-                Instruction::StackAlloc(name, ty, _, _) => {
+                Instruction::StackAlloc(name, ty, _) => {
                     let name = name.as_str(context);
                     let len = name.len();
                     let name_cstr = CString::new(name).unwrap();
                     let name = name_cstr.as_ptr() as *const libc::c_char;
 
-                    let llvm_ty = self.get_or_insert_type(context, *ty)?;
+                    let llvm_ty = self.get_or_insert_type(context, ty.get_element(context, 0))?;
 
                     let alloca = unsafe { core::LLVMBuildAlloca(builder, llvm_ty, name) };
 
@@ -1185,18 +1184,11 @@ impl<'a> Helpers<'a> {
 
                     alloca
                 }
-                Instruction::Store(ty, ptr, val, _) => {
-                    let llvm_ty = self.get_or_insert_type(context, *ty)?;
+                Instruction::Store(ptr, val, _) => {
                     let llvm_ptr = self.get_or_insert_value(context, *ptr)?;
                     let llvm_val = self.get_or_insert_value(context, *val)?;
 
-                    let llvm_ptr_ty = unsafe { core::LLVMPointerType(llvm_ty, 0) };
-
-                    let llvm_cast = unsafe {
-                        core::LLVMBuildBitCast(builder, llvm_ptr, llvm_ptr_ty, instruction_name)
-                    };
-
-                    unsafe { core::LLVMBuildStore(builder, llvm_val, llvm_cast) }
+                    unsafe { core::LLVMBuildStore(builder, llvm_val, llvm_ptr) }
                 }
                 Instruction::Unary(_, op, x, _) => {
                     let llvm_x = self.get_or_insert_value(context, *x)?;
