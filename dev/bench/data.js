@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1635364857652,
+  "lastUpdate": 1635364946260,
   "repoUrl": "https://github.com/sheredom/yair",
   "entries": {
     "Rust Benchmark": [
@@ -7155,6 +7155,72 @@ window.BENCHMARK_DATA = {
             "name": "llvm__benchmarks__tests__bench_splat_adds",
             "value": 4848320,
             "range": "± 830351",
+            "unit": "ns/iter"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "611171+sheredom@users.noreply.github.com",
+            "name": "Neil Henning",
+            "username": "sheredom"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "c79734b1885fdea5bcdabbdedf4eff1ca8d74633",
+          "message": "Merge pull request #36 from sheredom/yalang/make-pointers-strongly-typed-for-debuggability\n\nMake pointers strongly typed (again) for debuggability.",
+          "timestamp": "2021-10-27T20:55:34+01:00",
+          "tree_id": "4638b5f59b5f12794e7ebcc7675aa4aca5198c95",
+          "url": "https://github.com/sheredom/yair/commit/c79734b1885fdea5bcdabbdedf4eff1ca8d74633"
+        },
+        "date": 1635364940880,
+        "tool": "cargo",
+        "benches": [
+          {
+            "name": "io__benchmarks__tests__create_block",
+            "value": 56,
+            "range": "± 5",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "io__benchmarks__tests__create_function",
+            "value": 230,
+            "range": "± 22",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "io__benchmarks__tests__create_global",
+            "value": 247,
+            "range": "± 91",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "io__benchmarks__tests__create_instruction",
+            "value": 47,
+            "range": "± 10",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "io__benchmarks__tests__create_library",
+            "value": 651,
+            "range": "± 67",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "io__benchmarks__tests__create_module",
+            "value": 49,
+            "range": "± 8",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "llvm__benchmarks__tests__bench_splat_adds",
+            "value": 4664910,
+            "range": "± 804351",
             "unit": "ns/iter"
           }
         ]
