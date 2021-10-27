@@ -1,10 +1,10 @@
 // RUN: @yair_as @file | @yair_verify -
 
-// CHECK: Type must be bool, float, integral, or vector of bool, float, or integral:
+// CHECK: Type must be bool, integral, or vector of bool or integral:
 mod "😀" {
   fn "🎄"() : bool {
     bar():
-      p = const *any null
+      p = const *any i8 null
 
       // CHECK: [[r:\w+]] = not [[t:\w+]]
       // CHECK: With:

@@ -1,14 +1,12 @@
 // RUN: @yair_as @file | @yair_llvm - --type Intermediate
 
 mod "😀" {
-  // CHECK: define i8* @"\F0\9F\98\80::foo"(i8* %[[ptr:\w+]], i32 %[[index:\w+]])
-  fn foo(ptr : *any, index : i32) : *any {
-    bar(ptr : *any, index : i32):
-      // CHECK: %[[first:\w+]] = bitcast i8* %$$ptr to i32*
-      // CHECK: %[[gep:\w+]] = getelementptr inbounds i32, i32* %$$first, i32 %$$index
-      // CHECK: %[[second:\w+]] = bitcast i32* %$$gep to i8*
-      r = indexinto i32, ptr, index
-      // CHECK: ret i8* %$$second
+  // CHECK: define i32* @"\F0\9F\98\80::foo"(i32* %[[ptr:\w+]], i32 %[[index:\w+]])
+  fn foo(ptr : *any i32, index : i32) : *any i32 {
+    bar(ptr : *any i32, index : i32):
+      // CHECK: %[[gep:\w+]] = getelementptr inbounds i32, i32* %$$ptr, i32 %$$index
+      r = indexinto ptr, index
+      // CHECK: ret i32* %$$gep
       ret r
   }
 }

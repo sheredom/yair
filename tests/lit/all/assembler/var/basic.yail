@@ -26,10 +26,10 @@ mod "😀" {
   var f32 : cpu, f32
   // CHECK: var f64 : cpu, f64
   var f64 : cpu, f64
-  // CHECK: var void_ptr : cpu, *any
-  var void_ptr : cpu, *any
-  // CHECK: var gpu_ptr : cpu, *gpu
-  var gpu_ptr : cpu, *gpu
+  // CHECK: var void_ptr : cpu, *any f16
+  var void_ptr : cpu, *any f16
+  // CHECK: var gpu_ptr : cpu, *gpu i16
+  var gpu_ptr : cpu, *gpu i16
   // CHECK: var "🎄" : cpu, i32
   var "🎄" : cpu, i32
 }

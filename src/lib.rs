@@ -87,7 +87,7 @@ enum TypePayload {
     UInt(u8),
     Float(u8),
     Vector(Type, u8),
-    Pointer(Domain),
+    Pointer(Type, Domain),
     Struct(Vec<Type>),
     Function(Type, Vec<Type>),
     Array(Type, usize),
@@ -223,7 +223,14 @@ impl<'a> std::fmt::Display for TypeDisplayer<'a> {
         } else if self.ty.is_float(self.context) {
             write!(writer, "f{}", self.ty.get_bits(self.context))
         } else if self.ty.is_pointer(self.context) {
-            write!(writer, "*{}", self.ty.get_domain(self.context))
+            write!(
+                writer,
+                "*{} {}",
+                self.ty.get_domain(self.context),
+                self.ty
+                    .get_element(self.context, 0)
+                    .get_displayer(self.context)
+            )
         } else {
             std::unreachable!();
         }
@@ -285,18 +292,18 @@ impl Type {
     /// # let mut context = Context::new();
     /// # let module = context.create_module().build();
     /// # let u32_ty = context.get_uint_type(32);
-    /// # let u32_ptr_ty = context.get_pointer_type(Domain::Cpu);
+    /// # let u32_ptr_ty = context.get_pointer_type(u32_ty, Domain::Cpu);
     /// let domain = u32_ptr_ty.get_domain(&context);
     /// # assert_eq!(domain, Domain::Cpu);
     /// ```
     pub fn get_domain(&self, context: &Context) -> Domain {
         match context.types[self.0] {
-            TypePayload::Pointer(domain) => domain,
+            TypePayload::Pointer(_, domain) => domain,
             _ => panic!("Cannot get the domain from a non pointer type"),
         }
     }
 
-    /// Get the element from an array, vector or struct type.
+    /// Get the element from a pointer, array, vector or struct type.
     ///
     /// # Examples
     ///
@@ -311,6 +318,10 @@ impl Type {
     /// ```
     pub fn get_element(&self, context: &Context, index: usize) -> Type {
         match &context.types[self.0] {
+            TypePayload::Pointer(ty, _) => {
+                assert!(index == 0, "Index into a pointer element type must be 0");
+                *ty
+            }
             TypePayload::Vector(ty, size) => {
                 assert!(
                     index < (*size as usize),
@@ -324,7 +335,10 @@ impl Type {
                 assert!(index < *size, "Index is beyond the end of the array");
                 *ty
             }
-            tp => panic!("Cannot get the element from type {:?}", tp),
+            _ => panic!(
+                "Cannot get the element from type {}",
+                self.get_displayer(context)
+            ),
         }
     }
 
@@ -644,13 +658,13 @@ impl Type {
     /// # let mut context = Context::new();
     /// # let module = context.create_module().build();
     /// # let bool_ty = context.get_bool_type();
-    /// # let ptr_ty = context.get_pointer_type(Domain::Cpu);
+    /// # let ptr_ty = context.get_pointer_type(bool_ty, Domain::Cpu);
     /// let is_pointer = ptr_ty.is_pointer(&context);
     /// # assert!(is_pointer);
     /// # assert!(!bool_ty.is_pointer(&context));
     /// ```
     pub fn is_pointer(&self, context: &Context) -> bool {
-        matches!(context.types[self.0], TypePayload::Pointer(_))
+        matches!(context.types[self.0], TypePayload::Pointer(_, _))
     }
 
     /// Get the type at the index into the type.
@@ -669,6 +683,8 @@ impl Type {
     /// ```
     pub fn get_indexed(&self, context: &Context, index: Value) -> Type {
         match &context.types[self.0] {
+            // An index into a pointer will always yield the same type as the pointer!
+            TypePayload::Pointer(ty, _) => *ty,
             TypePayload::Array(ty, _) => *ty,
             TypePayload::Struct(tys) => {
                 assert!(

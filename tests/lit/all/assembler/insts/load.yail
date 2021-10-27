@@ -2,12 +2,12 @@
 
 // CHECK: mod "😀"
 mod "😀" {
-  // CHECK: fn foo(a : *any) : i8 {
-  fn foo(a : *any) : i8 {
-    // CHECK: b0([[a:\w+]] : *any):
-    bar(a : *any):
-      // CHECK: [[result:\w+]] = load i8, $$a
-      r = load i8, a
+  // CHECK: fn foo(a : *any i8) : i8 {
+  fn foo(a : *any i8) : i8 {
+    // CHECK: b0([[a:\w+]] : *any i8):
+    bar(a : *any i8):
+      // CHECK: [[result:\w+]] = load $$a
+      r = load a
       // CHECK: ret $$result
       ret r
   }

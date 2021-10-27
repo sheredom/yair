@@ -8,7 +8,7 @@ mod "😀" {
   fn foo() : f64 {
     bar():
       // CHECK: %[[result:\w+]] = load double, double* @my_var, align 8
-      r = load f64, my_var
+      r = load my_var
       // CHECK: ret double %$$result
       ret r
   }

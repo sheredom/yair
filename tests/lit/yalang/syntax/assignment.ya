@@ -6,8 +6,8 @@
 // CHECK:     br b1()
 // CHECK:   b1():
 // CHECK:     [[const:\w+]] = const f32 4.2e1
-// CHECK:     store f32, $$var, $$const
-// CHECK:     [[result:\w+]] = load f32, $$var
+// CHECK:     store $$var, $$const
+// CHECK:     [[result:\w+]] = load $$var
 // CHECK:     ret $$result
 // CHECK:   }
 // CHECK: }

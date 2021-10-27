@@ -1,4 +1,5 @@
 use crate::*;
+use std::collections::HashMap;
 use std::collections::HashSet;
 
 pub enum VerifyError<'a> {
@@ -17,6 +18,9 @@ pub enum VerifyError<'a> {
     CallAndFunctionMustHaveMatchingArguments(&'a Context, Function, Value),
     JobMustHaveOneStructArgument(&'a Context, Function),
     JobMustHaveVoidReturnType(&'a Context, Function),
+    NamedStackAllocVariablesMustBeUnique(&'a Context, Value, Value),
+    StackAllocsMustAppearInTheEntryBlock(&'a Context, Value),
+    StorePointerTypeMustMatchValueType(&'a Context, Value, Value, Type, Value, Type),
 }
 
 impl<'a> std::fmt::Display for VerifyError<'a> {
@@ -151,6 +155,38 @@ impl<'a> std::fmt::Display for VerifyError<'a> {
                 writeln!(formatter, "A job must have a void return type:")?;
                 writeln!(formatter, "  {}", f.get_displayer(l))
             }
+            VerifyError::NamedStackAllocVariablesMustBeUnique(c, a, b) => {
+                writeln!(formatter, "A named stack_alloc must have a unique name:")?;
+                writeln!(formatter, "  {}", a.get_inst_displayer(c))?;
+                writeln!(formatter, "And:")?;
+                writeln!(formatter, "  {}", b.get_inst_displayer(c))
+            }
+            VerifyError::StackAllocsMustAppearInTheEntryBlock(c, v) => {
+                writeln!(formatter, "A stack_alloc must appear in the entry block:")?;
+                writeln!(formatter, "  {}", v.get_inst_displayer(c))
+            }
+            VerifyError::StorePointerTypeMustMatchValueType(
+                c,
+                inst,
+                pointer,
+                pointer_ty,
+                value,
+                value_ty,
+            ) => {
+                writeln!(
+                    formatter,
+                    "The store pointer type must match the value type:"
+                )?;
+                writeln!(formatter, "  {}", inst.get_inst_displayer(c))?;
+                writeln!(formatter, "With pointer:")?;
+                writeln!(formatter, "  {}", pointer.get_displayer(c))?;
+                writeln!(formatter, "And pointer type:")?;
+                writeln!(formatter, "  {}", pointer_ty.get_displayer(c))?;
+                writeln!(formatter, "With value:")?;
+                writeln!(formatter, "  {}", value.get_displayer(c))?;
+                writeln!(formatter, "And value type:")?;
+                writeln!(formatter, "  {}", value_ty.get_displayer(c))
+            }
         }
     }
 }
@@ -158,6 +194,7 @@ impl<'a> std::fmt::Display for VerifyError<'a> {
 struct Verifier<'a> {
     context: &'a Context,
     live_values: HashSet<Value>,
+    live_names: HashMap<&'a str, Value>,
 }
 
 impl<'a> Verifier<'a> {
@@ -165,6 +202,7 @@ impl<'a> Verifier<'a> {
         Self {
             context,
             live_values: HashSet::new(),
+            live_names: HashMap::new(),
         }
     }
 
@@ -343,10 +381,9 @@ impl<'a> Verifier<'a> {
 
                         if *o == Unary::Not
                             && !(ty.is_bool_or_bool_vector(self.context)
-                                || ty.is_integral_or_integral_vector(self.context)
-                                || ty.is_float_or_float_vector(self.context))
+                                || ty.is_integral_or_integral_vector(self.context))
                         {
-                            return Err(VerifyError::TypeMustBeBoolOrFloatOrIntVector(
+                            return Err(VerifyError::TypeMustBeBoolOrIntVector(
                                 self.context,
                                 inst,
                                 *v,
@@ -497,6 +534,42 @@ impl<'a> Verifier<'a> {
                         }
 
                         self.verify_live(inst, *cond)?;
+                    }
+                    Instruction::StackAlloc(name, _, _) => {
+                        let name = name.as_str(self.context);
+
+                        if !name.is_empty() {
+                            if let Some(value) = self.live_names.insert(name, inst) {
+                                return Err(VerifyError::NamedStackAllocVariablesMustBeUnique(
+                                    self.context,
+                                    value,
+                                    inst,
+                                ));
+                            }
+                        }
+
+                        if index != 0 {
+                            return Err(VerifyError::StackAllocsMustAppearInTheEntryBlock(
+                                self.context,
+                                inst,
+                            ));
+                        }
+                    }
+                    Instruction::Load(_, _) => {}
+                    Instruction::Store(ptr, value, _) => {
+                        let ptr_ty = ptr.get_type(self.context);
+                        let value_ty = value.get_type(self.context);
+
+                        if ptr_ty.get_element(self.context, 0) != value_ty {
+                            return Err(VerifyError::StorePointerTypeMustMatchValueType(
+                                self.context,
+                                inst,
+                                *ptr,
+                                ptr_ty,
+                                *value,
+                                value_ty,
+                            ));
+                        }
                     }
                     _ => todo!("{}", inst.get_inst_displayer(self.context)),
                 }

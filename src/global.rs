@@ -48,7 +48,7 @@ impl Typed for Global {
     /// # let global = module.create_global(&mut context).with_name("var").build();
     /// let ty = global.get_type(&context);
     /// # let void_ty = context.get_void_type();
-    /// # assert_eq!(ty, context.get_pointer_type(Domain::CrossDevice));
+    /// # assert_eq!(ty, context.get_pointer_type(void_ty, Domain::CrossDevice));
     /// ```
     fn get_type(&self, _: &Context) -> Type {
         self.ptr_ty
@@ -181,7 +181,7 @@ impl<'a> GlobalBuilder<'a> {
     pub fn build(self) -> Value {
         debug_assert!(!self.name.is_empty(), "name must be non-0 in length");
 
-        let global_type = self.context.get_pointer_type(self.domain);
+        let global_type = self.context.get_pointer_type(self.ty, self.domain);
 
         let global = Global {
             name: self.context.get_name(self.name),

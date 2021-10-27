@@ -26,6 +26,6 @@ mod "😀" {
   var f32 : gpu, <f32, 4>
   // CHECK: var f64 : gpu, <f64, 4>
   var f64 : gpu, <f64, 4>
-  // CHECK: var void_ptr : gpu, <*any, 4>
-  var void_ptr : gpu, <*any, 4>
+  // CHECK: var void_ptr : gpu, <*any i8, 4>
+  var void_ptr : gpu, <*any i8, 4>
 }

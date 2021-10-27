@@ -83,11 +83,11 @@ pub enum Instruction {
     Binary(Type, Binary, Value, Value, Option<Location>),
     Cast(Type, Value, Option<Location>),
     BitCast(Type, Value, Option<Location>),
-    Load(Type, Value, Option<Location>),
-    Store(Type, Value, Value, Option<Location>),
+    Load(Value, Option<Location>),
+    Store(Value, Value, Option<Location>),
     Extract(Value, usize, Option<Location>),
     Insert(Value, Value, usize, Option<Location>),
-    StackAlloc(Name, Type, Type, Option<Location>),
+    StackAlloc(Name, Type, Option<Location>),
     Call(Function, Vec<Value>, Option<Location>),
     Branch(Block, Vec<Value>, Option<Location>),
     ConditionalBranch(
@@ -188,23 +188,21 @@ impl<'a> std::fmt::Display for InstructionDisplayer<'a> {
                     write!(writer, "{}", loc.get_displayer(self.context))?;
                 }
             }
-            Instruction::Load(ty, ptr, loc) => {
+            Instruction::Load(ptr, loc) => {
                 write!(
                     writer,
-                    "{} = load {}, {}",
+                    "{} = load {}",
                     self.value.get_displayer(self.context),
-                    ty.get_displayer(self.context),
                     ptr.get_displayer(self.context),
                 )?;
                 if let Some(loc) = loc {
                     write!(writer, "{}", loc.get_displayer(self.context))?;
                 }
             }
-            Instruction::Store(ty, ptr, val, loc) => {
+            Instruction::Store(ptr, val, loc) => {
                 write!(
                     writer,
-                    "store {}, {}, {}",
-                    ty.get_displayer(self.context),
+                    "store {}, {}",
                     ptr.get_displayer(self.context),
                     val.get_displayer(self.context),
                 )?;
@@ -237,13 +235,15 @@ impl<'a> std::fmt::Display for InstructionDisplayer<'a> {
                     write!(writer, "{}", loc.get_displayer(self.context))?;
                 }
             }
-            Instruction::StackAlloc(name, ty, _, loc) => {
+            Instruction::StackAlloc(name, ptr_ty, loc) => {
                 write!(
                     writer,
                     "{} = stackalloc {}, {}",
                     self.value.get_displayer(self.context),
                     name.get_displayer(self.context),
-                    ty.get_displayer(self.context),
+                    ptr_ty
+                        .get_element(self.context, 0)
+                        .get_displayer(self.context),
                 )?;
 
                 if let Some(loc) = loc {
@@ -345,12 +345,11 @@ impl<'a> std::fmt::Display for InstructionDisplayer<'a> {
                     write!(writer, "{}", loc.get_displayer(self.context))?;
                 }
             }
-            Instruction::IndexInto(ty, ptr, args, loc) => {
+            Instruction::IndexInto(_, ptr, args, loc) => {
                 write!(
                     writer,
-                    "{} = indexinto {}, {}, ",
+                    "{} = indexinto {}, ",
                     self.value.get_displayer(self.context),
-                    ty.get_displayer(self.context),
                     ptr.get_displayer(self.context),
                 )?;
 
@@ -401,20 +400,20 @@ impl Typed for Instruction {
             Instruction::Binary(ty, _, _, _, _) => *ty,
             Instruction::Cast(ty, _, _) => *ty,
             Instruction::BitCast(ty, _, _) => *ty,
-            Instruction::Load(ty, _, _) => *ty,
-            Instruction::Store(_, _, _, _) => panic!("Cannot get the type of a store"),
+            Instruction::Load(value, _) => value.get_type(context).get_element(context, 0),
+            Instruction::Store(_, _, _) => panic!("Cannot get the type of a store"),
             Instruction::Extract(val, index, _) => {
                 val.get_type(context).get_element(context, *index)
             }
             Instruction::Insert(_, val, _, _) => val.get_type(context),
-            Instruction::StackAlloc(_, _, ty, _) => *ty,
+            Instruction::StackAlloc(_, ty, _) => *ty,
             Instruction::Call(function, _, _) => function.get_return_type(context),
             Instruction::Branch(_, _, _) => panic!("Cannot get the type of a branch"),
             Instruction::ConditionalBranch(_, _, _, _, _, _) => {
                 panic!("Cannot get the type of a conditional branch")
             }
             Instruction::Select(ty, _, _, _, _) => *ty,
-            Instruction::IndexInto(_, val, _, _) => val.get_type(context),
+            Instruction::IndexInto(ty, _, _, _) => *ty,
         }
     }
 }
@@ -441,7 +440,7 @@ impl Named for Instruction {
     /// ```
     fn get_name(&self, _: &Context) -> Name {
         match self {
-            Instruction::StackAlloc(name, _, _, _) => *name,
+            Instruction::StackAlloc(name, _, _) => *name,
             _ => panic!("Cannot get the name of instruction"),
         }
     }
@@ -963,17 +962,17 @@ impl<'a> InstructionBuilder<'a> {
     /// # let mut context = Context::new();
     /// # let module = context.create_module().build();
     /// # let u32_ty = context.get_uint_type(32);
-    /// # let u32_ptr_ty = context.get_pointer_type(Domain::Cpu);
+    /// # let u32_ptr_ty = context.get_pointer_type(u32_ty, Domain::Cpu);
     /// # let function = module.create_function(&mut context).with_name("func").with_return_type(u32_ty).with_arg("a", u32_ptr_ty).build();
     /// # let block = function.create_block(&mut context).build();
     /// # let ptr = function.get_arg(&context, 0);
     /// # let mut instruction_builder = block.create_instructions(&mut context);
     /// # let location = None;
-    /// let load = instruction_builder.load(u32_ty, ptr, location);
+    /// let load = instruction_builder.load(ptr, location);
     /// ```
-    pub fn load(&mut self, ty: Type, ptr: Value, location: Option<Location>) -> Value {
+    pub fn load(&mut self, ptr: Value, location: Option<Location>) -> Value {
         assert!(ptr.get_type(self.context).is_pointer(self.context));
-        self.make_value(Instruction::Load(ty, ptr, location))
+        self.make_value(Instruction::Load(ptr, location))
     }
 
     /// Store a value to a pointer.
@@ -990,19 +989,18 @@ impl<'a> InstructionBuilder<'a> {
     /// # let module = context.create_module().build();
     /// # let void_ty = context.get_void_type();
     /// # let u32_ty = context.get_uint_type(32);
-    /// # let u32_ptr_ty = context.get_pointer_type(Domain::Cpu);
+    /// # let u32_ptr_ty = context.get_pointer_type(u32_ty, Domain::Cpu);
     /// # let function = module.create_function(&mut context).with_name("func").with_return_type(void_ty).with_arg("a", u32_ty).with_arg("b", u32_ptr_ty).build();
     /// # let block = function.create_block(&mut context).build();
     /// # let val = function.get_arg(&context, 0);
     /// # let ptr = function.get_arg(&context, 1);
     /// # let mut instruction_builder = block.create_instructions(&mut context);
     /// # let location = None;
-    /// let store = instruction_builder.store(u32_ty, ptr, val, location);
+    /// let store = instruction_builder.store(ptr, val, location);
     /// ```
-    pub fn store(&mut self, ty: Type, ptr: Value, val: Value, location: Option<Location>) -> Value {
+    pub fn store(&mut self, ptr: Value, val: Value, location: Option<Location>) -> Value {
         assert!(ptr.get_type(self.context).is_pointer(self.context));
-        assert_eq!(ty, val.get_type(self.context));
-        self.make_value(Instruction::Store(ty, ptr, val, location))
+        self.make_value(Instruction::Store(ptr, val, location))
     }
 
     /// Extract an element from an array, vector, or struct type.
@@ -1242,7 +1240,7 @@ impl<'a> InstructionBuilder<'a> {
     /// # let mut context = Context::new();
     /// # let module = context.create_module().build();
     /// # let u32_ty = context.get_uint_type(32);
-    /// # let stack_ptr_ty = context.get_pointer_type(Domain::Stack);
+    /// # let stack_ptr_ty = context.get_pointer_type(u32_ty, Domain::Stack);
     /// # let function = module.create_function(&mut context).with_name("func").with_return_type(u32_ty).build();
     /// # let block = function.create_block(&mut context).build();
     /// # let mut instruction_builder = block.create_instructions(&mut context);
@@ -1251,9 +1249,10 @@ impl<'a> InstructionBuilder<'a> {
     /// # assert_eq!(stack_alloc.get_type(&context), stack_ptr_ty);
     /// ```
     pub fn stack_alloc(&mut self, name: &str, ty: Type, location: Option<Location>) -> Value {
-        let ptr_ty = self.context.get_pointer_type(Domain::Stack);
+        let ptr_ty = self.context.get_pointer_type(ty, Domain::Stack);
+
         let name_index = self.context.get_name(name);
-        self.make_value(Instruction::StackAlloc(name_index, ty, ptr_ty, location))
+        self.make_value(Instruction::StackAlloc(name_index, ptr_ty, location))
     }
 
     /// Call a function.
@@ -1401,10 +1400,10 @@ impl<'a> InstructionBuilder<'a> {
     /// # let mut context = Context::new();
     /// # let module = context.create_module().build();
     /// # let u32_ty = context.get_uint_type(32);
-    /// # let u32_ptr_ty = context.get_pointer_type(Domain::Cpu);
+    /// # let u32_ptr_ty = context.get_pointer_type(u32_ty, Domain::Cpu);
     /// # let u32_array_ty = context.get_array_type(u32_ty, 42);
     /// # let struct_ty = context.get_struct_type(&[ u32_ptr_ty, u32_array_ty, u32_ty ]);
-    /// # let ptr_ty = context.get_pointer_type(Domain::Cpu);
+    /// # let ptr_ty = context.get_pointer_type(struct_ty, Domain::Cpu);
     /// # let function = module.create_function(&mut context).with_name("func").with_return_type(u32_ptr_ty).with_arg("a", ptr_ty).build();
     /// # let block = function.create_block(&mut context).build();
     /// # let ptr = function.get_arg(&context, 0);
@@ -1413,12 +1412,11 @@ impl<'a> InstructionBuilder<'a> {
     /// # let i2 = i0;
     /// # let mut instruction_builder = block.create_instructions(&mut context);
     /// # let location = None;
-    /// let index_into = instruction_builder.index_into(struct_ty, ptr, &[ i0, i1, i2 ], location);
-    /// # assert_eq!(index_into.get_type(&context), ptr_ty);
+    /// let index_into = instruction_builder.index_into(ptr, &[ i0, i1, i2 ], location);
+    /// # assert_eq!(index_into.get_type(&context), u32_ptr_ty);
     /// ```
     pub fn index_into(
         &mut self,
-        ty: Type,
         ptr: Value,
         indices: &[Value],
         location: Option<Location>,
@@ -1427,6 +1425,32 @@ impl<'a> InstructionBuilder<'a> {
 
         assert!(ptr_ty.is_pointer(self.context));
         assert!(!indices.is_empty());
+
+        let domain = ptr_ty.get_domain(self.context);
+        let mut ty = ptr_ty;
+
+        for index in indices {
+            let element_ty = ty.get_element(self.context, 0);
+
+            let new_element_ty = if element_ty.is_struct(self.context) {
+                assert!(index.is_constant(self.context));
+
+                let constant = index.get_constant(self.context);
+
+                match constant {
+                    Constant::Int(i, _) => element_ty.get_element(self.context, *i as usize),
+                    Constant::UInt(u, _) => element_ty.get_element(self.context, *u as usize),
+                    _ => panic!("Index into struct is not constant"),
+                }
+            } else if element_ty.is_array(self.context) | element_ty.is_pointer(self.context) {
+                element_ty.get_element(self.context, 0)
+            } else {
+                element_ty
+            };
+
+            // Any other index would yield the same type as getting the index from the 0th element.
+            ty = self.context.get_pointer_type(new_element_ty, domain);
+        }
 
         self.make_value(Instruction::IndexInto(ty, ptr, indices.to_vec(), location))
     }
