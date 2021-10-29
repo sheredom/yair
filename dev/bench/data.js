@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1635518801664,
+  "lastUpdate": 1635518854102,
   "repoUrl": "https://github.com/sheredom/yair",
   "entries": {
     "Rust Benchmark": [
@@ -10714,6 +10714,53 @@ window.BENCHMARK_DATA = {
             "value": 3576801,
             "range": "± 466566",
             "unit": "ns/iter"
+          }
+        ]
+      }
+    ],
+    "Other benchmarks for ubuntu-18.04": [
+      {
+        "commit": {
+          "author": {
+            "name": "sheredom",
+            "username": "sheredom"
+          },
+          "committer": {
+            "name": "sheredom",
+            "username": "sheredom"
+          },
+          "id": "32ee2a21db4ae5a457b282515e0bc55cd74eba02",
+          "message": "Try add some code-size benchmarks too.",
+          "timestamp": "2021-10-29T13:30:20Z",
+          "url": "https://github.com/sheredom/yair/pull/38/commits/32ee2a21db4ae5a457b282515e0bc55cd74eba02"
+        },
+        "date": 1635518853474,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "bootstrap",
+            "value": 4589400,
+            "unit": "bytes"
+          },
+          {
+            "name": "yair-as",
+            "value": 4803000,
+            "unit": "bytes"
+          },
+          {
+            "name": "yair-dis",
+            "value": 5253392,
+            "unit": "bytes"
+          },
+          {
+            "name": "yair-llvm",
+            "value": 38344960,
+            "unit": "bytes"
+          },
+          {
+            "name": "yair-verify",
+            "value": 5245864,
+            "unit": "bytes"
           }
         ]
       }
