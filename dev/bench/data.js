@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1635524672558,
+  "lastUpdate": 1635524674445,
   "repoUrl": "https://github.com/sheredom/yair",
   "entries": {
     "Rust Benchmark": [
@@ -10925,6 +10925,55 @@ window.BENCHMARK_DATA = {
           "url": "https://github.com/sheredom/yair/pull/38/commits/32ee2a21db4ae5a457b282515e0bc55cd74eba02"
         },
         "date": 1635518853474,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "bootstrap",
+            "value": 4589400,
+            "unit": "bytes"
+          },
+          {
+            "name": "yair-as",
+            "value": 4803000,
+            "unit": "bytes"
+          },
+          {
+            "name": "yair-dis",
+            "value": 5253392,
+            "unit": "bytes"
+          },
+          {
+            "name": "yair-llvm",
+            "value": 38344960,
+            "unit": "bytes"
+          },
+          {
+            "name": "yair-verify",
+            "value": 5245864,
+            "unit": "bytes"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "611171+sheredom@users.noreply.github.com",
+            "name": "Neil Henning",
+            "username": "sheredom"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "bad50823bd4fe4b6429d68136c0ccc4be56dab41",
+          "message": "Merge pull request #38 from sheredom/try-code-size-benchmarks\n\nTry add some code-size benchmarks too.",
+          "timestamp": "2021-10-29T17:19:29+01:00",
+          "tree_id": "3eee5d8a2fe1ed794108d22a2c12183906aaa01d",
+          "url": "https://github.com/sheredom/yair/commit/bad50823bd4fe4b6429d68136c0ccc4be56dab41"
+        },
+        "date": 1635524673326,
         "tool": "customSmallerIsBetter",
         "benches": [
           {
