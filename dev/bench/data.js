@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1635518854102,
+  "lastUpdate": 1635518855316,
   "repoUrl": "https://github.com/sheredom/yair",
   "entries": {
     "Rust Benchmark": [
@@ -10760,6 +10760,53 @@ window.BENCHMARK_DATA = {
           {
             "name": "yair-verify",
             "value": 5245864,
+            "unit": "bytes"
+          }
+        ]
+      }
+    ],
+    "Other benchmarks for macOS-latest": [
+      {
+        "commit": {
+          "author": {
+            "name": "sheredom",
+            "username": "sheredom"
+          },
+          "committer": {
+            "name": "sheredom",
+            "username": "sheredom"
+          },
+          "id": "32ee2a21db4ae5a457b282515e0bc55cd74eba02",
+          "message": "Try add some code-size benchmarks too.",
+          "timestamp": "2021-10-29T13:30:20Z",
+          "url": "https://github.com/sheredom/yair/pull/38/commits/32ee2a21db4ae5a457b282515e0bc55cd74eba02"
+        },
+        "date": 1635518854459,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "bootstrap",
+            "value": 1488280,
+            "unit": "bytes"
+          },
+          {
+            "name": "yair-as",
+            "value": 1661792,
+            "unit": "bytes"
+          },
+          {
+            "name": "yair-dis",
+            "value": 2124536,
+            "unit": "bytes"
+          },
+          {
+            "name": "yair-llvm",
+            "value": 32903312,
+            "unit": "bytes"
+          },
+          {
+            "name": "yair-verify",
+            "value": 2117696,
             "unit": "bytes"
           }
         ]
