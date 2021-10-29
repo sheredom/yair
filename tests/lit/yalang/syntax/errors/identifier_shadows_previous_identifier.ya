@@ -1,0 +1,7 @@
+// RUN: @compiler --emit yair @file
+
+func : function(a : f32) : f32 {
+    // CHECK: Identifier 'a' shadows a previously declared identifier
+    a : i32 = 13.0;
+    return var;
+}

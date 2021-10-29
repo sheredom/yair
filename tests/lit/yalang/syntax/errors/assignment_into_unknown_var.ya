@@ -1,0 +1,7 @@
+// RUN: @compiler --emit yair @file
+
+func : function() : f32 {
+    // CHECK: Unknown identifier 'var' used in assignment
+    var = 13.0;
+    return var;
+}

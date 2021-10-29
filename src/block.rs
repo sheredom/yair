@@ -234,7 +234,7 @@ impl<'a> BlockBuilder<'a> {
     /// # let block_builder = function.create_block(&mut context);
     /// block_builder.with_args(&[i8_ty, u32_ty]);
     /// ```
-    pub fn with_args(mut self, arguments: &[Type]) -> Self {
+    pub fn with_args(mut self, arguments: impl IntoIterator<Item = &'a Type>) -> Self {
         for argument in arguments {
             self.argument_types.push(*argument);
         }
