@@ -27,6 +27,7 @@
 - Add an optimizer!
 - Explain the syntax of the IR:
   - Globals and structs both use `%name` to differentiate them from other symbols.
+- Verify that all statements in a block are reachable from the tree of blocks above.
 
 ## Features
 
@@ -67,7 +68,7 @@ mod "😀" {
 }
 ```
 
-This means that constants behave like regular SSA notes for the purposes of the intemediate representation.
+This means that constants behave like regular SSA notes for the purposes of the intermediate representation.
 
 ## References
 

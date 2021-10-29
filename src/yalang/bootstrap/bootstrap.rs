@@ -168,6 +168,8 @@ enum ParseError {
     InvalidNonConcreteConstantsUsed(Range, Range),
     UnknownIdentifier(Range),
     ComparisonOperatorsAlwaysNeedParenthesis(Range, Token, Range, Token),
+    UnknownIdentifierUsedInAssignment(Range),
+    IdentifierShadowsPreviouslyDeclareIdentifier(Range, Range),
 }
 
 #[allow(dead_code)]
@@ -177,7 +179,7 @@ struct Parser<'a> {
     functions: HashMap<&'a str, yair::Function>,
     module: String,
     lexer: logos::Lexer<'a, Token>,
-    identifiers: HashMap<&'a str, (yair::Type, yair::Value)>,
+    identifiers: HashMap<&'a str, (yair::Type, yair::Value, Range)>,
     scoped_identifiers: Vec<Vec<&'a str>>,
 }
 
@@ -704,10 +706,19 @@ impl<'a> Parser<'a> {
     fn add_identifier(
         &mut self,
         identifier: &'a str,
+        range: Range,
         ty: yair::Type,
         value: yair::Value,
     ) -> Result<(), ParseError> {
-        self.identifiers.insert(identifier, (ty, value));
+        if let Some(original) = self
+            .identifiers
+            .insert(identifier, (ty, value, range.clone()))
+        {
+            return Err(ParseError::IdentifierShadowsPreviouslyDeclareIdentifier(
+                original.2, range,
+            ));
+        }
+
         self.scoped_identifiers.last_mut().unwrap().push(identifier);
 
         Ok(())
@@ -729,6 +740,7 @@ impl<'a> Parser<'a> {
                 Some(Token::RParen) => break,
                 Some(Token::Identifier) => {
                     let name = self.lexer.slice();
+                    let range: Range = self.lexer.span();
 
                     if Some(Token::Colon) != self.lexer.next() {
                         return Err(ParseError::ExpectedTokenNotFound(
@@ -738,9 +750,9 @@ impl<'a> Parser<'a> {
                     }
 
                     // TODO: We should check that we aren't parsing a function definition again here!
-                    let ty = self.parse_type(Some(&identifier), context)?;
+                    let ty = self.parse_type(None, context)?;
 
-                    args.push((name, ty));
+                    args.push((name, range, ty));
 
                     parsed_one_arg = true;
                 }
@@ -770,11 +782,13 @@ impl<'a> Parser<'a> {
             context.create_module().with_name(&self.module).build()
         };
 
+        let used_args: Vec<_> = args.iter().map(|(name, _, ty)| (*name, *ty)).collect();
+
         let function = module
             .create_function(context)
             .with_name(identifier)
             .with_return_type(return_ty)
-            .with_args(&args)
+            .with_args(&used_args)
             .build();
 
         // TODO: support function declarations!
@@ -798,15 +812,16 @@ impl<'a> Parser<'a> {
         let mut entry_block_builder = entry_block.create_instructions(context);
 
         for arg in args.iter().enumerate() {
-            let value = entry_block.get_arg(entry_block_builder.borrow_context(), arg.0);
-            let ty = value.get_type(entry_block_builder.borrow_context());
+            let (index, (name, range, ty)) = arg;
+
+            let value = entry_block.get_arg(entry_block_builder.borrow_context(), index);
 
             let location = value.get_location(entry_block_builder.borrow_context());
-            let stack_alloc = entry_block_builder.stack_alloc(arg.1 .0, arg.1 .1, location);
+            let stack_alloc = entry_block_builder.stack_alloc(name, *ty, location);
 
             entry_block_builder.store(stack_alloc, value, location);
 
-            self.add_identifier(arg.1 .0, ty, stack_alloc)?;
+            self.add_identifier(name, range.clone(), *ty, stack_alloc)?;
         }
 
         let mut entry_block_paused_builder = entry_block_builder.pause_building();
@@ -825,6 +840,7 @@ impl<'a> Parser<'a> {
             match self.lexer.next() {
                 Some(Token::Identifier) => {
                     let identifier = self.lexer.slice();
+                    let identifier_range = self.lexer.span();
 
                     match self.next_token()? {
                         Token::Colon => {
@@ -845,12 +861,31 @@ impl<'a> Parser<'a> {
                                 alloc
                             };
 
-                            self.add_identifier(identifier, ty, stack_alloc)?;
+                            self.add_identifier(identifier, identifier_range, ty, stack_alloc)?;
 
-                            let expr = match self.next_token()? {
-                                Token::Assignment => self.parse_expression(ty, &mut builder)?,
+                            let (expr, location) = match self.next_token()? {
+                                Token::Assignment => (
+                                    self.parse_expression(ty, &mut builder)?,
+                                    self.get_current_location(builder.borrow_context()),
+                                ),
                                 _ => todo!(),
                             };
+
+                            builder.store(stack_alloc, expr, location);
+                        }
+                        Token::Assignment => {
+                            let location = self.get_current_location(builder.borrow_context());
+
+                            let (ty, stack_alloc) =
+                                if let Some(identifier) = self.identifiers.get(identifier) {
+                                    (identifier.0, identifier.1)
+                                } else {
+                                    return Err(ParseError::UnknownIdentifierUsedInAssignment(
+                                        identifier_range,
+                                    ));
+                                };
+
+                            let expr = self.parse_expression(ty, &mut builder)?;
 
                             builder.store(stack_alloc, expr, location);
                         }
@@ -951,18 +986,45 @@ impl<'a> Parser<'a> {
         context: &mut yair::Context,
         fmt: &mut std::io::Stderr,
     ) -> Result<(), io::Error> {
-        let range = match e {
+        let write_range = |fmt: &mut std::io::Stderr, range: Range| -> Result<(), io::Error> {
+            let span = self.file.span;
+            let span = span.subspan(range.start as u64, range.end as u64);
+
+            let location = self.codemap.look_up_span(span);
+
+            writeln!(
+                fmt,
+                "{}:{}:{}",
+                location.file.name(),
+                location.begin.line + 1,
+                location.begin.column + 1
+            )?;
+
+            let pos = span.low();
+
+            let line = self.file.find_line(pos);
+
+            let str = self.file.source_line(line);
+
+            writeln!(fmt, "  {}", str)?;
+
+            let line_col = self.file.find_line_col(pos);
+
+            writeln!(fmt, "  {}^", " ".repeat(line_col.column))
+        };
+
+        match e {
             ParseError::UnexpectedEndOfFile => {
                 writeln!(fmt, "error: Unexpected end of file")?;
-                (data.len() - 1)..data.len()
+                write_range(fmt, (data.len() - 1)..data.len())?;
             }
             ParseError::ExpectedTokenNotFound(token, range) => {
                 writeln!(fmt, "error: Expected token '{:?}' not found", token)?;
-                range
+                write_range(fmt, range)?;
             }
             ParseError::InvalidExpression(range) => {
                 writeln!(fmt, "error: Invalid expression")?;
-                range
+                write_range(fmt, range)?;
             }
             ParseError::OperatorsInDifferentPrecedenceGroups(x_range, _, y_range, _) => {
                 let span = self.file.span;
@@ -978,38 +1040,8 @@ impl<'a> Parser<'a> {
                     "error: Operators '{}' and '{}' are in different precedence groups",
                     x_str, y_str
                 )?;
-
-                let span = self.file.span;
-
-                let span = span.subspan(x_range.start as u64, x_range.end as u64);
-
-                let location = self.codemap.look_up_span(span);
-
-                writeln!(
-                    fmt,
-                    "{}:{}:{}",
-                    location.file.name(),
-                    location.begin.line + 1,
-                    location.begin.column + 1
-                )?;
-
-                let span = self.file.span;
-
-                let span = span.subspan(x_range.start as u64, x_range.end as u64);
-
-                let pos = span.low();
-
-                let line = self.file.find_line(pos);
-
-                let str = self.file.source_line(line);
-
-                writeln!(fmt, "  {}", str)?;
-
-                let line_col = self.file.find_line_col(pos);
-
-                writeln!(fmt, "  {}^", " ".repeat(line_col.column))?;
-
-                y_range
+                write_range(fmt, x_range)?;
+                write_range(fmt, y_range)?;
             }
             ParseError::TypesDoNotMatch(x_range, x_ty, y_range, y_ty) => {
                 writeln!(
@@ -1018,78 +1050,17 @@ impl<'a> Parser<'a> {
                     x_ty.get_displayer(context),
                     y_ty.get_displayer(context),
                 )?;
-
-                let span = self.file.span;
-
-                let span = span.subspan(x_range.start as u64, x_range.end as u64);
-
-                let location = self.codemap.look_up_span(span);
-
-                writeln!(
-                    fmt,
-                    "{}:{}:{}",
-                    location.file.name(),
-                    location.begin.line + 1,
-                    location.begin.column + 1
-                )?;
-
-                let span = self.file.span;
-
-                let span = span.subspan(x_range.start as u64, x_range.end as u64);
-
-                let pos = span.low();
-
-                let line = self.file.find_line(pos);
-
-                let str = self.file.source_line(line);
-
-                writeln!(fmt, "  {}", str)?;
-
-                let line_col = self.file.find_line_col(pos);
-
-                writeln!(fmt, "  {}^", " ".repeat(line_col.column))?;
-
-                y_range
+                write_range(fmt, x_range)?;
+                write_range(fmt, y_range)?;
             }
             ParseError::InvalidNonConcreteConstantsUsed(x_range, y_range) => {
                 writeln!(fmt, "error: Invalid non-concrete constant used")?;
-
-                let span = self.file.span;
-
-                let span = span.subspan(x_range.start as u64, x_range.end as u64);
-
-                let location = self.codemap.look_up_span(span);
-
-                writeln!(
-                    fmt,
-                    "{}:{}:{}",
-                    location.file.name(),
-                    location.begin.line + 1,
-                    location.begin.column + 1
-                )?;
-
-                let span = self.file.span;
-
-                let span = span.subspan(x_range.start as u64, x_range.end as u64);
-
-                let pos = span.low();
-
-                let line = self.file.find_line(pos);
-
-                let str = self.file.source_line(line);
-
-                writeln!(fmt, "  {}", str)?;
-
-                let line_col = self.file.find_line_col(pos);
-
-                writeln!(fmt, "  {}^", " ".repeat(line_col.column))?;
-
-                y_range
+                write_range(fmt, x_range)?;
+                write_range(fmt, y_range)?;
             }
             ParseError::InvalidNonConcreteConstantUsed(range) => {
                 writeln!(fmt, "error: Invalid non-concrete constant used")?;
-
-                range
+                write_range(fmt, range)?;
             }
             ParseError::UnknownIdentifier(range) => {
                 let span = self.file.span;
@@ -1097,8 +1068,7 @@ impl<'a> Parser<'a> {
                 let str = self.file.source_slice(span);
 
                 writeln!(fmt, "error: Unknown identifier '{}' used", str)?;
-
-                range
+                write_range(fmt, range)?;
             }
             ParseError::ComparisonOperatorsAlwaysNeedParenthesis(x_range, _, y_range, _) => {
                 let span = self.file.span;
@@ -1115,65 +1085,41 @@ impl<'a> Parser<'a> {
                     x_str, y_str
                 )?;
 
+                write_range(fmt, x_range)?;
+                write_range(fmt, y_range)?;
+            }
+            ParseError::UnknownIdentifierUsedInAssignment(range) => {
                 let span = self.file.span;
-
-                let span = span.subspan(x_range.start as u64, x_range.end as u64);
-
-                let location = self.codemap.look_up_span(span);
+                let span = span.subspan(range.start as u64, range.end as u64);
+                let str = self.file.source_slice(span);
 
                 writeln!(
                     fmt,
-                    "{}:{}:{}",
-                    location.file.name(),
-                    location.begin.line + 1,
-                    location.begin.column + 1
+                    "error: Unknown identifier '{}' used in assignment",
+                    str
+                )?;
+                writeln!(
+                    fmt,
+                    "       Did you mean to declare the variable `{} : <type> =` instead?",
+                    str
+                )?;
+                write_range(fmt, range)?;
+            }
+            ParseError::IdentifierShadowsPreviouslyDeclareIdentifier(x_range, y_range) => {
+                let span = self.file.span;
+                let span = span.subspan(y_range.start as u64, y_range.end as u64);
+                let y_str = self.file.source_slice(span);
+
+                writeln!(
+                    fmt,
+                    "error: Identifier '{}' shadows a previously declared identifier:",
+                    y_str
                 )?;
 
-                let span = self.file.span;
-
-                let span = span.subspan(x_range.start as u64, x_range.end as u64);
-
-                let pos = span.low();
-
-                let line = self.file.find_line(pos);
-
-                let str = self.file.source_line(line);
-
-                writeln!(fmt, "  {}", str)?;
-
-                let line_col = self.file.find_line_col(pos);
-
-                writeln!(fmt, "  {}^", " ".repeat(line_col.column))?;
-
-                y_range
+                write_range(fmt, y_range)?;
+                write_range(fmt, x_range)?;
             }
-        };
-
-        let span = self.file.span;
-
-        let span = span.subspan(range.start as u64, range.end as u64);
-
-        let location = self.codemap.look_up_span(span);
-
-        writeln!(
-            fmt,
-            "{}:{}:{}",
-            location.file.name(),
-            location.begin.line + 1,
-            location.begin.column + 1
-        )?;
-
-        let pos = span.low();
-
-        let line = self.file.find_line(pos);
-
-        let str = self.file.source_line(line);
-
-        writeln!(fmt, "  {}", str)?;
-
-        let line_col = self.file.find_line_col(pos);
-
-        writeln!(fmt, "  {}^", " ".repeat(line_col.column))?;
+        }
 
         Ok(())
     }

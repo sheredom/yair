@@ -5,10 +5,8 @@
 // CHECK:     [[var:\w+]] = stackalloc var, f32
 // CHECK:     br b1()
 // CHECK:   b1():
-// CHECK:     [[a:\w+]] = const f32 4.2e1
-// CHECK:     store $$var, $$a
-// CHECK:     [[b:\w+]] = const f32 1.3e1
-// CHECK:     store $$var, $$b
+// CHECK:     [[const:\w+]] = const f32 4.2e1
+// CHECK:     store $$var, $$const
 // CHECK:     [[result:\w+]] = load $$var
 // CHECK:     ret $$result
 // CHECK:   }
@@ -16,6 +14,5 @@
  
 func : function() : f32 {
     var : f32 = 42.0;
-    var = 13.0;
     return var;
 }
