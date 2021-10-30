@@ -1,0 +1,12 @@
+// RUN: @compiler --emit yair @file
+ 
+func : function() : void {
+  if true {
+
+  } else {
+  
+  // CHECK: error: Cannot have multiple else statements for one if
+  } else {
+
+  }
+}

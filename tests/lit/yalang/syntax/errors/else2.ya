@@ -1,0 +1,10 @@
+// RUN: @compiler --emit yair @file
+ 
+func : function() : void {
+  {
+
+  // CHECK: error: Else statement without an if
+  } else {
+
+  }
+}
