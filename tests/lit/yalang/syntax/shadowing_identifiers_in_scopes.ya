@@ -1,0 +1,33 @@
+// RUN: @compiler --emit yair @file
+// CHECK: mod "" {
+// CHECK: fn func() : void {
+// CHECK:   b0():
+// CHECK:     [[xi32:\w+]] = stackalloc x, i32
+// CHECK:     [[xf16:\w+]] = stackalloc x, f16
+// CHECK:     br b1()
+// CHECK:   b1():
+// CHECK:     br b2()
+// CHECK:   b2():
+// CHECK:      [[consti32:\w+]] = const i32 42
+// CHECK:       store $$xi32, $$consti32
+// CHECK:     br b3()
+// CHECK:   b3():
+// CHECK:     br b4()
+// CHECK:   b4():
+// CHECK:      [[constf16:\w+]] = const f16 1.313e1
+// CHECK:      store $$xf16, $$constf16
+// CHECK:      br b5()
+// CHECK:   b5():
+// CHECK:     ret
+// CHECK:   }
+// CHECK: }
+ 
+func : function() : void {
+  {
+    x : i32 = 42;
+  }
+
+  {
+    x : f16 = 13.13;
+  }
+}

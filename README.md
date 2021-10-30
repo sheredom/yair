@@ -23,6 +23,7 @@
     - At the least we should have some form of thread_local (shared) variables, and cpu globals too. But any else doesn't really make sense I think?
   - Check for casts to the same type as the value.
   - Check for pointers in invalid domains being inside pointers of other domains (like stack pointer being stored into CPU memory).
+  - Check that blocks have correct terminating instructions (ret/br/etc).
 - Add a cranelift code generation library.
 - Add an optimizer!
 - Explain the syntax of the IR:
