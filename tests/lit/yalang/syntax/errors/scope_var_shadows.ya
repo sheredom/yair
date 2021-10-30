@@ -1,0 +1,10 @@
+// RUN: @compiler --emit yair @file
+
+func : function() : void {
+    a : f32 = 13;
+
+    {
+      // CHECK: error: Identifier 'a' shadows a previously declared identifier
+      a : i32 = 13;
+    }
+}

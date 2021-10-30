@@ -695,6 +695,10 @@ impl<'a> Parser<'a> {
         Ok(expr)
     }
 
+    fn push_scope(&mut self) {
+        self.scoped_identifiers.push(Vec::new());
+    }
+
     fn pop_scope(&mut self) {
         for identifier in self.scoped_identifiers.last().unwrap().iter() {
             self.identifiers.remove(identifier).unwrap();
@@ -807,7 +811,7 @@ impl<'a> Parser<'a> {
 
         let entry_block = builder.build();
 
-        self.scoped_identifiers.push(Vec::new());
+        self.push_scope();
 
         let mut entry_block_builder = entry_block.create_instructions(context);
 
@@ -893,12 +897,25 @@ impl<'a> Parser<'a> {
                     }
                 }
                 Some(Token::RCurly) => {
-                    if return_is_void {
+                    if self.scoped_identifiers.len() == 1 {
+                        if return_is_void {
+                            let location = self.get_current_location(builder.borrow_context());
+                            builder.ret(location);
+                        }
+
+                        // TODO: we need to check if we needed a return to the block?
+                        break;
+                    } else {
+                        let block = function.create_block(builder.borrow_context()).build();
+
                         let location = self.get_current_location(builder.borrow_context());
-                        builder.ret(location);
+
+                        builder.branch(block, &[], location);
+
+                        builder = block.create_instructions(context);
                     }
 
-                    break;
+                    self.pop_scope();
                 }
                 Some(Token::Return) => {
                     let location = self.get_current_location(builder.borrow_context());
@@ -910,6 +927,18 @@ impl<'a> Parser<'a> {
                     // TODO: This is a total bodge to make the borrow checker happy. Maybe consider adding a Default::default() to the builder for these cases?
                     builder = block.create_instructions(context);
                 }
+                Some(Token::LCurly) => {
+                    // We are opening a new scope here!
+                    self.push_scope();
+
+                    let block = function.create_block(builder.borrow_context()).build();
+
+                    let location = self.get_current_location(builder.borrow_context());
+
+                    builder.branch(block, &[], location);
+
+                    builder = block.create_instructions(context);
+                }
                 Some(_) =>
                 /* Handle other statements */
                 {
@@ -918,8 +947,6 @@ impl<'a> Parser<'a> {
                 None => return Err(ParseError::UnexpectedEndOfFile),
             }
         }
-
-        self.pop_scope();
 
         let location = function.get_location(context);
 
