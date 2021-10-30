@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1635595928835,
+  "lastUpdate": 1635595951382,
   "repoUrl": "https://github.com/sheredom/yair",
   "entries": {
     "Rust Benchmark": [
@@ -11445,6 +11445,55 @@ window.BENCHMARK_DATA = {
           "url": "https://github.com/sheredom/yair/pull/39/commits/509fe801fd0f8c9eea33f40ac64c8e40d6695c31"
         },
         "date": 1635595084006,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "bootstrap",
+            "value": 4584456,
+            "unit": "bytes"
+          },
+          {
+            "name": "yair-as",
+            "value": 4803000,
+            "unit": "bytes"
+          },
+          {
+            "name": "yair-dis",
+            "value": 5253392,
+            "unit": "bytes"
+          },
+          {
+            "name": "yair-llvm",
+            "value": 38344960,
+            "unit": "bytes"
+          },
+          {
+            "name": "yair-verify",
+            "value": 5240920,
+            "unit": "bytes"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "611171+sheredom@users.noreply.github.com",
+            "name": "Neil Henning",
+            "username": "sheredom"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "da875ae84e1eda40eb33e3c4e74a165257270095",
+          "message": "Merge pull request #39 from sheredom/yalang/add-scopes\n\nAdd scope support to yalang.",
+          "timestamp": "2021-10-30T13:07:55+01:00",
+          "tree_id": "b2f554b3e83caabcca7b3b7885c49b4b3362752e",
+          "url": "https://github.com/sheredom/yair/commit/da875ae84e1eda40eb33e3c4e74a165257270095"
+        },
+        "date": 1635595950280,
         "tool": "customSmallerIsBetter",
         "benches": [
           {
