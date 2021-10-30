@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1635524875464,
+  "lastUpdate": 1635595068923,
   "repoUrl": "https://github.com/sheredom/yair",
   "entries": {
     "Rust Benchmark": [
@@ -11227,6 +11227,51 @@ window.BENCHMARK_DATA = {
           {
             "name": "yair-verify",
             "value": 2117696,
+            "unit": "bytes"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "sheredom",
+            "username": "sheredom"
+          },
+          "committer": {
+            "name": "sheredom",
+            "username": "sheredom"
+          },
+          "id": "509fe801fd0f8c9eea33f40ac64c8e40d6695c31",
+          "message": "Add scope support to yalang.",
+          "timestamp": "2021-10-29T16:19:33Z",
+          "url": "https://github.com/sheredom/yair/pull/39/commits/509fe801fd0f8c9eea33f40ac64c8e40d6695c31"
+        },
+        "date": 1635595067737,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "bootstrap",
+            "value": 1487696,
+            "unit": "bytes"
+          },
+          {
+            "name": "yair-as",
+            "value": 1661792,
+            "unit": "bytes"
+          },
+          {
+            "name": "yair-dis",
+            "value": 2124536,
+            "unit": "bytes"
+          },
+          {
+            "name": "yair-llvm",
+            "value": 32903312,
+            "unit": "bytes"
+          },
+          {
+            "name": "yair-verify",
+            "value": 2117104,
             "unit": "bytes"
           }
         ]
