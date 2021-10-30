@@ -8,8 +8,7 @@ use codemap::*;
 use logos::Logos;
 use std::collections::HashMap;
 use std::fs::File;
-use std::io::Write;
-use std::io::{self, Read};
+use std::io::{self, Read, Write};
 use std::sync::Arc;
 use yair::io::*;
 use yair::*;
@@ -137,6 +136,12 @@ enum Token {
     #[token("=")]
     Assignment,
 
+    #[token("if")]
+    If,
+
+    #[token("else")]
+    Else,
+
     #[regex("[_a-zA-Z][_a-zA-Z0-9]*")]
     Identifier,
 
@@ -145,6 +150,12 @@ enum Token {
 
     #[regex("[+-]?([0-9]+([.][0-9]*)?([eE][+-]?[0-9]+)?|[.][0-9]+([eE][+-]?[0-9]+)?)")]
     Float,
+
+    #[token("true")]
+    True,
+
+    #[token("false")]
+    False,
 
     #[error]
     // Skip whitespace.
@@ -170,6 +181,47 @@ enum ParseError {
     ComparisonOperatorsAlwaysNeedParenthesis(Range, Token, Range, Token),
     UnknownIdentifierUsedInAssignment(Range),
     IdentifierShadowsPreviouslyDeclareIdentifier(Range, Range),
+    MultipleElseStatements(Range),
+    ElseStatementWithoutIf(Range),
+}
+
+struct Lexer<'a> {
+    lexer: logos::Lexer<'a, Token>,
+    token: Option<Token>,
+    slice: &'a str,
+    span: Range,
+}
+
+impl<'a> Lexer<'a> {
+    pub fn new(data: &'a str) -> Self {
+        let mut lexer = Token::lexer(&data);
+        let slice = lexer.slice();
+        let span = lexer.span();
+        let token = lexer.next();
+
+        Self {
+            lexer,
+            token,
+            slice,
+            span,
+        }
+    }
+
+    pub fn peek(&self) -> (Option<Token>, &'a str, Range) {
+        (self.token, self.slice, self.span.clone())
+    }
+
+    pub fn next(&mut self) -> Option<(Token, &'a str, Range)> {
+        let next = self
+            .token
+            .map(|token| (token, self.slice, self.span.clone()));
+
+        self.slice = self.lexer.slice();
+        self.span = self.lexer.span();
+        self.token = self.lexer.next();
+
+        next
+    }
 }
 
 #[allow(dead_code)]
@@ -178,7 +230,7 @@ struct Parser<'a> {
     file: Arc<codemap::File>,
     functions: HashMap<&'a str, yair::Function>,
     module: String,
-    lexer: logos::Lexer<'a, Token>,
+    lexer: Lexer<'a>,
     identifiers: HashMap<&'a str, (yair::Type, yair::Value, Range)>,
     scoped_identifiers: Vec<Vec<&'a str>>,
 }
@@ -194,14 +246,26 @@ impl<'a> Parser<'a> {
             file,
             functions: HashMap::new(),
             module: "".to_string(),
-            lexer: Token::lexer(&data),
+            lexer: Lexer::new(&data),
             identifiers: HashMap::new(),
             scoped_identifiers: Vec::new(),
         }
     }
 
+    fn get_next(&mut self) -> Option<Token> {
+        self.lexer.next().map(|next| next.0)
+    }
+
+    fn get_current_range(&self) -> Range {
+        self.lexer.peek().2
+    }
+
+    fn get_current_str(&self) -> &'a str {
+        self.lexer.peek().1
+    }
+
     fn get_current_location(&mut self, context: &mut yair::Context) -> Option<yair::Location> {
-        let range = self.lexer.span();
+        let range = self.get_current_range();
 
         self.get_location(range, context)
     }
@@ -225,11 +289,14 @@ impl<'a> Parser<'a> {
     }
 
     fn expect_symbol(&mut self, token: Token) -> Result<(), ParseError> {
-        if let Some(next) = self.lexer.next() {
+        if let Some(next) = self.get_next() {
             if next == token {
                 Ok(())
             } else {
-                Err(ParseError::ExpectedTokenNotFound(token, self.lexer.span()))
+                Err(ParseError::ExpectedTokenNotFound(
+                    token,
+                    self.get_current_range(),
+                ))
             }
         } else {
             Err(ParseError::UnexpectedEndOfFile)
@@ -468,7 +535,7 @@ impl<'a> Parser<'a> {
     }
 
     fn next_token(&mut self) -> Result<Token, ParseError> {
-        if let Some(next) = self.lexer.next() {
+        if let Some(next) = self.get_next() {
             Ok(next)
         } else {
             Err(ParseError::UnexpectedEndOfFile)
@@ -507,7 +574,7 @@ impl<'a> Parser<'a> {
     }
 
     fn parse_integer(&mut self, _: &mut Context) -> Result<u64, ParseError> {
-        if let Ok(i) = self.lexer.slice().parse::<u64>() {
+        if let Ok(i) = self.get_current_str().parse::<u64>() {
             Ok(i)
         } else {
             todo!()
@@ -515,7 +582,7 @@ impl<'a> Parser<'a> {
     }
 
     fn parse_float(&mut self, _: &mut Context) -> Result<f64, ParseError> {
-        if let Ok(f) = self.lexer.slice().parse::<f64>() {
+        if let Ok(f) = self.get_current_str().parse::<f64>() {
             Ok(f)
         } else {
             todo!()
@@ -531,24 +598,42 @@ impl<'a> Parser<'a> {
         let mut operator_stack: Vec<(Range, Token)> = Vec::new();
 
         loop {
-            match self.lexer.next() {
+            if let Some(peek) = self.lexer.peek().0 {
+                match peek {
+                    Token::Semicolon => break,
+                    Token::LCurly => break,
+                    _ => (),
+                }
+            }
+
+            match self.get_next() {
+                Some(Token::True) => operand_stack.push(Operand {
+                    range: self.get_current_range(),
+                    kind: OperandKind::Concrete(builder.borrow_context().get_bool_constant(true)),
+                }),
+                Some(Token::False) => operand_stack.push(Operand {
+                    range: self.get_current_range(),
+                    kind: OperandKind::Concrete(builder.borrow_context().get_bool_constant(false)),
+                }),
                 Some(Token::Integer) => operand_stack.push(Operand {
-                    range: self.lexer.span(),
+                    range: self.get_current_range(),
                     kind: OperandKind::Integer(self.parse_integer(builder.borrow_context())?),
                 }),
                 Some(Token::Float) => operand_stack.push(Operand {
-                    range: self.lexer.span(),
+                    range: self.get_current_range(),
                     kind: OperandKind::Float(self.parse_float(builder.borrow_context())?),
                 }),
-                Some(Token::LParen) => operator_stack.push((self.lexer.span(), Token::LParen)),
+                Some(Token::LParen) => {
+                    operator_stack.push((self.get_current_range(), Token::LParen))
+                }
                 Some(Token::RParen) => self.apply_if_lower_precedence(
-                    (self.lexer.span(), Token::RParen),
+                    (self.get_current_range(), Token::RParen),
                     &mut operand_stack,
                     &mut operator_stack,
                     builder,
                 )?,
                 Some(Token::As) => {
-                    let range = self.lexer.span();
+                    let range = self.get_current_range();
 
                     if !operator_stack.is_empty() {
                         self.check_precedence(
@@ -623,15 +708,14 @@ impl<'a> Parser<'a> {
                     ) =>
                 {
                     self.apply_if_lower_precedence_and_push_operator(
-                        (self.lexer.span(), x),
+                        (self.get_current_range(), x),
                         &mut operand_stack,
                         &mut &mut operator_stack,
                         builder,
                     )?
                 }
-                Some(Token::Semicolon) => break,
                 Some(Token::Identifier) => {
-                    let identifier = self.lexer.slice();
+                    let identifier = self.get_current_str();
 
                     let location = self.get_current_location(builder.borrow_context());
 
@@ -639,11 +723,11 @@ impl<'a> Parser<'a> {
                         let expr = builder.load(identifier.1, location);
 
                         operand_stack.push(Operand {
-                            range: self.lexer.span(),
+                            range: self.get_current_range(),
                             kind: OperandKind::Concrete(expr),
                         });
                     } else {
-                        return Err(ParseError::UnknownIdentifier(self.lexer.span()));
+                        return Err(ParseError::UnknownIdentifier(self.get_current_range()));
                     }
                 }
                 Some(_) => todo!(),
@@ -653,7 +737,7 @@ impl<'a> Parser<'a> {
 
         // Handle the case where an expression is malformed like `foo=;`
         if operand_stack.is_empty() {
-            return Err(ParseError::InvalidExpression(self.lexer.span()));
+            return Err(ParseError::InvalidExpression(self.get_current_range()));
         }
 
         while !operator_stack.is_empty() {
@@ -740,16 +824,16 @@ impl<'a> Parser<'a> {
         let mut parsed_one_arg = false;
 
         loop {
-            match self.lexer.next() {
+            match self.get_next() {
                 Some(Token::RParen) => break,
                 Some(Token::Identifier) => {
-                    let name = self.lexer.slice();
-                    let range: Range = self.lexer.span();
+                    let name = self.get_current_str();
+                    let range: Range = self.get_current_range();
 
-                    if Some(Token::Colon) != self.lexer.next() {
+                    if Some(Token::Colon) != self.get_next() {
                         return Err(ParseError::ExpectedTokenNotFound(
                             Token::Colon,
-                            self.lexer.span(),
+                            self.get_current_range(),
                         ));
                     }
 
@@ -764,11 +848,11 @@ impl<'a> Parser<'a> {
                     if !parsed_one_arg {
                         return Err(ParseError::ExpectedTokenNotFound(
                             Token::Comma,
-                            self.lexer.span(),
+                            self.get_current_range(),
                         ));
                     }
                 }
-                Some(_) => return Err(ParseError::InvalidExpression(self.lexer.span())),
+                Some(_) => return Err(ParseError::InvalidExpression(self.get_current_range())),
                 None => return Err(ParseError::UnexpectedEndOfFile),
             }
         }
@@ -832,19 +916,22 @@ impl<'a> Parser<'a> {
 
         let builder = function.create_block(context);
 
-        let block = builder.build();
-
-        let first_actual_block = block;
+        let first_actual_block = builder.build();
 
         let return_is_void = return_ty.is_void(context);
 
-        let mut builder = block.create_instructions(context);
+        let mut builder = first_actual_block.create_instructions(context);
+
+        let mut merge_blocks = Vec::new();
+
+        let mut last_scope_was_if = false;
+        let mut last_scope_was_else = false;
 
         loop {
-            match self.lexer.next() {
+            match self.get_next() {
                 Some(Token::Identifier) => {
-                    let identifier = self.lexer.slice();
-                    let identifier_range = self.lexer.span();
+                    let identifier = self.get_current_str();
+                    let identifier_range = self.get_current_range();
 
                     match self.next_token()? {
                         Token::Colon => {
@@ -875,6 +962,8 @@ impl<'a> Parser<'a> {
                                 _ => todo!(),
                             };
 
+                            self.expect_symbol(Token::Semicolon)?;
+
                             builder.store(stack_alloc, expr, location);
                         }
                         Token::Assignment => {
@@ -891,6 +980,8 @@ impl<'a> Parser<'a> {
 
                             let expr = self.parse_expression(ty, &mut builder)?;
 
+                            self.expect_symbol(Token::Semicolon)?;
+
                             builder.store(stack_alloc, expr, location);
                         }
                         _ => todo!(),
@@ -905,15 +996,61 @@ impl<'a> Parser<'a> {
 
                         // TODO: we need to check if we needed a return to the block?
                         break;
-                    } else {
-                        let block = function.create_block(builder.borrow_context()).build();
+                    }
 
-                        let location = self.get_current_location(builder.borrow_context());
+                    let location = self.get_current_location(builder.borrow_context());
+
+                    let block = if let Some(peek) = self.lexer.peek().0 {
+                        if matches!(peek, Token::Else) {
+                            self.lexer.next();
+
+                            if last_scope_was_else {
+                                return Err(ParseError::MultipleElseStatements(
+                                    self.get_current_range(),
+                                ));
+                            }
+
+                            if !last_scope_was_if {
+                                return Err(ParseError::ElseStatementWithoutIf(
+                                    self.get_current_range(),
+                                ));
+                            }
+
+                            last_scope_was_if = false;
+                            last_scope_was_else = true;
+
+                            self.expect_symbol(Token::LCurly)?;
+
+                            self.push_scope();
+
+                            let block = merge_blocks.pop().unwrap();
+
+                            merge_blocks
+                                .push(function.create_block(builder.borrow_context()).build());
+
+                            builder.branch(*merge_blocks.last().unwrap(), &[], location);
+
+                            block
+                        } else {
+                            last_scope_was_if = false;
+                            last_scope_was_else = false;
+                            let block = merge_blocks.pop().unwrap();
+
+                            builder.branch(block, &[], location);
+
+                            block
+                        }
+                    } else {
+                        last_scope_was_if = false;
+                        last_scope_was_else = false;
+                        let block = merge_blocks.pop().unwrap();
 
                         builder.branch(block, &[], location);
 
-                        builder = block.create_instructions(context);
-                    }
+                        block
+                    };
+
+                    builder = block.create_instructions(context);
 
                     self.pop_scope();
                 }
@@ -922,10 +1059,12 @@ impl<'a> Parser<'a> {
 
                     let expr = self.parse_expression(return_ty, &mut builder)?;
 
+                    self.expect_symbol(Token::Semicolon)?;
+
                     builder.ret_val(expr, location);
 
                     // TODO: This is a total bodge to make the borrow checker happy. Maybe consider adding a Default::default() to the builder for these cases?
-                    builder = block.create_instructions(context);
+                    builder = first_actual_block.create_instructions(context);
                 }
                 Some(Token::LCurly) => {
                     // We are opening a new scope here!
@@ -933,17 +1072,46 @@ impl<'a> Parser<'a> {
 
                     let block = function.create_block(builder.borrow_context()).build();
 
+                    merge_blocks.push(function.create_block(builder.borrow_context()).build());
+
                     let location = self.get_current_location(builder.borrow_context());
 
                     builder.branch(block, &[], location);
 
                     builder = block.create_instructions(context);
                 }
-                Some(_) =>
-                /* Handle other statements */
-                {
-                    todo!()
+                Some(Token::If) => {
+                    last_scope_was_if = true;
+
+                    let location = self.get_current_location(builder.borrow_context());
+
+                    let bool_ty = builder.borrow_context().get_bool_type();
+
+                    let expr = self.parse_expression(bool_ty, &mut builder)?;
+
+                    self.expect_symbol(Token::LCurly)?;
+
+                    self.push_scope();
+
+                    let block = function.create_block(builder.borrow_context()).build();
+
+                    merge_blocks.push(function.create_block(builder.borrow_context()).build());
+
+                    builder.conditional_branch(
+                        expr,
+                        block,
+                        *merge_blocks.last().unwrap(),
+                        &[],
+                        &[],
+                        location,
+                    );
+
+                    builder = block.create_instructions(context);
                 }
+                Some(Token::Else) => {
+                    return Err(ParseError::ElseStatementWithoutIf(self.get_current_range()));
+                }
+                Some(token) => panic!("Unhandled {:?}", token),
                 None => return Err(ParseError::UnexpectedEndOfFile),
             }
         }
@@ -958,7 +1126,7 @@ impl<'a> Parser<'a> {
 
     fn parse_identifier(&mut self) -> Result<String, ParseError> {
         self.expect_symbol(Token::Identifier)?;
-        Ok(self.lexer.slice().to_string())
+        Ok(self.get_current_str().to_string())
     }
 
     fn parse_type(
@@ -983,7 +1151,7 @@ impl<'a> Parser<'a> {
             "f16" => Ok(context.get_float_type(16)),
             "f32" => Ok(context.get_float_type(32)),
             "f64" => Ok(context.get_float_type(64)),
-            _ => todo!(),
+            _ => panic!("Unknown type identifier {}", identifier),
         }
     }
 
@@ -994,10 +1162,10 @@ impl<'a> Parser<'a> {
             Err(e) => return Err(e),
         };
 
-        if Some(Token::Colon) != self.lexer.next() {
+        if Some(Token::Colon) != self.get_next() {
             return Err(ParseError::ExpectedTokenNotFound(
                 Token::Colon,
-                self.lexer.span(),
+                self.get_current_range(),
             ));
         }
 
@@ -1145,6 +1313,17 @@ impl<'a> Parser<'a> {
 
                 write_range(fmt, y_range)?;
                 write_range(fmt, x_range)?;
+            }
+            ParseError::MultipleElseStatements(range) => {
+                writeln!(
+                    fmt,
+                    "error: Cannot have multiple else statements for one if"
+                )?;
+                write_range(fmt, range)?;
+            }
+            ParseError::ElseStatementWithoutIf(range) => {
+                writeln!(fmt, "error: Else statement without an if")?;
+                write_range(fmt, range)?;
             }
         }
 
