@@ -5,7 +5,7 @@ func : function() : void {
 
   } else {
   
-  // CHECK: error: Cannot have multiple else statements for one if
+  // CHECK: error: Else statement without an if
   } else {
 
   }

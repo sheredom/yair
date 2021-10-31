@@ -1,0 +1,33 @@
+// RUN: @compiler --emit yair @file
+// CHECK: mod "" {
+// CHECK: fn func() : void {
+// CHECK:   b0():
+// CHECK:     br b1()
+// CHECK:   b1():
+// CHECK:     [[true:\w+]] = const bool true
+// CHECK:     cbr $$true, b2(), b3()
+// CHECK:   b2():
+// CHECK:     br b7()
+// CHECK:   b3():
+// CHECK:     [[false:\w+]] = const bool false
+// CHECK:     cbr $$false, b4(), b5()
+// CHECK:   b4():
+// CHECK:     br b6()
+// CHECK:   b5():
+// CHECK:     br b6()
+// CHECK:   b6():
+// CHECK:     br b7()
+// CHECK:   b7():
+// CHECK:     ret
+// CHECK:   }
+// CHECK: }
+ 
+func : function() : void {
+  if true {
+
+  } else if false {
+
+  } else {
+
+  }
+}
