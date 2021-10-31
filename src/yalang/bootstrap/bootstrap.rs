@@ -181,7 +181,6 @@ enum ParseError {
     ComparisonOperatorsAlwaysNeedParenthesis(Range, Token, Range, Token),
     UnknownIdentifierUsedInAssignment(Range),
     IdentifierShadowsPreviouslyDeclareIdentifier(Range, Range),
-    MultipleElseStatements(Range),
     ElseStatementWithoutIf(Range),
 }
 
@@ -250,6 +249,10 @@ impl<'a> Parser<'a> {
             identifiers: HashMap::new(),
             scoped_identifiers: Vec::new(),
         }
+    }
+
+    fn peek(&mut self) -> Token {
+        self.lexer.peek().0.map_or(Token::Error, |token| token)
     }
 
     fn get_next(&mut self) -> Option<Token> {
@@ -730,7 +733,7 @@ impl<'a> Parser<'a> {
                         return Err(ParseError::UnknownIdentifier(self.get_current_range()));
                     }
                 }
-                Some(_) => todo!(),
+                Some(token) => panic!("Unknown {:?}", token),
                 None => todo!(),
             }
         }
@@ -812,6 +815,217 @@ impl<'a> Parser<'a> {
         Ok(())
     }
 
+    fn parse_if(
+        &mut self,
+        function: yair::Function,
+        alloca_block: yair::Block,
+        condition: yair::Value,
+        block: yair::Block,
+        context: &mut yair::Context,
+    ) -> Result<yair::Block, ParseError> {
+        self.expect_symbol(Token::LCurly)?;
+
+        let location = self.get_location(self.lexer.peek().2, context);
+
+        let mut exit_blocks = Vec::new();
+
+        let (if_entry_block, if_exit_block) = self.parse_block(function, alloca_block, context)?;
+
+        exit_blocks.push((if_exit_block, self.get_current_location(context)));
+
+        let false_block = if self.peek() == Token::Else {
+            self.expect_symbol(Token::Else)?;
+
+            if self.peek() == Token::If {
+                self.expect_symbol(Token::If)?;
+
+                let else_if_block = function.create_block(context).build();
+
+                let mut builder = else_if_block.create_instructions(context);
+
+                let bool_ty = builder.borrow_context().get_bool_type();
+
+                let expr = self.parse_expression(bool_ty, &mut builder)?;
+
+                let exit_block = self.parse_if(
+                    function,
+                    alloca_block,
+                    expr,
+                    else_if_block,
+                    builder.borrow_context(),
+                )?;
+
+                exit_blocks.push((exit_block, self.get_current_location(context)));
+
+                Some(else_if_block)
+            } else {
+                self.expect_symbol(Token::LCurly)?;
+
+                let (else_entry_block, else_exit_block) =
+                    self.parse_block(function, alloca_block, context)?;
+
+                exit_blocks.push((else_exit_block, self.get_current_location(context)));
+
+                Some(else_entry_block)
+            }
+        } else {
+            None
+        };
+
+        let merge_block = function.create_block(context).build();
+
+        let false_block = false_block.map_or(merge_block, |block| block);
+
+        block.create_instructions(context).conditional_branch(
+            condition,
+            if_entry_block,
+            false_block,
+            &[],
+            &[],
+            location,
+        );
+
+        for (exit_block, location) in exit_blocks {
+            exit_block
+                .create_instructions(context)
+                .branch(merge_block, &[], location);
+        }
+
+        Ok(merge_block)
+    }
+
+    fn parse_block(
+        &mut self,
+        function: yair::Function,
+        alloca_block: yair::Block,
+        context: &mut yair::Context,
+    ) -> Result<(yair::Block, yair::Block), ParseError> {
+        self.push_scope();
+
+        let entry_block = function.create_block(context).build();
+
+        let mut current_block = entry_block;
+        let mut builder = current_block.create_instructions(context);
+
+        loop {
+            match self.get_next() {
+                Some(Token::LCurly) => {
+                    let location = self.get_location(self.lexer.peek().2, builder.borrow_context());
+
+                    let (sub_entry_block, sub_exit_block) =
+                        self.parse_block(function, alloca_block, builder.borrow_context())?;
+
+                    current_block
+                        .create_instructions(builder.borrow_context())
+                        .branch(sub_entry_block, &[], location);
+
+                    let location = self.get_location(self.lexer.peek().2, builder.borrow_context());
+
+                    current_block = function.create_block(builder.borrow_context()).build();
+
+                    sub_exit_block
+                        .create_instructions(builder.borrow_context())
+                        .branch(current_block, &[], location);
+                    builder = current_block.create_instructions(context);
+                }
+                Some(Token::RCurly) => {
+                    self.pop_scope();
+                    return Ok((entry_block, current_block));
+                }
+                Some(Token::Identifier) => {
+                    let identifier = self.get_current_str();
+                    let identifier_range = self.get_current_range();
+
+                    match self.next_token()? {
+                        Token::Colon => {
+                            let location = self.get_current_location(builder.borrow_context());
+
+                            let ty = self.parse_type(None, builder.borrow_context())?;
+
+                            let stack_alloc = {
+                                let mut builder =
+                                    alloca_block.create_instructions(builder.borrow_context());
+
+                                let alloc = builder.stack_alloc(identifier, ty, location);
+
+                                builder.pause_building();
+
+                                alloc
+                            };
+
+                            self.add_identifier(identifier, identifier_range, ty, stack_alloc)?;
+
+                            let (expr, location) = match self.next_token()? {
+                                Token::Assignment => (
+                                    self.parse_expression(ty, &mut builder)?,
+                                    self.get_current_location(builder.borrow_context()),
+                                ),
+                                _ => todo!(),
+                            };
+
+                            self.expect_symbol(Token::Semicolon)?;
+
+                            builder.store(stack_alloc, expr, location);
+                        }
+                        Token::Assignment => {
+                            let location = self.get_current_location(builder.borrow_context());
+
+                            let (ty, stack_alloc) =
+                                if let Some(identifier) = self.identifiers.get(identifier) {
+                                    (identifier.0, identifier.1)
+                                } else {
+                                    return Err(ParseError::UnknownIdentifierUsedInAssignment(
+                                        identifier_range,
+                                    ));
+                                };
+
+                            let expr = self.parse_expression(ty, &mut builder)?;
+
+                            self.expect_symbol(Token::Semicolon)?;
+
+                            builder.store(stack_alloc, expr, location);
+                        }
+                        _ => todo!(),
+                    }
+                }
+                Some(Token::Return) => {
+                    let location = self.get_current_location(builder.borrow_context());
+
+                    let return_ty = function.get_return_type(builder.borrow_context());
+
+                    let expr = self.parse_expression(return_ty, &mut builder)?;
+
+                    self.expect_symbol(Token::Semicolon)?;
+
+                    builder.ret_val(expr, location);
+
+                    return Ok((entry_block, current_block));
+                }
+                Some(Token::If) => {
+                    let bool_ty = builder.borrow_context().get_bool_type();
+
+                    let expr = self.parse_expression(bool_ty, &mut builder)?;
+
+                    let exit_block = self.parse_if(
+                        function,
+                        alloca_block,
+                        expr,
+                        current_block,
+                        builder.borrow_context(),
+                    )?;
+
+                    current_block = exit_block;
+                    builder = current_block.create_instructions(context);
+                }
+                Some(Token::Else) => {
+                    return Err(ParseError::ElseStatementWithoutIf(self.get_current_range()));
+                }
+                Some(token) => panic!("Unhandled {:?}", token),
+                None => return Err(ParseError::UnexpectedEndOfFile),
+            }
+        }
+    }
+
     fn parse_function(
         &mut self,
         identifier: &str,
@@ -879,8 +1093,9 @@ impl<'a> Parser<'a> {
             .with_args(&used_args)
             .build();
 
-        // TODO: support function declarations!
-        self.expect_symbol(Token::LCurly)?;
+        if self.lexer.peek().0.map_or(Token::Error, |token| token) != Token::LCurly {
+            panic!("Support function declarations!");
+        }
 
         let arg_types: Vec<yair::Type> = function
             .get_args(context)
@@ -893,16 +1108,16 @@ impl<'a> Parser<'a> {
             builder = builder.with_arg(arg);
         }
 
-        let entry_block = builder.build();
+        let alloca_block = builder.build();
 
         self.push_scope();
 
-        let mut entry_block_builder = entry_block.create_instructions(context);
+        let mut entry_block_builder = alloca_block.create_instructions(context);
 
         for arg in args.iter().enumerate() {
             let (index, (name, range, ty)) = arg;
 
-            let value = entry_block.get_arg(entry_block_builder.borrow_context(), index);
+            let value = alloca_block.get_arg(entry_block_builder.borrow_context(), index);
 
             let location = value.get_location(entry_block_builder.borrow_context());
             let stack_alloc = entry_block_builder.stack_alloc(name, *ty, location);
@@ -912,214 +1127,21 @@ impl<'a> Parser<'a> {
             self.add_identifier(name, range.clone(), *ty, stack_alloc)?;
         }
 
-        let mut entry_block_paused_builder = entry_block_builder.pause_building();
-
-        let builder = function.create_block(context);
-
-        let first_actual_block = builder.build();
+        entry_block_builder.pause_building();
 
         let return_is_void = return_ty.is_void(context);
 
-        let mut builder = first_actual_block.create_instructions(context);
+        self.expect_symbol(Token::LCurly)?;
+        let (entry_block, exit_block) = self.parse_block(function, alloca_block, context)?;
 
-        let mut merge_blocks = Vec::new();
-
-        let mut last_scope_was_if = false;
-        let mut last_scope_was_else = false;
-
-        loop {
-            match self.get_next() {
-                Some(Token::Identifier) => {
-                    let identifier = self.get_current_str();
-                    let identifier_range = self.get_current_range();
-
-                    match self.next_token()? {
-                        Token::Colon => {
-                            let location = self.get_current_location(builder.borrow_context());
-
-                            let ty = self.parse_type(None, builder.borrow_context())?;
-
-                            let stack_alloc = {
-                                let mut builder = InstructionBuilder::resume_building(
-                                    builder.borrow_context(),
-                                    entry_block_paused_builder,
-                                );
-
-                                let alloc = builder.stack_alloc(identifier, ty, location);
-
-                                entry_block_paused_builder = builder.pause_building();
-
-                                alloc
-                            };
-
-                            self.add_identifier(identifier, identifier_range, ty, stack_alloc)?;
-
-                            let (expr, location) = match self.next_token()? {
-                                Token::Assignment => (
-                                    self.parse_expression(ty, &mut builder)?,
-                                    self.get_current_location(builder.borrow_context()),
-                                ),
-                                _ => todo!(),
-                            };
-
-                            self.expect_symbol(Token::Semicolon)?;
-
-                            builder.store(stack_alloc, expr, location);
-                        }
-                        Token::Assignment => {
-                            let location = self.get_current_location(builder.borrow_context());
-
-                            let (ty, stack_alloc) =
-                                if let Some(identifier) = self.identifiers.get(identifier) {
-                                    (identifier.0, identifier.1)
-                                } else {
-                                    return Err(ParseError::UnknownIdentifierUsedInAssignment(
-                                        identifier_range,
-                                    ));
-                                };
-
-                            let expr = self.parse_expression(ty, &mut builder)?;
-
-                            self.expect_symbol(Token::Semicolon)?;
-
-                            builder.store(stack_alloc, expr, location);
-                        }
-                        _ => todo!(),
-                    }
-                }
-                Some(Token::RCurly) => {
-                    if self.scoped_identifiers.len() == 1 {
-                        if return_is_void {
-                            let location = self.get_current_location(builder.borrow_context());
-                            builder.ret(location);
-                        }
-
-                        // TODO: we need to check if we needed a return to the block?
-                        break;
-                    }
-
-                    let location = self.get_current_location(builder.borrow_context());
-
-                    let block = if let Some(peek) = self.lexer.peek().0 {
-                        if matches!(peek, Token::Else) {
-                            self.lexer.next();
-
-                            if last_scope_was_else {
-                                return Err(ParseError::MultipleElseStatements(
-                                    self.get_current_range(),
-                                ));
-                            }
-
-                            if !last_scope_was_if {
-                                return Err(ParseError::ElseStatementWithoutIf(
-                                    self.get_current_range(),
-                                ));
-                            }
-
-                            last_scope_was_if = false;
-                            last_scope_was_else = true;
-
-                            self.expect_symbol(Token::LCurly)?;
-
-                            self.push_scope();
-
-                            let block = merge_blocks.pop().unwrap();
-
-                            merge_blocks
-                                .push(function.create_block(builder.borrow_context()).build());
-
-                            builder.branch(*merge_blocks.last().unwrap(), &[], location);
-
-                            block
-                        } else {
-                            last_scope_was_if = false;
-                            last_scope_was_else = false;
-                            let block = merge_blocks.pop().unwrap();
-
-                            builder.branch(block, &[], location);
-
-                            block
-                        }
-                    } else {
-                        last_scope_was_if = false;
-                        last_scope_was_else = false;
-                        let block = merge_blocks.pop().unwrap();
-
-                        builder.branch(block, &[], location);
-
-                        block
-                    };
-
-                    builder = block.create_instructions(context);
-
-                    self.pop_scope();
-                }
-                Some(Token::Return) => {
-                    let location = self.get_current_location(builder.borrow_context());
-
-                    let expr = self.parse_expression(return_ty, &mut builder)?;
-
-                    self.expect_symbol(Token::Semicolon)?;
-
-                    builder.ret_val(expr, location);
-
-                    // TODO: This is a total bodge to make the borrow checker happy. Maybe consider adding a Default::default() to the builder for these cases?
-                    builder = first_actual_block.create_instructions(context);
-                }
-                Some(Token::LCurly) => {
-                    // We are opening a new scope here!
-                    self.push_scope();
-
-                    let block = function.create_block(builder.borrow_context()).build();
-
-                    merge_blocks.push(function.create_block(builder.borrow_context()).build());
-
-                    let location = self.get_current_location(builder.borrow_context());
-
-                    builder.branch(block, &[], location);
-
-                    builder = block.create_instructions(context);
-                }
-                Some(Token::If) => {
-                    last_scope_was_if = true;
-
-                    let location = self.get_current_location(builder.borrow_context());
-
-                    let bool_ty = builder.borrow_context().get_bool_type();
-
-                    let expr = self.parse_expression(bool_ty, &mut builder)?;
-
-                    self.expect_symbol(Token::LCurly)?;
-
-                    self.push_scope();
-
-                    let block = function.create_block(builder.borrow_context()).build();
-
-                    merge_blocks.push(function.create_block(builder.borrow_context()).build());
-
-                    builder.conditional_branch(
-                        expr,
-                        block,
-                        *merge_blocks.last().unwrap(),
-                        &[],
-                        &[],
-                        location,
-                    );
-
-                    builder = block.create_instructions(context);
-                }
-                Some(Token::Else) => {
-                    return Err(ParseError::ElseStatementWithoutIf(self.get_current_range()));
-                }
-                Some(token) => panic!("Unhandled {:?}", token),
-                None => return Err(ParseError::UnexpectedEndOfFile),
-            }
+        if return_is_void {
+            let location = self.get_current_location(context);
+            exit_block.create_instructions(context).ret(location);
         }
 
-        let location = function.get_location(context);
-
-        let builder = InstructionBuilder::resume_building(context, entry_block_paused_builder);
-        builder.branch(first_actual_block, &[], location);
+        alloca_block
+            .create_instructions(context)
+            .branch(entry_block, &[], None);
 
         Ok(function.get_type(context))
     }
@@ -1313,13 +1335,6 @@ impl<'a> Parser<'a> {
 
                 write_range(fmt, y_range)?;
                 write_range(fmt, x_range)?;
-            }
-            ParseError::MultipleElseStatements(range) => {
-                writeln!(
-                    fmt,
-                    "error: Cannot have multiple else statements for one if"
-                )?;
-                write_range(fmt, range)?;
             }
             ParseError::ElseStatementWithoutIf(range) => {
                 writeln!(fmt, "error: Else statement without an if")?;
