@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1635690221489,
+  "lastUpdate": 1635690242268,
   "repoUrl": "https://github.com/sheredom/yair",
   "entries": {
     "Rust Benchmark": [
@@ -12401,6 +12401,55 @@ window.BENCHMARK_DATA = {
           "url": "https://github.com/sheredom/yair/pull/41/commits/57f90a085e4402e25d43ff40ab7e3eb870df9d31"
         },
         "date": 1635689468612,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "bootstrap",
+            "value": 4594112,
+            "unit": "bytes"
+          },
+          {
+            "name": "yair-as",
+            "value": 4802872,
+            "unit": "bytes"
+          },
+          {
+            "name": "yair-dis",
+            "value": 5253056,
+            "unit": "bytes"
+          },
+          {
+            "name": "yair-llvm",
+            "value": 38344800,
+            "unit": "bytes"
+          },
+          {
+            "name": "yair-verify",
+            "value": 5240400,
+            "unit": "bytes"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "611171+sheredom@users.noreply.github.com",
+            "name": "Neil Henning",
+            "username": "sheredom"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "3fb302409efef1e2aa7b9a6808900777e79098f5",
+          "message": "Merge pull request #41 from sheredom/yalang/ifelseif\n\nMake ifelseif work.",
+          "timestamp": "2021-10-31T14:19:40Z",
+          "tree_id": "f0e249339a8d2ca709d9509ae6937abd86642615",
+          "url": "https://github.com/sheredom/yair/commit/3fb302409efef1e2aa7b9a6808900777e79098f5"
+        },
+        "date": 1635690240928,
         "tool": "customSmallerIsBetter",
         "benches": [
           {
