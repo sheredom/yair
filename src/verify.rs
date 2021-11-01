@@ -549,6 +549,12 @@ impl<'a> Verifier<'a> {
                             ));
                         }
                     }
+                    Instruction::Insert(_, _, _, _) => {
+                        // TODO: should move the checks for insert from panics to here
+                    }
+                    Instruction::IndexInto(_, _, _, _) => {
+                        // TODO: should move the checks for indexinto from panics to here
+                    }
                     _ => todo!("{}", inst.get_inst_displayer(self.context)),
                 }
 

@@ -28,7 +28,7 @@ pub struct Context {
     double_ty: Option<Type>,
     ptr_tys: HashMap<(Type, Domain), Type>,
     vec_tys: HashMap<(Type, u8), Type>,
-    array_tys: HashMap<(Type, usize), Type>,
+    array_tys: HashMap<(Type, u64), Type>,
     struct_tys: HashMap<Vec<Type>, Type>,
     constants: HashMap<Constant, Value>,
     undefs: HashMap<Type, Value>,
@@ -337,7 +337,7 @@ impl Context {
     /// # let u32_ty = context.get_uint_type(32);
     /// let array_ty = context.get_array_type(u32_ty, 42);
     /// ```
-    pub fn get_array_type(&mut self, element: Type, len: usize) -> Type {
+    pub fn get_array_type(&mut self, element: Type, len: u64) -> Type {
         match self.array_tys.get(&(element, len)) {
             Some(ty) => *ty,
             None => {

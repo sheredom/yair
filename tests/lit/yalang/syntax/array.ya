@@ -1,0 +1,28 @@
+// RUN: @compiler --emit yair @file
+// CHECK: mod "" {
+// CHECK: fn func() : f32 {
+// CHECK:   b0():
+// CHECK:     [[array:\w+]] = stackalloc array, [f32, 4]
+// CHECK:     br b1()
+// CHECK:   b1():
+// CHECK:     [[undef:\w+]] = undef [f32, 4]
+// CHECK:     [[one:\w+]] = const f32 1e0
+// CHECK:     [[insert0:\w+]] = insert $$undef, $$one, 0
+// CHECK:     [[two:\w+]] = const f32 2e0
+// CHECK:     [[insert1:\w+]] = insert $$insert0, $$two, 1
+// CHECK:     [[three:\w+]] = const f32 3e0
+// CHECK:     [[insert2:\w+]] = insert $$insert1, $$three, 2
+// CHECK:     [[four:\w+]] = const f32 4e0
+// CHECK:     [[insert3:\w+]] = insert $$insert2, $$four, 3
+// CHECK:     store $$array, $$insert3
+// CHECK:     [[index:\w+]] = const u64 1
+// CHECK:     [[pointer:\w+]] = indexinto $$array, $$index
+// CHECK:     [[result:\w+]] = load $$pointer
+// CHECK:     ret $$result
+// CHECK:   }
+// CHECK: }
+ 
+func : function() : f32 {
+    array : f32[4] = {1, 2, 3, 4};
+    return array[1];
+}

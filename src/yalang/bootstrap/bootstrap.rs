@@ -24,6 +24,7 @@ enum PrecedenceGroup {
 
 #[derive(Debug)]
 enum OperandKind {
+    Pointer((yair::Value, Option<yair::Location>)),
     Concrete(yair::Value),
     Float(f64),
     Integer(u64),
@@ -69,6 +70,12 @@ enum Token {
 
     #[token(";")]
     Semicolon,
+
+    #[token("[")]
+    LBracket,
+
+    #[token("]")]
+    RBracket,
 
     #[token("{")]
     LCurly,
@@ -273,11 +280,7 @@ impl<'a> Parser<'a> {
         self.get_location(range, context)
     }
 
-    fn get_location(
-        &mut self,
-        range: Range,
-        context: &mut yair::Context,
-    ) -> Option<yair::Location> {
+    fn get_location(&self, range: Range, context: &mut yair::Context) -> Option<yair::Location> {
         let span = self.file.span;
 
         let span = span.subspan(range.start as u64, range.end as u64);
@@ -306,6 +309,14 @@ impl<'a> Parser<'a> {
         }
     }
 
+    fn get_kind(&mut self, kind: OperandKind, builder: &mut InstructionBuilder) -> OperandKind {
+        if let OperandKind::Pointer((value, location)) = kind {
+            OperandKind::Concrete(builder.load(value, location))
+        } else {
+            kind
+        }
+    }
+
     fn apply(
         &mut self,
         operand_stack: &mut Vec<Operand>,
@@ -326,7 +337,7 @@ impl<'a> Parser<'a> {
         if is_unary(op.1) {
             // TODO: Check that not has a int or bool type!
 
-            match y.kind {
+            match self.get_kind(y.kind, builder) {
                 OperandKind::Concrete(value) => {
                     let expr = match op.1 {
                         Token::Not => builder.not(value, location),
@@ -345,8 +356,12 @@ impl<'a> Parser<'a> {
         } else {
             let x = operand_stack.pop().unwrap();
 
-            let (x_value, y_value) = match x.kind {
-                OperandKind::Concrete(x_value) => match y.kind {
+            let x_kind = self.get_kind(x.kind, builder);
+
+            let y_kind = self.get_kind(y.kind, builder);
+
+            let (x_value, y_value) = match x_kind {
+                OperandKind::Concrete(x_value) => match y_kind {
                     OperandKind::Concrete(y_value) => {
                         let x_ty = x_value.get_type(builder.borrow_context());
                         let y_ty = y_value.get_type(builder.borrow_context());
@@ -403,8 +418,9 @@ impl<'a> Parser<'a> {
                             todo!()
                         }
                     }
+                    _ => panic!("Unhandled"),
                 },
-                OperandKind::Float(x_float) => match y.kind {
+                OperandKind::Float(x_float) => match y_kind {
                     OperandKind::Concrete(y_value) => {
                         let y_ty = y_value.get_type(builder.borrow_context());
 
@@ -426,7 +442,7 @@ impl<'a> Parser<'a> {
                         ))
                     }
                 },
-                OperandKind::Integer(x_int) => match y.kind {
+                OperandKind::Integer(x_int) => match y_kind {
                     OperandKind::Concrete(y_value) => {
                         let y_ty = y_value.get_type(builder.borrow_context());
 
@@ -464,6 +480,7 @@ impl<'a> Parser<'a> {
                         ))
                     }
                 },
+                _ => panic!("Unhandled"),
             };
 
             let expr = match op.1 {
@@ -600,11 +617,39 @@ impl<'a> Parser<'a> {
         let mut operand_stack = Vec::new();
         let mut operator_stack: Vec<(Range, Token)> = Vec::new();
 
+        if ty.is_array(builder.borrow_context()) {
+            // Array initializers always start with a  '{'.
+            self.expect_symbol(Token::LCurly)?;
+
+            let element_ty = ty.get_element(builder.borrow_context(), 0);
+
+            let mut initializer = builder.borrow_context().get_undef(ty);
+
+            for i in 0..ty.get_len(builder.borrow_context()) {
+                let location = self.get_current_location(builder.borrow_context());
+                let expr = self.parse_expression(element_ty, builder)?;
+
+                initializer = builder.insert(initializer, expr, i, location);
+
+                if self.peek() != Token::RCurly {
+                    self.expect_symbol(Token::Comma)?;
+                }
+            }
+
+            // Array initializers always end with a '}'.
+            self.expect_symbol(Token::RCurly)?;
+
+            return Ok(initializer);
+        }
+
         loop {
             if let Some(peek) = self.lexer.peek().0 {
                 match peek {
                     Token::Semicolon => break,
                     Token::LCurly => break,
+                    Token::RCurly => break,
+                    Token::RBracket => break,
+                    Token::Comma => break,
                     _ => (),
                 }
             }
@@ -648,7 +693,9 @@ impl<'a> Parser<'a> {
                     let ty = self.parse_type(None, builder.borrow_context())?;
 
                     let expr = if let Some(x) = operand_stack.pop() {
-                        match x.kind {
+                        let kind = self.get_kind(x.kind, builder);
+
+                        match kind {
                             OperandKind::Concrete(v) => {
                                 let location =
                                     self.get_location(range.clone(), builder.borrow_context());
@@ -680,6 +727,7 @@ impl<'a> Parser<'a> {
                                     todo!()
                                 }
                             }
+                            _ => panic!("Unhandled"),
                         }
                     } else {
                         todo!()
@@ -720,20 +768,41 @@ impl<'a> Parser<'a> {
                 Some(Token::Identifier) => {
                     let identifier = self.get_current_str();
 
-                    let location = self.get_current_location(builder.borrow_context());
-
-                    if let Some(identifier) = self.identifiers.get(identifier) {
-                        let expr = builder.load(identifier.1, location);
-
+                    if let Some((_, value, range)) = self.identifiers.get(identifier) {
+                        let location = self.get_location(range.clone(), builder.borrow_context());
                         operand_stack.push(Operand {
                             range: self.get_current_range(),
-                            kind: OperandKind::Concrete(expr),
+                            kind: OperandKind::Pointer((*value, location)),
                         });
                     } else {
                         return Err(ParseError::UnknownIdentifier(self.get_current_range()));
                     }
                 }
-                Some(token) => panic!("Unknown {:?}", token),
+                Some(Token::LBracket) => {
+                    let range = self.get_current_range();
+                    let location = self.get_current_location(builder.borrow_context());
+
+                    let u64_ty = builder.borrow_context().get_uint_type(64);
+                    let index = self.parse_expression(u64_ty, builder)?;
+
+                    let operand = operand_stack.pop().unwrap();
+
+                    let operand = if let OperandKind::Pointer(ptr) = operand.kind {
+                        ptr.0
+                    } else {
+                        todo!()
+                    };
+
+                    let expr = builder.index_into(operand, &[index], location);
+
+                    self.expect_symbol(Token::RBracket)?;
+
+                    operand_stack.push(Operand {
+                        range,
+                        kind: OperandKind::Pointer((expr, location)),
+                    });
+                }
+                Some(token) => return Err(ParseError::UnknownIdentifier(self.get_current_range())),
                 None => todo!(),
             }
         }
@@ -750,6 +819,7 @@ impl<'a> Parser<'a> {
         let operand = operand_stack.pop().unwrap();
 
         let expr = match operand.kind {
+            OperandKind::Pointer((value, location)) => builder.load(value, location),
             OperandKind::Concrete(v) => v,
             OperandKind::Float(f) => {
                 if ty.is_float(builder.borrow_context()) {
@@ -1018,6 +1088,7 @@ impl<'a> Parser<'a> {
                     builder = current_block.create_instructions(context);
                 }
                 Some(Token::Else) => {
+                    // We parse this in the if statement parsing, so if we find one here, its hanging around with no if!
                     return Err(ParseError::ElseStatementWithoutIf(self.get_current_range()));
                 }
                 Some(token) => panic!("Unhandled {:?}", token),
@@ -1158,23 +1229,38 @@ impl<'a> Parser<'a> {
     ) -> Result<yair::Type, ParseError> {
         let identifier = self.parse_identifier()?;
 
-        match identifier.as_str() {
-            "function" => self.parse_function(name.unwrap(), context),
-            "void" => Ok(context.get_void_type()),
-            "bool" => Ok(context.get_bool_type()),
-            "i8" => Ok(context.get_int_type(8)),
-            "i16" => Ok(context.get_int_type(16)),
-            "i32" => Ok(context.get_int_type(32)),
-            "i64" => Ok(context.get_int_type(64)),
-            "u8" => Ok(context.get_uint_type(8)),
-            "u16" => Ok(context.get_uint_type(16)),
-            "u32" => Ok(context.get_uint_type(32)),
-            "u64" => Ok(context.get_uint_type(64)),
-            "f16" => Ok(context.get_float_type(16)),
-            "f32" => Ok(context.get_float_type(32)),
-            "f64" => Ok(context.get_float_type(64)),
+        let mut result = match identifier.as_str() {
+            "function" => self.parse_function(name.unwrap(), context)?,
+            "void" => context.get_void_type(),
+            "bool" => context.get_bool_type(),
+            "i8" => context.get_int_type(8),
+            "i16" => context.get_int_type(16),
+            "i32" => context.get_int_type(32),
+            "i64" => context.get_int_type(64),
+            "u8" => context.get_uint_type(8),
+            "u16" => context.get_uint_type(16),
+            "u32" => context.get_uint_type(32),
+            "u64" => context.get_uint_type(64),
+            "f16" => context.get_float_type(16),
+            "f32" => context.get_float_type(32),
+            "f64" => context.get_float_type(64),
             _ => panic!("Unknown type identifier {}", identifier),
+        };
+
+        // If we've got an array, parse that now.
+        while self.peek() == Token::LBracket {
+            self.expect_symbol(Token::LBracket)?;
+
+            self.expect_symbol(Token::Integer)?;
+
+            let length = self.parse_integer(context)?;
+
+            result = context.get_array_type(result, length);
+
+            self.expect_symbol(Token::RBracket)?;
         }
+
+        Ok(result)
     }
 
     pub fn parse(&mut self, context: &mut yair::Context) -> Result<(), ParseError> {

@@ -1436,6 +1436,13 @@ impl<'a> Assembler<'a> {
                     builder = InstructionBuilder::resume_building(context, paused);
 
                     self.current_values.insert(identifier, value);
+                } else if self.pop_if_next_symbol("undef")? {
+                    let paused = builder.pause_building();
+                    let ty = self.parse_type(context)?;
+                    let value = context.get_undef(ty);
+                    builder = InstructionBuilder::resume_building(context, paused);
+
+                    self.current_values.insert(identifier, value);
                 }
             }
         }
@@ -1951,7 +1958,7 @@ fn get_constant_literal(context: &Context, val: &Value) -> String {
     }
 }
 
-fn write_if_constant(
+fn write_if_constant_or_undef(
     context: &Context,
     value: &Value,
     writer: &mut impl std::io::Write,
@@ -1963,6 +1970,13 @@ fn write_if_constant(
             value.get_displayer(context),
             value.get_type(context).get_displayer(context),
             get_constant_literal(context, value)
+        )?;
+    } else if value.is_undef(context) {
+        writeln!(
+            writer,
+            "      {} = undef {}",
+            value.get_displayer(context),
+            value.get_type(context).get_displayer(context),
         )?;
     }
 
@@ -2065,70 +2079,70 @@ pub fn disassemble(context: &Context, mut writer: impl std::io::Write) -> std::i
                 for value in block.get_insts(context) {
                     match value.get_inst(context) {
                         Instruction::ReturnValue(_, r, _) => {
-                            write_if_constant(context, r, &mut writer)?;
+                            write_if_constant_or_undef(context, r, &mut writer)?;
                         }
                         Instruction::Cmp(_, _, a, b, _) => {
-                            write_if_constant(context, a, &mut writer)?;
-                            write_if_constant(context, b, &mut writer)?;
+                            write_if_constant_or_undef(context, a, &mut writer)?;
+                            write_if_constant_or_undef(context, b, &mut writer)?;
                         }
                         Instruction::Unary(_, _, a, _) => {
-                            write_if_constant(context, a, &mut writer)?;
+                            write_if_constant_or_undef(context, a, &mut writer)?;
                         }
                         Instruction::Binary(_, _, a, b, _) => {
-                            write_if_constant(context, a, &mut writer)?;
-                            write_if_constant(context, b, &mut writer)?;
+                            write_if_constant_or_undef(context, a, &mut writer)?;
+                            write_if_constant_or_undef(context, b, &mut writer)?;
                         }
                         Instruction::Cast(_, val, _) => {
-                            write_if_constant(context, val, &mut writer)?;
+                            write_if_constant_or_undef(context, val, &mut writer)?;
                         }
                         Instruction::BitCast(_, val, _) => {
-                            write_if_constant(context, val, &mut writer)?;
+                            write_if_constant_or_undef(context, val, &mut writer)?;
                         }
                         Instruction::Load(ptr, _) => {
-                            write_if_constant(context, ptr, &mut writer)?;
+                            write_if_constant_or_undef(context, ptr, &mut writer)?;
                         }
                         Instruction::Store(ptr, val, _) => {
-                            write_if_constant(context, ptr, &mut writer)?;
-                            write_if_constant(context, val, &mut writer)?;
+                            write_if_constant_or_undef(context, ptr, &mut writer)?;
+                            write_if_constant_or_undef(context, val, &mut writer)?;
                         }
                         Instruction::Extract(agg, _, _) => {
-                            write_if_constant(context, agg, &mut writer)?;
+                            write_if_constant_or_undef(context, agg, &mut writer)?;
                         }
                         Instruction::Insert(agg, elem, _, _) => {
-                            write_if_constant(context, agg, &mut writer)?;
-                            write_if_constant(context, elem, &mut writer)?;
+                            write_if_constant_or_undef(context, agg, &mut writer)?;
+                            write_if_constant_or_undef(context, elem, &mut writer)?;
                         }
                         Instruction::Call(_, args, _) => {
                             for arg in args {
-                                write_if_constant(context, arg, &mut writer)?;
+                                write_if_constant_or_undef(context, arg, &mut writer)?;
                             }
                         }
                         Instruction::Branch(_, args, _) => {
                             for arg in args {
-                                write_if_constant(context, arg, &mut writer)?;
+                                write_if_constant_or_undef(context, arg, &mut writer)?;
                             }
                         }
                         Instruction::ConditionalBranch(cond, _, _, true_args, false_args, _) => {
-                            write_if_constant(context, cond, &mut writer)?;
+                            write_if_constant_or_undef(context, cond, &mut writer)?;
 
                             for arg in true_args {
-                                write_if_constant(context, arg, &mut writer)?;
+                                write_if_constant_or_undef(context, arg, &mut writer)?;
                             }
 
                             for arg in false_args {
-                                write_if_constant(context, arg, &mut writer)?;
+                                write_if_constant_or_undef(context, arg, &mut writer)?;
                             }
                         }
                         Instruction::Select(_, cond, true_val, false_val, _) => {
-                            write_if_constant(context, cond, &mut writer)?;
-                            write_if_constant(context, true_val, &mut writer)?;
-                            write_if_constant(context, false_val, &mut writer)?;
+                            write_if_constant_or_undef(context, cond, &mut writer)?;
+                            write_if_constant_or_undef(context, true_val, &mut writer)?;
+                            write_if_constant_or_undef(context, false_val, &mut writer)?;
                         }
                         Instruction::IndexInto(_, ptr, args, _) => {
-                            write_if_constant(context, ptr, &mut writer)?;
+                            write_if_constant_or_undef(context, ptr, &mut writer)?;
 
                             for arg in args {
-                                write_if_constant(context, arg, &mut writer)?;
+                                write_if_constant_or_undef(context, arg, &mut writer)?;
                             }
                         }
                         _ => (),

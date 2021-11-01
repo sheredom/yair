@@ -90,7 +90,7 @@ enum TypePayload {
     Pointer(Type, Domain),
     Struct(Vec<Type>),
     Function(Type, Vec<Type>),
-    Array(Type, usize),
+    Array(Type, u64),
     NamedStruct(
         Module,
         Name,
@@ -276,7 +276,7 @@ impl Type {
     pub fn get_len(&self, context: &Context) -> usize {
         match &context.types[self.0] {
             TypePayload::Vector(_, width) => *width as usize,
-            TypePayload::Array(_, width) => *width,
+            TypePayload::Array(_, width) => *width as usize,
             TypePayload::Struct(vec) => vec.len(),
             TypePayload::NamedStruct(_, _, vec, _) => vec.len(),
             _ => panic!("Cannot get the length of a non-aggregate type"),
@@ -332,7 +332,10 @@ impl Type {
             TypePayload::Struct(tys) => tys[index],
             TypePayload::NamedStruct(_, _, tys, _) => tys[index].1,
             TypePayload::Array(ty, size) => {
-                assert!(index < *size, "Index is beyond the end of the array");
+                assert!(
+                    index < (*size as usize),
+                    "Index is beyond the end of the array"
+                );
                 *ty
             }
             _ => panic!(

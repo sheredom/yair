@@ -405,7 +405,7 @@ impl Typed for Instruction {
             Instruction::Extract(val, index, _) => {
                 val.get_type(context).get_element(context, *index)
             }
-            Instruction::Insert(_, val, _, _) => val.get_type(context),
+            Instruction::Insert(val, _, _, _) => val.get_type(context),
             Instruction::StackAlloc(_, ty, _) => *ty,
             Instruction::Call(function, _, _) => function.get_return_type(context),
             Instruction::Branch(_, _, _) => panic!("Cannot get the type of a branch"),
