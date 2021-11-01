@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1635798755615,
+  "lastUpdate": 1635798780939,
   "repoUrl": "https://github.com/sheredom/yair",
   "entries": {
     "Rust Benchmark": [
@@ -13142,6 +13142,55 @@ window.BENCHMARK_DATA = {
           {
             "name": "yair-verify",
             "value": 2117120,
+            "unit": "bytes"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "neil.henning@hey.com",
+            "name": "Neil Henning",
+            "username": "sheredom"
+          },
+          "committer": {
+            "email": "neil.henning@hey.com",
+            "name": "Neil Henning",
+            "username": "sheredom"
+          },
+          "distinct": true,
+          "id": "d2f2574030904325d212dabf1d970538a8264efc",
+          "message": "Add array parsing.",
+          "timestamp": "2021-11-01T20:26:18Z",
+          "tree_id": "3811055322b226d09b112b7fe3760865427ad8c4",
+          "url": "https://github.com/sheredom/yair/commit/d2f2574030904325d212dabf1d970538a8264efc"
+        },
+        "date": 1635798780067,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "bootstrap",
+            "value": 1507400,
+            "unit": "bytes"
+          },
+          {
+            "name": "yair-as",
+            "value": 1678224,
+            "unit": "bytes"
+          },
+          {
+            "name": "yair-dis",
+            "value": 2124376,
+            "unit": "bytes"
+          },
+          {
+            "name": "yair-llvm",
+            "value": 32902744,
+            "unit": "bytes"
+          },
+          {
+            "name": "yair-verify",
+            "value": 2117240,
             "unit": "bytes"
           }
         ]
