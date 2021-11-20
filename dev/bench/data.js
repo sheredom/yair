@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1637426503603,
+  "lastUpdate": 1637426629380,
   "repoUrl": "https://github.com/sheredom/yair",
   "entries": {
     "Rust Benchmark": [
@@ -13894,6 +13894,51 @@ window.BENCHMARK_DATA = {
           {
             "name": "yair-verify",
             "value": 1649664,
+            "unit": "bytes"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "sheredom",
+            "username": "sheredom"
+          },
+          "committer": {
+            "name": "sheredom",
+            "username": "sheredom"
+          },
+          "id": "c1362ddb9a76a837a04ed5d0625f08496beec1f6",
+          "message": "Add while/break/continue.",
+          "timestamp": "2021-11-01T20:26:24Z",
+          "url": "https://github.com/sheredom/yair/pull/42/commits/c1362ddb9a76a837a04ed5d0625f08496beec1f6"
+        },
+        "date": 1637426624387,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "bootstrap",
+            "value": 1138176,
+            "unit": "bytes"
+          },
+          {
+            "name": "yair-as",
+            "value": 1301504,
+            "unit": "bytes"
+          },
+          {
+            "name": "yair-dis",
+            "value": 1675776,
+            "unit": "bytes"
+          },
+          {
+            "name": "yair-llvm",
+            "value": 27402240,
+            "unit": "bytes"
+          },
+          {
+            "name": "yair-verify",
+            "value": 1672704,
             "unit": "bytes"
           }
         ]
