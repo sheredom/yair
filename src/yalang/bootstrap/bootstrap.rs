@@ -62,6 +62,9 @@ fn is_unary(x: Token) -> bool {
 
 #[derive(Logos, Copy, Clone, Debug, PartialEq)]
 enum Token {
+    #[token("package")]
+    Package,
+
     #[token("return")]
     Return,
 
@@ -179,6 +182,9 @@ enum Token {
     #[token("false")]
     False,
 
+    #[regex("\"(\\.|[^\"])*\"")]
+    String,
+
     #[error]
     // Skip whitespace.
     #[regex(r"[ \t\r\n\f]+", logos::skip)]
@@ -250,7 +256,7 @@ struct Parser<'a> {
     codemap: CodeMap,
     file: Arc<codemap::File>,
     functions: HashMap<&'a str, yair::Function>,
-    module: String,
+    package: String,
     lexer: Lexer<'a>,
     identifiers: HashMap<&'a str, (yair::Type, yair::Value, Range)>,
     scoped_identifiers: Vec<Vec<&'a str>>,
@@ -268,7 +274,7 @@ impl<'a> Parser<'a> {
             codemap,
             file,
             functions: HashMap::new(),
-            module: "".to_string(),
+            package: "".to_string(),
             lexer: Lexer::new(&data),
             identifiers: HashMap::new(),
             scoped_identifiers: Vec::new(),
@@ -975,9 +981,11 @@ impl<'a> Parser<'a> {
         );
 
         for (exit_block, location) in exit_blocks {
-            exit_block
-                .create_instructions(context)
-                .branch(merge_block, &[], location);
+            if !exit_block.has_terminator(context) {
+                exit_block
+                    .create_instructions(context)
+                    .branch(merge_block, &[], location);
+            }
         }
 
         Ok(merge_block)
@@ -1060,9 +1068,11 @@ impl<'a> Parser<'a> {
 
                     current_block = function.create_block(builder.borrow_context()).build();
 
-                    sub_exit_block
-                        .create_instructions(builder.borrow_context())
-                        .branch(current_block, &[], location);
+                    if !sub_exit_block.has_terminator(builder.borrow_context()) {
+                        sub_exit_block
+                            .create_instructions(builder.borrow_context())
+                            .branch(current_block, &[], location);
+                    }
                     builder = current_block.create_instructions(context);
                 }
                 Some(Token::RCurly) => {
@@ -1297,11 +1307,11 @@ impl<'a> Parser<'a> {
 
         let module = if let Some(module) = context
             .get_modules()
-            .find(|m| m.get_name(context).as_str(context) == self.module)
+            .find(|m| m.get_name(context).as_str(context) == self.package)
         {
             module
         } else {
-            context.create_module().with_name(&self.module).build()
+            context.create_module().with_name(&self.package).build()
         };
 
         let used_args: Vec<_> = args.iter().map(|(name, _, ty)| (*name, *ty)).collect();
@@ -1413,6 +1423,16 @@ impl<'a> Parser<'a> {
     }
 
     pub fn parse(&mut self, context: &mut yair::Context) -> Result<(), ParseError> {
+        if self.peek() == Token::Package {
+            self.expect_symbol(Token::Package)?;
+
+            self.expect_symbol(Token::String)?;
+
+            let str = self.get_current_str();
+            self.package = str[1..(str.len() - 1)].to_string();
+            // TODO: Check for bad package names?
+        }
+
         let identifier = match self.parse_identifier() {
             Ok(i) => i,
             Err(ParseError::UnexpectedEndOfFile) => return Ok(()),

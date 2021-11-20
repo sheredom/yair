@@ -1,0 +1,13 @@
+// RUN: @compiler --emit yair @file
+// CHECK: mod "🎄" {
+// CHECK: fn func() : void {
+// CHECK:   b0():
+// CHECK:     br b1()
+// CHECK:   b1():
+// CHECK:     ret
+// CHECK:   }
+// CHECK: }
+
+package "🎄"
+ 
+func : function() : void {}
