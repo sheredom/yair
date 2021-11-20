@@ -149,6 +149,21 @@ enum Token {
     #[token("else")]
     Else,
 
+    #[token("while")]
+    While,
+
+    #[token("break")]
+    Break,
+
+    #[token("continue")]
+    Continue,
+
+    #[token("in")]
+    In,
+
+    #[token("..")]
+    Range,
+
     #[regex("[_a-zA-Z][_a-zA-Z0-9]*")]
     Identifier,
 
@@ -239,6 +254,8 @@ struct Parser<'a> {
     lexer: Lexer<'a>,
     identifiers: HashMap<&'a str, (yair::Type, yair::Value, Range)>,
     scoped_identifiers: Vec<Vec<&'a str>>,
+    merge_blocks: Vec<yair::Block>,
+    continue_blocks: Vec<yair::Block>,
 }
 
 impl<'a> Parser<'a> {
@@ -255,6 +272,8 @@ impl<'a> Parser<'a> {
             lexer: Lexer::new(&data),
             identifiers: HashMap::new(),
             scoped_identifiers: Vec::new(),
+            merge_blocks: Vec::new(),
+            continue_blocks: Vec::new(),
         }
     }
 
@@ -802,7 +821,7 @@ impl<'a> Parser<'a> {
                         kind: OperandKind::Pointer((expr, location)),
                     });
                 }
-                Some(token) => return Err(ParseError::UnknownIdentifier(self.get_current_range())),
+                Some(_) => return Err(ParseError::UnknownIdentifier(self.get_current_range())),
                 None => todo!(),
             }
         }
@@ -964,6 +983,54 @@ impl<'a> Parser<'a> {
         Ok(merge_block)
     }
 
+    fn parse_while(
+        &mut self,
+        function: yair::Function,
+        alloca_block: yair::Block,
+        block: yair::Block,
+        context: &mut yair::Context,
+    ) -> Result<yair::Block, ParseError> {
+        let check_block = function.create_block(context).build();
+        let body_block = function.create_block(context).build();
+        let merge_block = function.create_block(context).build();
+
+        self.merge_blocks.push(merge_block);
+        self.continue_blocks.push(check_block);
+
+        block
+            .create_instructions(context)
+            .branch(check_block, &[], None);
+
+        let mut builder = check_block.create_instructions(context);
+
+        let bool_ty = builder.borrow_context().get_bool_type();
+
+        let condition = self.parse_expression(bool_ty, &mut builder)?;
+
+        let location = self.get_current_location(builder.borrow_context());
+        builder.conditional_branch(condition, body_block, merge_block, &[], &[], location);
+
+        self.expect_symbol(Token::LCurly)?;
+
+        let (while_entry_block, while_exit_block) =
+            self.parse_block(function, alloca_block, context)?;
+
+        body_block
+            .create_instructions(context)
+            .branch(while_entry_block, &[], None);
+
+        if !while_exit_block.has_terminator(context) {
+            while_exit_block
+                .create_instructions(context)
+                .branch(check_block, &[], None);
+        }
+
+        self.merge_blocks.pop();
+        self.continue_blocks.pop();
+
+        Ok(merge_block)
+    }
+
     fn parse_block(
         &mut self,
         function: yair::Function,
@@ -1086,6 +1153,88 @@ impl<'a> Parser<'a> {
 
                     current_block = exit_block;
                     builder = current_block.create_instructions(context);
+                }
+                Some(Token::While) => {
+                    let exit_block = self.parse_while(
+                        function,
+                        alloca_block,
+                        current_block,
+                        builder.borrow_context(),
+                    )?;
+
+                    current_block = exit_block;
+                    builder = current_block.create_instructions(context);
+
+                    /*
+                    This is for a for statement
+
+                    let identifier = self.get_current_str();
+                    let identifier_range = self.get_current_range();
+
+                    self.push_scope();
+
+                    self.expect_symbol(Token::Colon)?;
+
+                    let location = self.get_current_location(builder.borrow_context());
+
+                    let ty = self.parse_type(None, builder.borrow_context())?;
+
+                    let stack_alloc = {
+                        let mut builder =
+                            alloca_block.create_instructions(builder.borrow_context());
+
+                        let alloc = builder.stack_alloc(identifier, ty, location);
+
+                        builder.pause_building();
+
+                        alloc
+                    };
+
+                    self.add_identifier(identifier, identifier_range, ty, stack_alloc)?;
+
+                    self.expect_symbol(Token::In)?;
+
+                    let start = self.parse_expression(ty, &mut builder)?;
+
+                    self.expect_symbol(Token::Range)?;
+
+                    let end = self.parse_expression(ty, &mut builder)?;
+
+                    self.expect_symbol(Token::LCurly)?;*/
+                }
+                Some(Token::Break) => {
+                    let location = self.get_current_location(builder.borrow_context());
+
+                    let merge_block = if let Some(merge_block) = self.merge_blocks.last() {
+                        *merge_block
+                    } else {
+                        panic!("Don't have a merge block (break wasn't in a loop).");
+                    };
+
+                    builder.branch(merge_block, &[], location);
+
+                    self.expect_symbol(Token::Semicolon)?;
+
+                    self.expect_symbol(Token::RCurly)?;
+
+                    return Ok((entry_block, current_block));
+                }
+                Some(Token::Continue) => {
+                    let location = self.get_current_location(builder.borrow_context());
+
+                    let continue_block = if let Some(continue_block) = self.continue_blocks.last() {
+                        *continue_block
+                    } else {
+                        panic!("Don't have a continnue block (continue wasn't in a loop).");
+                    };
+
+                    builder.branch(continue_block, &[], location);
+
+                    self.expect_symbol(Token::Semicolon)?;
+
+                    self.expect_symbol(Token::RCurly)?;
+
+                    return Ok((entry_block, current_block));
                 }
                 Some(Token::Else) => {
                     // We parse this in the if statement parsing, so if we find one here, its hanging around with no if!

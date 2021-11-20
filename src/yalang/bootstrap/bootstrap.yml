@@ -7,6 +7,7 @@ args:
         help: The input .ya file (or - for stdin)
         required: true
         index: 1
+        multiple: true
     - output:
         short: o
         long: output
