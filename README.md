@@ -29,6 +29,7 @@
 - Explain the syntax of the IR:
   - Globals and structs both use `%name` to differentiate them from other symbols.
 - Verify that all statements in a block are reachable from the tree of blocks above.
+- Verify that a block doesn't have any instructions after a terminator.
 
 ## Features
 

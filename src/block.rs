@@ -137,6 +137,35 @@ impl Block {
         ValueIterator::new(&block.instructions)
     }
 
+    /// Does the block have a terminator.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # use yair::*;
+    /// # let mut context = Context::new();
+    /// # let module = context.create_module().build();
+    /// # let function = module.create_function(&mut context).with_name("func").build();
+    /// # let block = function.create_block(&mut context).build();
+    /// let has_terminator = block.has_terminator(&context);
+    /// # assert!(!has_terminator);
+    /// ```
+    pub fn has_terminator(&self, context: &Context) -> bool {
+        let block = &context.blocks[self.0];
+
+        if let Some(instruction) = block.instructions.last() {
+            matches!(
+                instruction.get_inst(context),
+                Instruction::Branch(_, _, _)
+                    | Instruction::ConditionalBranch(_, _, _, _, _, _)
+                    | Instruction::Return(_)
+                    | Instruction::ReturnValue(_, _, _)
+            )
+        } else {
+            false
+        }
+    }
+
     /// Get all the arguments in a block.
     ///
     /// # Examples
