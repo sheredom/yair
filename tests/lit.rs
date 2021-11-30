@@ -147,6 +147,17 @@ mod tests {
                 .constants
                 .insert("compiler".to_owned(), yalang_bootstrap_exe());
 
+            let mut dir = bin_dir();
+            dir.pop();
+            dir.pop();
+            dir.push("tests");
+            dir.push("lit");
+            dir.push("yalang");
+
+            config
+                .constants
+                .insert("root".to_owned(), dir.to_str().unwrap().to_string());
+
             add_common(config);
         })
         .expect("Lit tests failed");

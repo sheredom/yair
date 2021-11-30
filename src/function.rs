@@ -329,7 +329,7 @@ pub struct FunctionBuilder<'a> {
     module: Module,
     name: &'a str,
     return_type: Type,
-    argument_names: Vec<&'a str>,
+    argument_names: Vec<String>,
     argument_types: Vec<Type>,
     attributes: FunctionAttributes,
     location: Option<Location>,
@@ -401,8 +401,8 @@ impl<'a> FunctionBuilder<'a> {
     /// # let function_builder = module.create_function(&mut context);
     /// function_builder.with_arg("a", i8_ty).with_arg("b", u32_ty);
     /// ```
-    pub fn with_arg(mut self, argument_name: &'a str, argument_type: Type) -> Self {
-        self.argument_names.push(argument_name);
+    pub fn with_arg(mut self, argument_name: &str, argument_type: Type) -> Self {
+        self.argument_names.push(argument_name.to_string());
         self.argument_types.push(argument_type);
         self
     }
@@ -422,9 +422,9 @@ impl<'a> FunctionBuilder<'a> {
     /// # let function_builder = module.create_function(&mut context);
     /// function_builder.with_args(&[("a", i8_ty), ("b", u32_ty)]);
     /// ```
-    pub fn with_args(mut self, arguments: &[(&'a str, Type)]) -> Self {
+    pub fn with_args(mut self, arguments: &[(&str, Type)]) -> Self {
         for argument in arguments {
-            self.argument_names.push(argument.0);
+            self.argument_names.push(argument.0.to_string());
             self.argument_types.push(argument.1);
         }
         self

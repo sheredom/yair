@@ -1,5 +1,5 @@
 // RUN: @compiler --emit yair @file
-// CHECK: mod "🎄" {
+// CHECK: mod "ϴ" {
 // CHECK: fn func() : void {
 // CHECK:   b0():
 // CHECK:     br b1()
@@ -8,6 +8,6 @@
 // CHECK:   }
 // CHECK: }
 
-package "🎄"
+package "ϴ"
  
 func : function() : void {}

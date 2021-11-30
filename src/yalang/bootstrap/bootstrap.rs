@@ -6,12 +6,17 @@ extern crate logos;
 use clap::App;
 use codemap::*;
 use logos::Logos;
+use std::cell::RefCell;
 use std::collections::HashMap;
 use std::fs::File;
+use std::hash::Hash;
 use std::io::{self, Read, Write};
+use std::rc::Rc;
 use std::sync::Arc;
 use yair::io::*;
 use yair::*;
+
+type ExportedPackageFunctions = Rc<RefCell<HashMap<String, HashMap<String, yair::Function>>>>;
 
 #[derive(PartialEq, Eq)]
 enum PrecedenceGroup {
@@ -32,7 +37,7 @@ enum OperandKind {
 
 #[derive(Debug)]
 struct Operand {
-    range: Range,
+    location: Location,
     kind: OperandKind,
 }
 
@@ -64,6 +69,9 @@ fn is_unary(x: Token) -> bool {
 enum Token {
     #[token("package")]
     Package,
+
+    #[token("import")]
+    Import,
 
     #[token("return")]
     Return,
@@ -167,7 +175,10 @@ enum Token {
     #[token("..")]
     Range,
 
-    #[regex("[_a-zA-Z][_a-zA-Z0-9]*")]
+    #[regex("[\\p{L}][\\p{L}0-9]*(::[\\p{L}][\\p{L}0-9]*)*")]
+    IdentifierWithNamespace,
+
+    #[regex("[\\p{L}][\\p{L}0-9]*", priority = 2)]
     Identifier,
 
     #[regex("[1-9][0-9]*", priority = 2)]
@@ -195,57 +206,101 @@ enum Token {
     Error,
 }
 
-type Range = std::ops::Range<usize>;
+type Location = codemap::Span;
 
 enum ParseError {
     UnexpectedEndOfFile,
-    ExpectedTokenNotFound(Token, Range),
-    InvalidExpression(Range),
-    OperatorsInDifferentPrecedenceGroups(Range, Token, Range, Token),
-    TypesDoNotMatch(Range, yair::Type, Range, yair::Type),
-    InvalidNonConcreteConstantUsed(Range),
-    InvalidNonConcreteConstantsUsed(Range, Range),
-    UnknownIdentifier(Range),
-    ComparisonOperatorsAlwaysNeedParenthesis(Range, Token, Range, Token),
-    UnknownIdentifierUsedInAssignment(Range),
-    IdentifierShadowsPreviouslyDeclareIdentifier(Range, Range),
-    ElseStatementWithoutIf(Range),
+    ExpectedTokenNotFound(Token, Location),
+    InvalidExpression(Location),
+    OperatorsInDifferentPrecedenceGroups(Location, Token, Location, Token),
+    TypesDoNotMatch(Location, yair::Type, Location, yair::Type),
+    InvalidNonConcreteConstantUsed(Location),
+    InvalidNonConcreteConstantsUsed(Location, Location),
+    UnknownIdentifier(Location),
+    ComparisonOperatorsAlwaysNeedParenthesis(Location, Token, Location, Token),
+    UnknownIdentifierUsedInAssignment(Location),
+    IdentifierShadowsPreviouslyDeclareIdentifier(Location, Location),
+    ElseStatementWithoutIf(Location),
+}
+
+#[derive(Clone)]
+struct Name {
+    file: Arc<codemap::File>,
+    location: Location,
+}
+
+impl Name {
+    pub fn new(file: Arc<codemap::File>, location: Location) -> Self {
+        Name { file, location }
+    }
+
+    pub fn as_str(&self) -> &str {
+        self.file.source_slice(self.location)
+    }
+}
+
+impl Hash for Name {
+    fn hash<H>(&self, hasher: &mut H)
+    where
+        H: std::hash::Hasher,
+    {
+        self.as_str().hash(hasher)
+    }
+}
+
+impl Eq for Name {}
+
+impl PartialEq for Name {
+    fn eq(&self, other: &Name) -> bool {
+        self.as_str() == other.as_str()
+    }
+}
+
+#[derive(Copy, Clone, Debug)]
+struct TokenLoc {
+    token: Token,
+    location: codemap::Span,
 }
 
 struct Lexer<'a> {
+    file: Arc<codemap::File>,
     lexer: logos::Lexer<'a, Token>,
-    token: Option<Token>,
-    slice: &'a str,
-    span: Range,
+    peek: Option<TokenLoc>,
 }
 
 impl<'a> Lexer<'a> {
-    pub fn new(data: &'a str) -> Self {
-        let mut lexer = Token::lexer(&data);
-        let slice = lexer.slice();
-        let span = lexer.span();
-        let token = lexer.next();
+    pub fn new(file: Arc<codemap::File>, source: &'a str) -> Self {
+        let mut lexer = Self {
+            file,
+            lexer: Token::lexer(source),
+            peek: None,
+        };
 
-        Self {
-            lexer,
-            token,
-            slice,
-            span,
-        }
+        lexer.next();
+
+        lexer
     }
 
-    pub fn peek(&self) -> (Option<Token>, &'a str, Range) {
-        (self.token, self.slice, self.span.clone())
+    pub fn peek(&self) -> Option<TokenLoc> {
+        self.peek
     }
 
-    pub fn next(&mut self) -> Option<(Token, &'a str, Range)> {
-        let next = self
-            .token
-            .map(|token| (token, self.slice, self.span.clone()));
+    pub fn next(&mut self) -> Option<TokenLoc> {
+        let next = self.peek;
 
-        self.slice = self.lexer.slice();
-        self.span = self.lexer.span();
-        self.token = self.lexer.next();
+        let token = self.lexer.next();
+
+        self.peek = if let Some(token) = token {
+            let lexer_span = self.lexer.span();
+            let location = self
+                .file
+                .span
+                .subspan(lexer_span.start as u64, lexer_span.end as u64);
+
+            Some(TokenLoc { token, location })
+        } else {
+            None
+        };
 
         next
     }
@@ -253,29 +308,77 @@ impl<'a> Lexer<'a> {
 
 #[allow(dead_code)]
 struct Parser<'a> {
+    exported_package_functions: ExportedPackageFunctions,
     codemap: CodeMap,
     file: Arc<codemap::File>,
-    functions: HashMap<&'a str, yair::Function>,
+    functions: HashMap<String, yair::Function>,
     package: String,
+    imports: Vec<String>,
     lexer: Lexer<'a>,
-    identifiers: HashMap<&'a str, (yair::Type, yair::Value, Range)>,
-    scoped_identifiers: Vec<Vec<&'a str>>,
+    identifiers: HashMap<Name, (yair::Type, yair::Value, Location)>,
+    scoped_identifiers: Vec<Vec<Name>>,
     merge_blocks: Vec<yair::Block>,
     continue_blocks: Vec<yair::Block>,
 }
 
+impl<'a> Eq for Parser<'a> {}
+
+impl<'a> PartialEq for Parser<'a> {
+    fn eq(&self, other: &Self) -> bool {
+        self.file == other.file
+    }
+}
+
+impl<'a> Ord for Parser<'a> {
+    fn cmp(&self, other: &Self) -> std::cmp::Ordering {
+        // If we aren't in a package name but the other is, we always want the other one to be processed first.
+        if self.package.is_empty() && !other.package.is_empty() {
+            return std::cmp::Ordering::Greater;
+        }
+
+        // And the opposite if we are in a package but the other isn't, we always want to be processed first.
+        if !self.package.is_empty() && other.package.is_empty() {
+            return std::cmp::Ordering::Less;
+        }
+
+        // If our import list requires the other package, it goes first.
+        if self.imports.contains(&other.package) {
+            return std::cmp::Ordering::Greater;
+        }
+
+        // If the other import list requires our package, we go first.
+        if other.imports.contains(&self.package) {
+            return std::cmp::Ordering::Less;
+        }
+
+        std::cmp::Ordering::Equal
+    }
+}
+
+impl<'a> PartialOrd for Parser<'a> {
+    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
+        Some(self.cmp(other))
+    }
+}
+
 impl<'a> Parser<'a> {
-    pub fn new(name: String, data: &'a str) -> Parser<'a> {
+    pub fn new(
+        exported_package_functions: ExportedPackageFunctions,
+        name: String,
+        data: &'a str,
+    ) -> Parser<'a> {
         let mut codemap = CodeMap::new();
 
         let file = codemap.add_file(name, data.to_string());
 
         Parser {
+            exported_package_functions,
             codemap,
-            file,
+            file: file.clone(),
             functions: HashMap::new(),
             package: "".to_string(),
-            lexer: Lexer::new(&data),
+            imports: Vec::new(),
+            lexer: Lexer::new(file, data),
             identifiers: HashMap::new(),
             scoped_identifiers: Vec::new(),
             merge_blocks: Vec::new(),
@@ -283,34 +386,12 @@ impl<'a> Parser<'a> {
         }
     }
 
-    fn peek(&mut self) -> Token {
-        self.lexer.peek().0.map_or(Token::Error, |token| token)
-    }
-
-    fn get_next(&mut self) -> Option<Token> {
-        self.lexer.next().map(|next| next.0)
-    }
-
-    fn get_current_range(&self) -> Range {
-        self.lexer.peek().2
-    }
-
-    fn get_current_str(&self) -> &'a str {
-        self.lexer.peek().1
-    }
-
-    fn get_current_location(&mut self, context: &mut yair::Context) -> Option<yair::Location> {
-        let range = self.get_current_range();
-
-        self.get_location(range, context)
-    }
-
-    fn get_location(&self, range: Range, context: &mut yair::Context) -> Option<yair::Location> {
-        let span = self.file.span;
-
-        let span = span.subspan(range.start as u64, range.end as u64);
-
-        let location = self.codemap.look_up_span(span);
+    fn get_location(
+        &self,
+        location: codemap::Span,
+        context: &mut yair::Context,
+    ) -> Option<yair::Location> {
+        let location = self.codemap.look_up_span(location);
 
         Some(context.get_location(
             location.file.name(),
@@ -319,19 +400,27 @@ impl<'a> Parser<'a> {
         ))
     }
 
-    fn expect_symbol(&mut self, token: Token) -> Result<(), ParseError> {
-        if let Some(next) = self.get_next() {
-            if next == token {
-                Ok(())
+    fn expect_symbol(&mut self, token: Token) -> Result<Location, ParseError> {
+        if let Some(token_loc) = self.lexer.next() {
+            if token_loc.token == token {
+                Ok(token_loc.location)
             } else {
-                Err(ParseError::ExpectedTokenNotFound(
-                    token,
-                    self.get_current_range(),
-                ))
+                Err(ParseError::ExpectedTokenNotFound(token, token_loc.location))
             }
         } else {
             Err(ParseError::UnexpectedEndOfFile)
         }
+    }
+
+    fn bump_if_symbol(&mut self, token: Token) -> bool {
+        if let Some(peek) = self.lexer.peek() {
+            if token == peek.token {
+                self.lexer.next();
+                return true;
+            }
+        }
+
+        false
     }
 
     fn get_kind(&mut self, kind: OperandKind, builder: &mut InstructionBuilder) -> OperandKind {
@@ -345,7 +434,7 @@ impl<'a> Parser<'a> {
     fn apply(
         &mut self,
         operand_stack: &mut Vec<Operand>,
-        operator_stack: &mut Vec<(Range, Token)>,
+        operator_stack: &mut Vec<(Location, Token)>,
         builder: &mut InstructionBuilder,
     ) -> Result<(), ParseError> {
         let y = operand_stack.pop().unwrap();
@@ -354,10 +443,10 @@ impl<'a> Parser<'a> {
             op
         } else {
             // No operator between operands `42 13`
-            return Err(ParseError::InvalidExpression(y.range));
+            return Err(ParseError::InvalidExpression(y.location));
         };
 
-        let location = self.get_location(op.0.clone(), builder.borrow_context());
+        let location = self.get_location(op.0, builder.borrow_context());
 
         if is_unary(op.1) {
             // TODO: Check that not has a int or bool type!
@@ -370,13 +459,13 @@ impl<'a> Parser<'a> {
                     };
 
                     operand_stack.push(Operand {
-                        range: op.0,
+                        location: op.0,
                         kind: OperandKind::Concrete(expr),
                     });
 
                     Ok(())
                 }
-                _ => Err(ParseError::InvalidNonConcreteConstantUsed(y.range)),
+                _ => Err(ParseError::InvalidNonConcreteConstantUsed(y.location)),
             }
         } else {
             let x = operand_stack.pop().unwrap();
@@ -392,7 +481,9 @@ impl<'a> Parser<'a> {
                         let y_ty = y_value.get_type(builder.borrow_context());
 
                         if x_ty != y_ty {
-                            return Err(ParseError::TypesDoNotMatch(x.range, x_ty, y.range, y_ty));
+                            return Err(ParseError::TypesDoNotMatch(
+                                x.location, x_ty, y.location, y_ty,
+                            ));
                         }
 
                         (x_value, y_value)
@@ -463,7 +554,7 @@ impl<'a> Parser<'a> {
                     }
                     _ => {
                         return Err(ParseError::InvalidNonConcreteConstantsUsed(
-                            x.range, y.range,
+                            x.location, y.location,
                         ))
                     }
                 },
@@ -501,7 +592,7 @@ impl<'a> Parser<'a> {
                     }
                     _ => {
                         return Err(ParseError::InvalidNonConcreteConstantsUsed(
-                            x.range, y.range,
+                            x.location, y.location,
                         ))
                     }
                 },
@@ -527,7 +618,7 @@ impl<'a> Parser<'a> {
             };
 
             operand_stack.push(Operand {
-                range: op.0,
+                location: op.0,
                 kind: OperandKind::Concrete(expr),
             });
 
@@ -535,7 +626,11 @@ impl<'a> Parser<'a> {
         }
     }
 
-    fn check_precedence(&mut self, x: (Range, Token), y: (Range, Token)) -> Result<(), ParseError> {
+    fn check_precedence(
+        &mut self,
+        x: (Location, Token),
+        y: (Location, Token),
+    ) -> Result<(), ParseError> {
         let x_precedence = get_precedence(x.1);
         let y_precedence = get_precedence(y.1);
 
@@ -543,10 +638,7 @@ impl<'a> Parser<'a> {
             || y_precedence.0 == PrecedenceGroup::Comparison
         {
             Err(ParseError::ComparisonOperatorsAlwaysNeedParenthesis(
-                y.0.clone(),
-                y.1,
-                x.0.clone(),
-                x.1,
+                y.0, y.1, x.0, x.1,
             ))
         } else if x_precedence.0 == PrecedenceGroup::Parenthesis
             || y_precedence.0 == PrecedenceGroup::Parenthesis
@@ -555,10 +647,7 @@ impl<'a> Parser<'a> {
             Ok(())
         } else if x_precedence.0 != y_precedence.0 {
             Err(ParseError::OperatorsInDifferentPrecedenceGroups(
-                y.0.clone(),
-                y.1,
-                x.0.clone(),
-                x.1,
+                y.0, y.1, x.0, x.1,
             ))
         } else {
             Ok(())
@@ -567,12 +656,12 @@ impl<'a> Parser<'a> {
 
     fn apply_if_lower_precedence_and_push_operator(
         &mut self,
-        x: (Range, Token),
+        x: (Location, Token),
         operand_stack: &mut Vec<Operand>,
-        operator_stack: &mut Vec<(Range, Token)>,
+        operator_stack: &mut Vec<(Location, Token)>,
         builder: &mut InstructionBuilder,
     ) -> Result<(), ParseError> {
-        self.apply_if_lower_precedence(x.clone(), operand_stack, operator_stack, builder)?;
+        self.apply_if_lower_precedence(x, operand_stack, operator_stack, builder)?;
 
         operator_stack.push(x);
 
@@ -580,8 +669,8 @@ impl<'a> Parser<'a> {
     }
 
     fn next_token(&mut self) -> Result<Token, ParseError> {
-        if let Some(next) = self.get_next() {
-            Ok(next)
+        if let Some(next) = self.lexer.next() {
+            Ok(next.token)
         } else {
             Err(ParseError::UnexpectedEndOfFile)
         }
@@ -589,9 +678,9 @@ impl<'a> Parser<'a> {
 
     fn apply_if_lower_precedence(
         &mut self,
-        x: (Range, Token),
+        x: (Location, Token),
         operand_stack: &mut Vec<Operand>,
-        operator_stack: &mut Vec<(Range, Token)>,
+        operator_stack: &mut Vec<(Location, Token)>,
         builder: &mut InstructionBuilder,
     ) -> Result<(), ParseError> {
         let x_precedence = get_precedence(x.1);
@@ -604,7 +693,7 @@ impl<'a> Parser<'a> {
                 break;
             }
 
-            self.check_precedence(x.clone(), y.clone())?;
+            self.check_precedence(x, *y)?;
 
             let y_precedence = get_precedence(y.1);
 
@@ -618,58 +707,67 @@ impl<'a> Parser<'a> {
         Ok(())
     }
 
-    fn parse_integer(&mut self, _: &mut Context) -> Result<u64, ParseError> {
-        if let Ok(i) = self.get_current_str().parse::<u64>() {
+    fn parse_integer(&self, source: &str) -> Result<u64, ParseError> {
+        if let Ok(i) = source.parse::<u64>() {
             Ok(i)
         } else {
             todo!()
         }
     }
 
-    fn parse_float(&mut self, _: &mut Context) -> Result<f64, ParseError> {
-        if let Ok(f) = self.get_current_str().parse::<f64>() {
+    fn parse_float(&self, source: &str) -> Result<f64, ParseError> {
+        if let Ok(f) = source.parse::<f64>() {
             Ok(f)
         } else {
             todo!()
         }
     }
 
+    fn end_of_file_location(&self) -> Location {
+        self.file
+            .span
+            .subspan(self.file.span.len(), self.file.span.len())
+    }
+
     fn parse_expression(
         &mut self,
         ty: Type,
         builder: &mut InstructionBuilder,
-    ) -> Result<yair::Value, ParseError> {
+    ) -> Result<(yair::Value, Location), ParseError> {
         let mut operand_stack = Vec::new();
-        let mut operator_stack: Vec<(Range, Token)> = Vec::new();
+        let mut operator_stack: Vec<(Location, Token)> = Vec::new();
 
         if ty.is_array(builder.borrow_context()) {
             // Array initializers always start with a  '{'.
-            self.expect_symbol(Token::LCurly)?;
+            let start_location = self.expect_symbol(Token::LCurly)?;
 
             let element_ty = ty.get_element(builder.borrow_context(), 0);
 
             let mut initializer = builder.borrow_context().get_undef(ty);
 
             for i in 0..ty.get_len(builder.borrow_context()) {
-                let location = self.get_current_location(builder.borrow_context());
-                let expr = self.parse_expression(element_ty, builder)?;
+                let (expr, location) = self.parse_expression(element_ty, builder)?;
+
+                let location = self.get_location(location, builder.borrow_context());
 
                 initializer = builder.insert(initializer, expr, i, location);
 
-                if self.peek() != Token::RCurly {
-                    self.expect_symbol(Token::Comma)?;
+                if let Some(peek) = self.lexer.peek() {
+                    if peek.token != Token::RCurly {
+                        self.expect_symbol(Token::Comma)?;
+                    }
                 }
             }
 
             // Array initializers always end with a '}'.
-            self.expect_symbol(Token::RCurly)?;
+            let end_location = self.expect_symbol(Token::RCurly)?;
 
-            return Ok(initializer);
+            return Ok((initializer, start_location.merge(end_location)));
         }
 
         loop {
-            if let Some(peek) = self.lexer.peek().0 {
-                match peek {
+            if let Some(peek) = self.lexer.peek() {
+                match peek.token {
                     Token::Semicolon => break,
                     Token::LCurly => break,
                     Token::RCurly => break,
@@ -679,92 +777,98 @@ impl<'a> Parser<'a> {
                 }
             }
 
-            match self.get_next() {
-                Some(Token::True) => operand_stack.push(Operand {
-                    range: self.get_current_range(),
-                    kind: OperandKind::Concrete(builder.borrow_context().get_bool_constant(true)),
-                }),
-                Some(Token::False) => operand_stack.push(Operand {
-                    range: self.get_current_range(),
-                    kind: OperandKind::Concrete(builder.borrow_context().get_bool_constant(false)),
-                }),
-                Some(Token::Integer) => operand_stack.push(Operand {
-                    range: self.get_current_range(),
-                    kind: OperandKind::Integer(self.parse_integer(builder.borrow_context())?),
-                }),
-                Some(Token::Float) => operand_stack.push(Operand {
-                    range: self.get_current_range(),
-                    kind: OperandKind::Float(self.parse_float(builder.borrow_context())?),
-                }),
-                Some(Token::LParen) => {
-                    operator_stack.push((self.get_current_range(), Token::LParen))
-                }
-                Some(Token::RParen) => self.apply_if_lower_precedence(
-                    (self.get_current_range(), Token::RParen),
-                    &mut operand_stack,
-                    &mut operator_stack,
-                    builder,
-                )?,
-                Some(Token::As) => {
-                    let range = self.get_current_range();
+            let token_loc = self.lexer.next();
 
-                    if !operator_stack.is_empty() {
-                        self.check_precedence(
-                            (range.clone(), Token::As),
-                            operator_stack.last().unwrap().clone(),
-                        )?;
-                    }
+            if let Some(token_loc) = token_loc {
+                let source = self.file.source_slice(token_loc.location);
 
-                    let ty = self.parse_type(None, builder.borrow_context())?;
+                match token_loc.token {
+                    Token::True => operand_stack.push(Operand {
+                        location: token_loc.location,
+                        kind: OperandKind::Concrete(
+                            builder.borrow_context().get_bool_constant(true),
+                        ),
+                    }),
+                    Token::False => operand_stack.push(Operand {
+                        location: token_loc.location,
+                        kind: OperandKind::Concrete(
+                            builder.borrow_context().get_bool_constant(false),
+                        ),
+                    }),
+                    Token::Integer => operand_stack.push(Operand {
+                        location: token_loc.location,
+                        kind: OperandKind::Integer(self.parse_integer(source)?),
+                    }),
+                    Token::Float => operand_stack.push(Operand {
+                        location: token_loc.location,
+                        kind: OperandKind::Float(self.parse_float(source)?),
+                    }),
+                    Token::LParen => operator_stack.push((token_loc.location, Token::LParen)),
+                    Token::RParen => self.apply_if_lower_precedence(
+                        (token_loc.location, Token::RParen),
+                        &mut operand_stack,
+                        &mut operator_stack,
+                        builder,
+                    )?,
+                    Token::As => {
+                        let range = token_loc.location;
 
-                    let expr = if let Some(x) = operand_stack.pop() {
-                        let kind = self.get_kind(x.kind, builder);
-
-                        match kind {
-                            OperandKind::Concrete(v) => {
-                                let location =
-                                    self.get_location(range.clone(), builder.borrow_context());
-                                builder.cast(v, ty, location)
-                            }
-                            OperandKind::Float(f) => {
-                                if ty.is_float(builder.borrow_context()) {
-                                    let bits = ty.get_bits(builder.borrow_context());
-                                    builder.borrow_context().get_float_constant(bits as u8, f)
-                                } else {
-                                    todo!()
-                                }
-                            }
-                            OperandKind::Integer(i) => {
-                                if ty.is_float(builder.borrow_context()) {
-                                    let bits = ty.get_bits(builder.borrow_context());
-                                    builder
-                                        .borrow_context()
-                                        .get_float_constant(bits as u8, i as f64)
-                                } else if ty.is_int(builder.borrow_context()) {
-                                    let bits = ty.get_bits(builder.borrow_context());
-                                    builder
-                                        .borrow_context()
-                                        .get_int_constant(bits as u8, i as i64)
-                                } else if ty.is_uint(builder.borrow_context()) {
-                                    let bits = ty.get_bits(builder.borrow_context());
-                                    builder.borrow_context().get_uint_constant(bits as u8, i)
-                                } else {
-                                    todo!()
-                                }
-                            }
-                            _ => panic!("Unhandled"),
+                        if !operator_stack.is_empty() {
+                            self.check_precedence(
+                                (range, Token::As),
+                                *operator_stack.last().unwrap(),
+                            )?;
                         }
-                    } else {
-                        todo!()
-                    };
 
-                    operand_stack.push(Operand {
-                        range: range.clone(),
-                        kind: OperandKind::Concrete(expr),
-                    });
-                }
-                Some(x)
-                    if matches!(
+                        let ty = self.parse_type(None, builder.borrow_context())?;
+
+                        let expr = if let Some(x) = operand_stack.pop() {
+                            let kind = self.get_kind(x.kind, builder);
+
+                            match kind {
+                                OperandKind::Concrete(v) => {
+                                    let location =
+                                        self.get_location(range, builder.borrow_context());
+                                    builder.cast(v, ty, location)
+                                }
+                                OperandKind::Float(f) => {
+                                    if ty.is_float(builder.borrow_context()) {
+                                        let bits = ty.get_bits(builder.borrow_context());
+                                        builder.borrow_context().get_float_constant(bits as u8, f)
+                                    } else {
+                                        todo!()
+                                    }
+                                }
+                                OperandKind::Integer(i) => {
+                                    if ty.is_float(builder.borrow_context()) {
+                                        let bits = ty.get_bits(builder.borrow_context());
+                                        builder
+                                            .borrow_context()
+                                            .get_float_constant(bits as u8, i as f64)
+                                    } else if ty.is_int(builder.borrow_context()) {
+                                        let bits = ty.get_bits(builder.borrow_context());
+                                        builder
+                                            .borrow_context()
+                                            .get_int_constant(bits as u8, i as i64)
+                                    } else if ty.is_uint(builder.borrow_context()) {
+                                        let bits = ty.get_bits(builder.borrow_context());
+                                        builder.borrow_context().get_uint_constant(bits as u8, i)
+                                    } else {
+                                        todo!()
+                                    }
+                                }
+                                _ => panic!("Unhandled"),
+                            }
+                        } else {
+                            todo!()
+                        };
+
+                        operand_stack.push(Operand {
+                            location: range,
+                            kind: OperandKind::Concrete(expr),
+                        });
+                    }
+                    x if matches!(
                         x,
                         Token::Add
                             | Token::Sub
@@ -782,59 +886,75 @@ impl<'a> Parser<'a> {
                             | Token::GreaterThan
                             | Token::GreaterThanEquals
                     ) =>
-                {
-                    self.apply_if_lower_precedence_and_push_operator(
-                        (self.get_current_range(), x),
-                        &mut operand_stack,
-                        &mut &mut operator_stack,
-                        builder,
-                    )?
-                }
-                Some(Token::Identifier) => {
-                    let identifier = self.get_current_str();
-
-                    if let Some((_, value, range)) = self.identifiers.get(identifier) {
-                        let location = self.get_location(range.clone(), builder.borrow_context());
-                        operand_stack.push(Operand {
-                            range: self.get_current_range(),
-                            kind: OperandKind::Pointer((*value, location)),
-                        });
-                    } else {
-                        return Err(ParseError::UnknownIdentifier(self.get_current_range()));
+                    {
+                        self.apply_if_lower_precedence_and_push_operator(
+                            (token_loc.location, x),
+                            &mut operand_stack,
+                            &mut &mut operator_stack,
+                            builder,
+                        )?
                     }
+                    x if matches!(x, Token::Identifier | Token::IdentifierWithNamespace) => {
+                        let identifier = Name::new(self.file.clone(), token_loc.location);
+
+                        // If we've got a parenthesis straight after our identifier, we've got a function call!
+                        if self.bump_if_symbol(Token::LParen) {
+                            let call = self.parse_called_function(identifier, builder)?;
+                            operand_stack.push(Operand {
+                                location: token_loc.location,
+                                kind: OperandKind::Concrete(call),
+                            });
+                        } else if let Some((_, value, range)) = self.identifiers.get(&identifier) {
+                            let location = self.get_location(*range, builder.borrow_context());
+                            operand_stack.push(Operand {
+                                location: token_loc.location,
+                                kind: OperandKind::Pointer((*value, location)),
+                            });
+                        } else {
+                            return Err(ParseError::UnknownIdentifier(token_loc.location));
+                        }
+                    }
+                    Token::LBracket => {
+                        let start_location = token_loc.location;
+
+                        let u64_ty = builder.borrow_context().get_uint_type(64);
+                        let index = self.parse_expression(u64_ty, builder)?;
+
+                        let operand = operand_stack.pop().unwrap();
+
+                        let operand = if let OperandKind::Pointer(ptr) = operand.kind {
+                            ptr.0
+                        } else {
+                            todo!()
+                        };
+
+                        let end_location = self.expect_symbol(Token::RBracket)?;
+
+                        let full_location = start_location.merge(end_location);
+
+                        let location = self.get_location(full_location, builder.borrow_context());
+
+                        let expr = builder.index_into(operand, &[index.0], location);
+
+                        operand_stack.push(Operand {
+                            location: full_location,
+                            kind: OperandKind::Pointer((expr, location)),
+                        });
+                    }
+                    _ => return Err(ParseError::UnknownIdentifier(token_loc.location)),
                 }
-                Some(Token::LBracket) => {
-                    let range = self.get_current_range();
-                    let location = self.get_current_location(builder.borrow_context());
-
-                    let u64_ty = builder.borrow_context().get_uint_type(64);
-                    let index = self.parse_expression(u64_ty, builder)?;
-
-                    let operand = operand_stack.pop().unwrap();
-
-                    let operand = if let OperandKind::Pointer(ptr) = operand.kind {
-                        ptr.0
-                    } else {
-                        todo!()
-                    };
-
-                    let expr = builder.index_into(operand, &[index], location);
-
-                    self.expect_symbol(Token::RBracket)?;
-
-                    operand_stack.push(Operand {
-                        range,
-                        kind: OperandKind::Pointer((expr, location)),
-                    });
-                }
-                Some(_) => return Err(ParseError::UnknownIdentifier(self.get_current_range())),
-                None => todo!(),
+            } else {
+                todo!();
             }
         }
 
         // Handle the case where an expression is malformed like `foo=;`
         if operand_stack.is_empty() {
-            return Err(ParseError::InvalidExpression(self.get_current_range()));
+            let location = self
+                .lexer
+                .peek()
+                .map_or(self.end_of_file_location(), |token_loc| token_loc.location);
+            return Err(ParseError::InvalidExpression(location));
         }
 
         while !operator_stack.is_empty() {
@@ -874,7 +994,7 @@ impl<'a> Parser<'a> {
             }
         };
 
-        Ok(expr)
+        Ok((expr, operand.location))
     }
 
     fn push_scope(&mut self) {
@@ -891,17 +1011,18 @@ impl<'a> Parser<'a> {
 
     fn add_identifier(
         &mut self,
-        identifier: &'a str,
-        range: Range,
+        identifier: Name,
+        location: Location,
         ty: yair::Type,
         value: yair::Value,
     ) -> Result<(), ParseError> {
         if let Some(original) = self
             .identifiers
-            .insert(identifier, (ty, value, range.clone()))
+            .insert(identifier.clone(), (ty, value, location))
         {
             return Err(ParseError::IdentifierShadowsPreviouslyDeclareIdentifier(
-                original.2, range,
+                original.2,
+                identifier.location,
             ));
         }
 
@@ -918,22 +1039,18 @@ impl<'a> Parser<'a> {
         block: yair::Block,
         context: &mut yair::Context,
     ) -> Result<yair::Block, ParseError> {
-        self.expect_symbol(Token::LCurly)?;
+        let location = self.expect_symbol(Token::LCurly)?;
 
-        let location = self.get_location(self.lexer.peek().2, context);
+        let location = self.get_location(location, context);
 
         let mut exit_blocks = Vec::new();
 
         let (if_entry_block, if_exit_block) = self.parse_block(function, alloca_block, context)?;
 
-        exit_blocks.push((if_exit_block, self.get_current_location(context)));
+        exit_blocks.push((if_exit_block, None));
 
-        let false_block = if self.peek() == Token::Else {
-            self.expect_symbol(Token::Else)?;
-
-            if self.peek() == Token::If {
-                self.expect_symbol(Token::If)?;
-
+        let false_block = if self.bump_if_symbol(Token::Else) {
+            if self.bump_if_symbol(Token::If) {
                 let else_if_block = function.create_block(context).build();
 
                 let mut builder = else_if_block.create_instructions(context);
@@ -945,12 +1062,12 @@ impl<'a> Parser<'a> {
                 let exit_block = self.parse_if(
                     function,
                     alloca_block,
-                    expr,
+                    expr.0,
                     else_if_block,
                     builder.borrow_context(),
                 )?;
 
-                exit_blocks.push((exit_block, self.get_current_location(context)));
+                exit_blocks.push((exit_block, None));
 
                 Some(else_if_block)
             } else {
@@ -959,7 +1076,7 @@ impl<'a> Parser<'a> {
                 let (else_entry_block, else_exit_block) =
                     self.parse_block(function, alloca_block, context)?;
 
-                exit_blocks.push((else_exit_block, self.get_current_location(context)));
+                exit_blocks.push((else_exit_block, None));
 
                 Some(else_entry_block)
             }
@@ -1013,9 +1130,9 @@ impl<'a> Parser<'a> {
 
         let bool_ty = builder.borrow_context().get_bool_type();
 
-        let condition = self.parse_expression(bool_ty, &mut builder)?;
+        let (condition, location) = self.parse_expression(bool_ty, &mut builder)?;
 
-        let location = self.get_current_location(builder.borrow_context());
+        let location = self.get_location(location, builder.borrow_context());
         builder.conditional_branch(condition, body_block, merge_block, &[], &[], location);
 
         self.expect_symbol(Token::LCurly)?;
@@ -1039,6 +1156,63 @@ impl<'a> Parser<'a> {
         Ok(merge_block)
     }
 
+    fn parse_called_function(
+        &mut self,
+        identifier: Name,
+        builder: &mut InstructionBuilder,
+    ) -> Result<yair::Value, ParseError> {
+        // Need to look in our local functions first (most optimal)
+        let called_function = if let Some(called_function) = self.functions.get(identifier.as_str())
+        {
+            *called_function
+        } else {
+            let exported_package_functions = self.exported_package_functions.borrow();
+
+            let mut found_called_function = None;
+
+            for import in &self.imports {
+                if let Some(called_function) = exported_package_functions
+                    .get(import)
+                    .unwrap()
+                    .get(identifier.as_str())
+                {
+                    found_called_function = Some(*called_function);
+                    break;
+                }
+            }
+
+            if let Some(called_function) = found_called_function {
+                called_function
+            } else {
+                panic!("Could not find called function!");
+            }
+        };
+
+        let num_args = called_function.get_num_args(builder.borrow_context());
+
+        let mut call_args = Vec::new();
+
+        for i in 0..num_args {
+            // Anything except the first argument should have a comma before it.
+            if i != 0 {
+                self.expect_symbol(Token::Comma)?;
+            }
+
+            let arg = called_function.get_arg(builder.borrow_context(), i);
+            let ty = arg.get_type(builder.borrow_context());
+
+            let expression = self.parse_expression(ty, builder)?;
+
+            call_args.push(expression.0);
+        }
+
+        self.expect_symbol(Token::RParen)?;
+
+        let location = self.get_location(identifier.location, builder.borrow_context());
+
+        Ok(builder.call(called_function, &call_args, location))
+    }
+
     fn parse_block(
         &mut self,
         function: yair::Function,
@@ -1053,205 +1227,236 @@ impl<'a> Parser<'a> {
         let mut builder = current_block.create_instructions(context);
 
         loop {
-            match self.get_next() {
-                Some(Token::LCurly) => {
-                    let location = self.get_location(self.lexer.peek().2, builder.borrow_context());
+            let token_loc = self.lexer.next();
 
-                    let (sub_entry_block, sub_exit_block) =
-                        self.parse_block(function, alloca_block, builder.borrow_context())?;
+            if let Some(token_loc) = token_loc {
+                match token_loc.token {
+                    Token::LCurly => {
+                        let location =
+                            self.get_location(token_loc.location, builder.borrow_context());
 
-                    current_block
-                        .create_instructions(builder.borrow_context())
-                        .branch(sub_entry_block, &[], location);
+                        let (sub_entry_block, sub_exit_block) =
+                            self.parse_block(function, alloca_block, builder.borrow_context())?;
 
-                    let location = self.get_location(self.lexer.peek().2, builder.borrow_context());
-
-                    current_block = function.create_block(builder.borrow_context()).build();
-
-                    if !sub_exit_block.has_terminator(builder.borrow_context()) {
-                        sub_exit_block
+                        current_block
                             .create_instructions(builder.borrow_context())
-                            .branch(current_block, &[], location);
+                            .branch(sub_entry_block, &[], location);
+
+                        current_block = function.create_block(builder.borrow_context()).build();
+
+                        if !sub_exit_block.has_terminator(builder.borrow_context()) {
+                            sub_exit_block
+                                .create_instructions(builder.borrow_context())
+                                .branch(current_block, &[], None);
+                        }
+                        builder = current_block.create_instructions(context);
                     }
-                    builder = current_block.create_instructions(context);
-                }
-                Some(Token::RCurly) => {
-                    self.pop_scope();
-                    return Ok((entry_block, current_block));
-                }
-                Some(Token::Identifier) => {
-                    let identifier = self.get_current_str();
-                    let identifier_range = self.get_current_range();
+                    Token::RCurly => {
+                        self.pop_scope();
+                        return Ok((entry_block, current_block));
+                    }
+                    x if matches!(x, Token::Identifier | Token::IdentifierWithNamespace) => {
+                        let identifier = Name::new(self.file.clone(), token_loc.location);
 
-                    match self.next_token()? {
-                        Token::Colon => {
-                            let location = self.get_current_location(builder.borrow_context());
+                        if self.bump_if_symbol(Token::LParen) {
+                            self.parse_called_function(identifier.clone(), &mut builder)?;
+                            self.expect_symbol(Token::Semicolon)?;
 
-                            let ty = self.parse_type(None, builder.borrow_context())?;
+                            // If we have a call here we're not capturing its return value.
+                        } else {
+                            let token_loc = self.lexer.next().unwrap();
+                            match token_loc.token {
+                                Token::Colon => {
+                                    let location = self
+                                        .get_location(token_loc.location, builder.borrow_context());
 
-                            let stack_alloc = {
-                                let mut builder =
-                                    alloca_block.create_instructions(builder.borrow_context());
+                                    let ty = self.parse_type(None, builder.borrow_context())?;
 
-                                let alloc = builder.stack_alloc(identifier, ty, location);
+                                    let stack_alloc = {
+                                        let mut builder = alloca_block
+                                            .create_instructions(builder.borrow_context());
 
-                                builder.pause_building();
+                                        let alloc =
+                                            builder.stack_alloc(identifier.as_str(), ty, location);
 
-                                alloc
-                            };
+                                        builder.pause_building();
 
-                            self.add_identifier(identifier, identifier_range, ty, stack_alloc)?;
+                                        alloc
+                                    };
 
-                            let (expr, location) = match self.next_token()? {
-                                Token::Assignment => (
-                                    self.parse_expression(ty, &mut builder)?,
-                                    self.get_current_location(builder.borrow_context()),
-                                ),
+                                    self.add_identifier(
+                                        identifier,
+                                        token_loc.location,
+                                        ty,
+                                        stack_alloc,
+                                    )?;
+
+                                    let (expr, location) = match self.next_token()? {
+                                        Token::Assignment => (
+                                            self.parse_expression(ty, &mut builder)?,
+                                            self.get_location(
+                                                token_loc.location,
+                                                builder.borrow_context(),
+                                            ),
+                                        ),
+                                        _ => todo!(),
+                                    };
+
+                                    self.expect_symbol(Token::Semicolon)?;
+
+                                    builder.store(stack_alloc, expr.0, location);
+                                }
+                                Token::Assignment => {
+                                    let location = self
+                                        .get_location(token_loc.location, builder.borrow_context());
+
+                                    let (ty, stack_alloc) = if let Some(identifier) =
+                                        self.identifiers.get(&identifier)
+                                    {
+                                        (identifier.0, identifier.1)
+                                    } else {
+                                        return Err(ParseError::UnknownIdentifierUsedInAssignment(
+                                            identifier.location,
+                                        ));
+                                    };
+
+                                    let expr = self.parse_expression(ty, &mut builder)?;
+
+                                    self.expect_symbol(Token::Semicolon)?;
+
+                                    builder.store(stack_alloc, expr.0, location);
+                                }
                                 _ => todo!(),
+                            }
+                        }
+                    }
+                    Token::Return => {
+                        let location =
+                            self.get_location(token_loc.location, builder.borrow_context());
+
+                        let return_ty = function.get_return_type(builder.borrow_context());
+
+                        let expr = self.parse_expression(return_ty, &mut builder)?;
+
+                        self.expect_symbol(Token::Semicolon)?;
+
+                        builder.ret_val(expr.0, location);
+
+                        return Ok((entry_block, current_block));
+                    }
+                    Token::If => {
+                        let bool_ty = builder.borrow_context().get_bool_type();
+
+                        let expr = self.parse_expression(bool_ty, &mut builder)?;
+
+                        let exit_block = self.parse_if(
+                            function,
+                            alloca_block,
+                            expr.0,
+                            current_block,
+                            builder.borrow_context(),
+                        )?;
+
+                        current_block = exit_block;
+                        builder = current_block.create_instructions(context);
+                    }
+                    Token::While => {
+                        let exit_block = self.parse_while(
+                            function,
+                            alloca_block,
+                            current_block,
+                            builder.borrow_context(),
+                        )?;
+
+                        current_block = exit_block;
+                        builder = current_block.create_instructions(context);
+
+                        /*
+                        This is for a for statement
+
+                        let identifier = self.get_current_str();
+                        let identifier_range = self.get_current_range();
+
+                        self.push_scope();
+
+                        self.expect_symbol(Token::Colon)?;
+
+                        let location = self.get_current_location(builder.borrow_context());
+
+                        let ty = self.parse_type(None, builder.borrow_context())?;
+
+                        let stack_alloc = {
+                            let mut builder =
+                                alloca_block.create_instructions(builder.borrow_context());
+
+                            let alloc = builder.stack_alloc(identifier, ty, location);
+
+                            builder.pause_building();
+
+                            alloc
+                        };
+
+                        self.add_identifier(identifier, identifier_range, ty, stack_alloc)?;
+
+                        self.expect_symbol(Token::In)?;
+
+                        let start = self.parse_expression(ty, &mut builder)?;
+
+                        self.expect_symbol(Token::Range)?;
+
+                        let end = self.parse_expression(ty, &mut builder)?;
+
+                        self.expect_symbol(Token::LCurly)?;*/
+                    }
+                    Token::Break => {
+                        let location =
+                            self.get_location(token_loc.location, builder.borrow_context());
+
+                        let merge_block = if let Some(merge_block) = self.merge_blocks.last() {
+                            *merge_block
+                        } else {
+                            panic!("Don't have a merge block (break wasn't in a loop).");
+                        };
+
+                        builder.branch(merge_block, &[], location);
+
+                        self.expect_symbol(Token::Semicolon)?;
+
+                        self.expect_symbol(Token::RCurly)?;
+
+                        return Ok((entry_block, current_block));
+                    }
+                    Token::Continue => {
+                        let location =
+                            self.get_location(token_loc.location, builder.borrow_context());
+
+                        let continue_block =
+                            if let Some(continue_block) = self.continue_blocks.last() {
+                                *continue_block
+                            } else {
+                                panic!("Don't have a continnue block (continue wasn't in a loop).");
                             };
 
-                            self.expect_symbol(Token::Semicolon)?;
+                        builder.branch(continue_block, &[], location);
 
-                            builder.store(stack_alloc, expr, location);
-                        }
-                        Token::Assignment => {
-                            let location = self.get_current_location(builder.borrow_context());
+                        self.expect_symbol(Token::Semicolon)?;
 
-                            let (ty, stack_alloc) =
-                                if let Some(identifier) = self.identifiers.get(identifier) {
-                                    (identifier.0, identifier.1)
-                                } else {
-                                    return Err(ParseError::UnknownIdentifierUsedInAssignment(
-                                        identifier_range,
-                                    ));
-                                };
+                        self.expect_symbol(Token::RCurly)?;
 
-                            let expr = self.parse_expression(ty, &mut builder)?;
-
-                            self.expect_symbol(Token::Semicolon)?;
-
-                            builder.store(stack_alloc, expr, location);
-                        }
-                        _ => todo!(),
+                        return Ok((entry_block, current_block));
                     }
+                    Token::Else => {
+                        // We parse this in the if statement parsing, so if we find one here, its hanging around with no if!
+                        return Err(ParseError::ElseStatementWithoutIf(token_loc.location));
+                    }
+                    token => panic!(
+                        "Unhandled {:?} '{}'",
+                        token,
+                        self.file.source_slice(token_loc.location)
+                    ),
                 }
-                Some(Token::Return) => {
-                    let location = self.get_current_location(builder.borrow_context());
-
-                    let return_ty = function.get_return_type(builder.borrow_context());
-
-                    let expr = self.parse_expression(return_ty, &mut builder)?;
-
-                    self.expect_symbol(Token::Semicolon)?;
-
-                    builder.ret_val(expr, location);
-
-                    return Ok((entry_block, current_block));
-                }
-                Some(Token::If) => {
-                    let bool_ty = builder.borrow_context().get_bool_type();
-
-                    let expr = self.parse_expression(bool_ty, &mut builder)?;
-
-                    let exit_block = self.parse_if(
-                        function,
-                        alloca_block,
-                        expr,
-                        current_block,
-                        builder.borrow_context(),
-                    )?;
-
-                    current_block = exit_block;
-                    builder = current_block.create_instructions(context);
-                }
-                Some(Token::While) => {
-                    let exit_block = self.parse_while(
-                        function,
-                        alloca_block,
-                        current_block,
-                        builder.borrow_context(),
-                    )?;
-
-                    current_block = exit_block;
-                    builder = current_block.create_instructions(context);
-
-                    /*
-                    This is for a for statement
-
-                    let identifier = self.get_current_str();
-                    let identifier_range = self.get_current_range();
-
-                    self.push_scope();
-
-                    self.expect_symbol(Token::Colon)?;
-
-                    let location = self.get_current_location(builder.borrow_context());
-
-                    let ty = self.parse_type(None, builder.borrow_context())?;
-
-                    let stack_alloc = {
-                        let mut builder =
-                            alloca_block.create_instructions(builder.borrow_context());
-
-                        let alloc = builder.stack_alloc(identifier, ty, location);
-
-                        builder.pause_building();
-
-                        alloc
-                    };
-
-                    self.add_identifier(identifier, identifier_range, ty, stack_alloc)?;
-
-                    self.expect_symbol(Token::In)?;
-
-                    let start = self.parse_expression(ty, &mut builder)?;
-
-                    self.expect_symbol(Token::Range)?;
-
-                    let end = self.parse_expression(ty, &mut builder)?;
-
-                    self.expect_symbol(Token::LCurly)?;*/
-                }
-                Some(Token::Break) => {
-                    let location = self.get_current_location(builder.borrow_context());
-
-                    let merge_block = if let Some(merge_block) = self.merge_blocks.last() {
-                        *merge_block
-                    } else {
-                        panic!("Don't have a merge block (break wasn't in a loop).");
-                    };
-
-                    builder.branch(merge_block, &[], location);
-
-                    self.expect_symbol(Token::Semicolon)?;
-
-                    self.expect_symbol(Token::RCurly)?;
-
-                    return Ok((entry_block, current_block));
-                }
-                Some(Token::Continue) => {
-                    let location = self.get_current_location(builder.borrow_context());
-
-                    let continue_block = if let Some(continue_block) = self.continue_blocks.last() {
-                        *continue_block
-                    } else {
-                        panic!("Don't have a continnue block (continue wasn't in a loop).");
-                    };
-
-                    builder.branch(continue_block, &[], location);
-
-                    self.expect_symbol(Token::Semicolon)?;
-
-                    self.expect_symbol(Token::RCurly)?;
-
-                    return Ok((entry_block, current_block));
-                }
-                Some(Token::Else) => {
-                    // We parse this in the if statement parsing, so if we find one here, its hanging around with no if!
-                    return Err(ParseError::ElseStatementWithoutIf(self.get_current_range()));
-                }
-                Some(token) => panic!("Unhandled {:?}", token),
-                None => return Err(ParseError::UnexpectedEndOfFile),
+            } else {
+                return Err(ParseError::UnexpectedEndOfFile);
             }
         }
     }
@@ -1268,36 +1473,35 @@ impl<'a> Parser<'a> {
         let mut parsed_one_arg = false;
 
         loop {
-            match self.get_next() {
-                Some(Token::RParen) => break,
-                Some(Token::Identifier) => {
-                    let name = self.get_current_str();
-                    let range: Range = self.get_current_range();
+            let token_loc = self.lexer.next();
 
-                    if Some(Token::Colon) != self.get_next() {
-                        return Err(ParseError::ExpectedTokenNotFound(
-                            Token::Colon,
-                            self.get_current_range(),
-                        ));
+            if let Some(token_loc) = token_loc {
+                match token_loc.token {
+                    Token::RParen => break,
+                    Token::Identifier => {
+                        let name = Name::new(self.file.clone(), token_loc.location);
+
+                        self.expect_symbol(Token::Colon)?;
+
+                        // TODO: We should check that we aren't parsing a function definition again here!
+                        let ty = self.parse_type(None, context)?;
+
+                        args.push((name, token_loc.location, ty));
+
+                        parsed_one_arg = true;
                     }
-
-                    // TODO: We should check that we aren't parsing a function definition again here!
-                    let ty = self.parse_type(None, context)?;
-
-                    args.push((name, range, ty));
-
-                    parsed_one_arg = true;
-                }
-                Some(Token::Comma) => {
-                    if !parsed_one_arg {
-                        return Err(ParseError::ExpectedTokenNotFound(
-                            Token::Comma,
-                            self.get_current_range(),
-                        ));
+                    Token::Comma => {
+                        if !parsed_one_arg {
+                            return Err(ParseError::ExpectedTokenNotFound(
+                                Token::Comma,
+                                token_loc.location,
+                            ));
+                        }
                     }
+                    _ => return Err(ParseError::InvalidExpression(token_loc.location)),
                 }
-                Some(_) => return Err(ParseError::InvalidExpression(self.get_current_range())),
-                None => return Err(ParseError::UnexpectedEndOfFile),
+            } else {
+                return Err(ParseError::UnexpectedEndOfFile);
             }
         }
 
@@ -1314,17 +1518,31 @@ impl<'a> Parser<'a> {
             context.create_module().with_name(&self.package).build()
         };
 
-        let used_args: Vec<_> = args.iter().map(|(name, _, ty)| (*name, *ty)).collect();
+        let used_args: Vec<_> = args
+            .iter()
+            .map(|(name, _, ty)| (name.as_str().to_string(), ty))
+            .collect();
 
-        let function = module
+        let mut function_builder = module
             .create_function(context)
             .with_name(identifier)
-            .with_return_type(return_ty)
-            .with_args(&used_args)
-            .build();
+            .with_return_type(return_ty);
 
-        if self.lexer.peek().0.map_or(Token::Error, |token| token) != Token::LCurly {
-            panic!("Support function declarations!");
+        for arg in used_args {
+            function_builder = function_builder.with_arg(arg.0.as_str(), *arg.1);
+        }
+
+        let function = function_builder.build();
+
+        self.functions.insert(identifier.to_string(), function);
+
+        if self
+            .lexer
+            .peek()
+            .map_or(Token::Error, |token_loc| token_loc.token)
+            != Token::LCurly
+        {
+            panic!("TODO: Support function declarations!");
         }
 
         let arg_types: Vec<yair::Type> = function
@@ -1350,11 +1568,11 @@ impl<'a> Parser<'a> {
             let value = alloca_block.get_arg(entry_block_builder.borrow_context(), index);
 
             let location = value.get_location(entry_block_builder.borrow_context());
-            let stack_alloc = entry_block_builder.stack_alloc(name, *ty, location);
+            let stack_alloc = entry_block_builder.stack_alloc(name.as_str(), *ty, location);
 
             entry_block_builder.store(stack_alloc, value, location);
 
-            self.add_identifier(name, range.clone(), *ty, stack_alloc)?;
+            self.add_identifier(name.clone(), *range, *ty, stack_alloc)?;
         }
 
         entry_block_builder.pause_building();
@@ -1365,8 +1583,7 @@ impl<'a> Parser<'a> {
         let (entry_block, exit_block) = self.parse_block(function, alloca_block, context)?;
 
         if return_is_void {
-            let location = self.get_current_location(context);
-            exit_block.create_instructions(context).ret(location);
+            exit_block.create_instructions(context).ret(None);
         }
 
         alloca_block
@@ -1377,8 +1594,8 @@ impl<'a> Parser<'a> {
     }
 
     fn parse_identifier(&mut self) -> Result<String, ParseError> {
-        self.expect_symbol(Token::Identifier)?;
-        Ok(self.get_current_str().to_string())
+        let location = self.expect_symbol(Token::Identifier)?;
+        Ok(self.file.source_slice(location).to_string())
     }
 
     fn parse_type(
@@ -1407,12 +1624,10 @@ impl<'a> Parser<'a> {
         };
 
         // If we've got an array, parse that now.
-        while self.peek() == Token::LBracket {
-            self.expect_symbol(Token::LBracket)?;
+        while self.bump_if_symbol(Token::LBracket) {
+            let location = self.expect_symbol(Token::Integer)?;
 
-            self.expect_symbol(Token::Integer)?;
-
-            let length = self.parse_integer(context)?;
+            let length = self.parse_integer(self.file.source_slice(location))?;
 
             result = context.get_array_type(result, length);
 
@@ -1422,29 +1637,34 @@ impl<'a> Parser<'a> {
         Ok(result)
     }
 
-    pub fn parse(&mut self, context: &mut yair::Context) -> Result<(), ParseError> {
-        if self.peek() == Token::Package {
-            self.expect_symbol(Token::Package)?;
+    pub fn parse_package_and_import(&mut self) -> Result<(), ParseError> {
+        if self.bump_if_symbol(Token::Package) {
+            let location = self.expect_symbol(Token::String)?;
 
-            self.expect_symbol(Token::String)?;
-
-            let str = self.get_current_str();
+            let str = self.file.source_slice(location);
             self.package = str[1..(str.len() - 1)].to_string();
             // TODO: Check for bad package names?
         }
 
+        while self.bump_if_symbol(Token::Import) {
+            let location = self.expect_symbol(Token::String)?;
+
+            let str = self.file.source_slice(location);
+            self.imports.push(str[1..(str.len() - 1)].to_string());
+            // TODO: Check for bad package names?
+        }
+
+        Ok(())
+    }
+
+    pub fn parse(&mut self, context: &mut yair::Context) -> Result<(), ParseError> {
         let identifier = match self.parse_identifier() {
             Ok(i) => i,
             Err(ParseError::UnexpectedEndOfFile) => return Ok(()),
             Err(e) => return Err(e),
         };
 
-        if Some(Token::Colon) != self.get_next() {
-            return Err(ParseError::ExpectedTokenNotFound(
-                Token::Colon,
-                self.get_current_range(),
-            ));
-        }
+        self.expect_symbol(Token::Colon)?;
 
         let _ty = self.parse_type(Some(&identifier), context)?;
 
@@ -1454,14 +1674,10 @@ impl<'a> Parser<'a> {
     pub fn display_error(
         &self,
         e: ParseError,
-        data: &str,
         context: &mut yair::Context,
         fmt: &mut std::io::Stderr,
     ) -> Result<(), io::Error> {
-        let write_range = |fmt: &mut std::io::Stderr, range: Range| -> Result<(), io::Error> {
-            let span = self.file.span;
-            let span = span.subspan(range.start as u64, range.end as u64);
-
+        let write_range = |fmt: &mut std::io::Stderr, span: Location| -> Result<(), io::Error> {
             let location = self.codemap.look_up_span(span);
 
             writeln!(
@@ -1488,7 +1704,7 @@ impl<'a> Parser<'a> {
         match e {
             ParseError::UnexpectedEndOfFile => {
                 writeln!(fmt, "error: Unexpected end of file")?;
-                write_range(fmt, (data.len() - 1)..data.len())?;
+                write_range(fmt, self.end_of_file_location())?;
             }
             ParseError::ExpectedTokenNotFound(token, range) => {
                 writeln!(fmt, "error: Expected token '{:?}' not found", token)?;
@@ -1498,22 +1714,17 @@ impl<'a> Parser<'a> {
                 writeln!(fmt, "error: Invalid expression")?;
                 write_range(fmt, range)?;
             }
-            ParseError::OperatorsInDifferentPrecedenceGroups(x_range, _, y_range, _) => {
-                let span = self.file.span;
-                let span = span.subspan(x_range.start as u64, x_range.end as u64);
-                let x_str = self.file.source_slice(span);
-
-                let span = self.file.span;
-                let span = span.subspan(y_range.start as u64, y_range.end as u64);
-                let y_str = self.file.source_slice(span);
+            ParseError::OperatorsInDifferentPrecedenceGroups(x_location, _, y_location, _) => {
+                let x_str = self.file.source_slice(x_location);
+                let y_str = self.file.source_slice(y_location);
 
                 writeln!(
                     fmt,
                     "error: Operators '{}' and '{}' are in different precedence groups",
                     x_str, y_str
                 )?;
-                write_range(fmt, x_range)?;
-                write_range(fmt, y_range)?;
+                write_range(fmt, x_location)?;
+                write_range(fmt, y_location)?;
             }
             ParseError::TypesDoNotMatch(x_range, x_ty, y_range, y_ty) => {
                 writeln!(
@@ -1534,22 +1745,15 @@ impl<'a> Parser<'a> {
                 writeln!(fmt, "error: Invalid non-concrete constant used")?;
                 write_range(fmt, range)?;
             }
-            ParseError::UnknownIdentifier(range) => {
-                let span = self.file.span;
-                let span = span.subspan(range.start as u64, range.end as u64);
-                let str = self.file.source_slice(span);
+            ParseError::UnknownIdentifier(location) => {
+                let str = self.file.source_slice(location);
 
                 writeln!(fmt, "error: Unknown identifier '{}' used", str)?;
-                write_range(fmt, range)?;
+                write_range(fmt, location)?;
             }
-            ParseError::ComparisonOperatorsAlwaysNeedParenthesis(x_range, _, y_range, _) => {
-                let span = self.file.span;
-                let span = span.subspan(x_range.start as u64, x_range.end as u64);
-                let x_str = self.file.source_slice(span);
-
-                let span = self.file.span;
-                let span = span.subspan(y_range.start as u64, y_range.end as u64);
-                let y_str = self.file.source_slice(span);
+            ParseError::ComparisonOperatorsAlwaysNeedParenthesis(x_location, _, y_location, _) => {
+                let x_str = self.file.source_slice(x_location);
+                let y_str = self.file.source_slice(y_location);
 
                 writeln!(
                     fmt,
@@ -1557,13 +1761,11 @@ impl<'a> Parser<'a> {
                     x_str, y_str
                 )?;
 
-                write_range(fmt, x_range)?;
-                write_range(fmt, y_range)?;
+                write_range(fmt, x_location)?;
+                write_range(fmt, y_location)?;
             }
-            ParseError::UnknownIdentifierUsedInAssignment(range) => {
-                let span = self.file.span;
-                let span = span.subspan(range.start as u64, range.end as u64);
-                let str = self.file.source_slice(span);
+            ParseError::UnknownIdentifierUsedInAssignment(location) => {
+                let str = self.file.source_slice(location);
 
                 writeln!(
                     fmt,
@@ -1575,12 +1777,10 @@ impl<'a> Parser<'a> {
                     "       Did you mean to declare the variable `{} : <type> =` instead?",
                     str
                 )?;
-                write_range(fmt, range)?;
+                write_range(fmt, location)?;
             }
-            ParseError::IdentifierShadowsPreviouslyDeclareIdentifier(x_range, y_range) => {
-                let span = self.file.span;
-                let span = span.subspan(y_range.start as u64, y_range.end as u64);
-                let y_str = self.file.source_slice(span);
+            ParseError::IdentifierShadowsPreviouslyDeclareIdentifier(x_location, y_location) => {
+                let y_str = self.file.source_slice(y_location);
 
                 writeln!(
                     fmt,
@@ -1588,8 +1788,8 @@ impl<'a> Parser<'a> {
                     y_str
                 )?;
 
-                write_range(fmt, y_range)?;
-                write_range(fmt, x_range)?;
+                write_range(fmt, y_location)?;
+                write_range(fmt, x_location)?;
             }
             ParseError::ElseStatementWithoutIf(range) => {
                 writeln!(fmt, "error: Else statement without an if")?;
@@ -1605,26 +1805,93 @@ fn main() {
     let yaml = load_yaml!("bootstrap.yml");
     let matches = App::from_yaml(yaml).get_matches();
 
-    let input = matches.value_of("input").unwrap();
+    let inputs = matches.values_of("input").unwrap();
+
+    let mut parsers = Vec::new();
 
     let mut data = String::new();
+    let mut slices = Vec::new();
 
-    if input == "-" {
-        io::stdin().read_to_string(&mut data).unwrap();
-    } else {
-        let mut file = File::open(input).unwrap();
-        file.read_to_string(&mut data).unwrap();
+    for input in inputs {
+        let start = data.len();
+
+        if input == "-" {
+            io::stdin().read_to_string(&mut data).unwrap();
+        } else {
+            let mut file = if let Ok(file) = File::open(input) {
+                file
+            } else {
+                panic!("Could not open file '{}'", input);
+            };
+            file.read_to_string(&mut data).unwrap();
+        }
+
+        let end = data.len();
+
+        slices.push(start..end);
+    }
+
+    let exported_package_functions: ExportedPackageFunctions =
+        Rc::new(RefCell::new(HashMap::new()));
+
+    for (index, input) in matches.values_of("input").unwrap().enumerate() {
+        parsers.push(Parser::new(
+            exported_package_functions.clone(),
+            input.to_string(),
+            &data[slices[index].clone()],
+        ));
     }
 
     let mut context = yair::Context::new();
 
-    let mut parser = Parser::new(input.to_string(), &data);
+    // Parse the packages and imports first
+    for parser in &mut parsers {
+        if let Err(e) = parser.parse_package_and_import() {
+            parser
+                .display_error(e, &mut context, &mut std::io::stderr())
+                .unwrap();
+            std::process::exit(1);
+        }
+    }
 
-    if let Err(e) = parser.parse(&mut context) {
-        parser
-            .display_error(e, &data, &mut context, &mut std::io::stderr())
-            .unwrap();
-        std::process::exit(1);
+    // Sort the parsers now so that we process them in order
+    parsers.sort();
+
+    // Actually parse the package now
+    for parser in &mut parsers {
+        if let Err(e) = parser.parse(&mut context) {
+            parser
+                .display_error(e, &mut context, &mut std::io::stderr())
+                .unwrap();
+            std::process::exit(1);
+        }
+
+        if !parser.package.is_empty() {
+            if !exported_package_functions
+                .borrow()
+                .contains_key(&parser.package)
+            {
+                exported_package_functions
+                    .borrow_mut()
+                    .insert(parser.package.clone(), HashMap::new());
+            }
+
+            for (name, function) in &parser.functions {
+                let function_with_package_name = parser.package.to_string() + "::" + name;
+
+                let mut borrow_mut = exported_package_functions.borrow_mut();
+
+                let per_package_map = borrow_mut.get_mut(&parser.package).unwrap();
+
+                if per_package_map
+                    .insert(function_with_package_name, *function)
+                    .is_some()
+                {
+                    // We had a package conflict (two files declaring the same package declared the same function!)
+                    panic!("Two packages declared the same function!");
+                }
+            }
+        }
     }
 
     if let Err(e) = context.verify() {
