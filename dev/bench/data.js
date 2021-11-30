@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1638287651147,
+  "lastUpdate": 1638288256663,
   "repoUrl": "https://github.com/sheredom/yair",
   "entries": {
     "Rust Benchmark": [
@@ -13902,6 +13902,51 @@ window.BENCHMARK_DATA = {
           "url": "https://github.com/sheredom/yair/pull/44/commits/d2c67c171020572bc7f2c549bd7c21938a70752b"
         },
         "date": 1638287392378,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "bootstrap",
+            "value": 5097272,
+            "unit": "bytes"
+          },
+          {
+            "name": "yair-as",
+            "value": 5053248,
+            "unit": "bytes"
+          },
+          {
+            "name": "yair-dis",
+            "value": 5482080,
+            "unit": "bytes"
+          },
+          {
+            "name": "yair-llvm",
+            "value": 38577936,
+            "unit": "bytes"
+          },
+          {
+            "name": "yair-verify",
+            "value": 5468232,
+            "unit": "bytes"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "sheredom",
+            "username": "sheredom"
+          },
+          "committer": {
+            "name": "sheredom",
+            "username": "sheredom"
+          },
+          "id": "a3c20f6716cc02b561cd6617dd47d759f3c9aeb7",
+          "message": "Add packages and a test.",
+          "timestamp": "2021-11-20T21:45:18Z",
+          "url": "https://github.com/sheredom/yair/pull/44/commits/a3c20f6716cc02b561cd6617dd47d759f3c9aeb7"
+        },
+        "date": 1638288255262,
         "tool": "customSmallerIsBetter",
         "benches": [
           {
