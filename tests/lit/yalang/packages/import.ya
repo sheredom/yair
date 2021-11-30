@@ -1,0 +1,26 @@
+// RUN: @compiler --emit yair @file @root/packages/package.ya
+// CHECK: mod "ϴ" {
+// CHECK: fn func() : void {
+// CHECK:   b0():
+// CHECK:     br b1()
+// CHECK:   b1():
+// CHECK:     ret
+// CHECK:   }
+// CHECK: }
+// CHECK: mod "😃" {
+// CHECK: fn func() : void {
+// CHECK:   b2():
+// CHECK:     br b3()
+// CHECK:   b3():
+// CHECK:     v2 = call func from "ϴ" ()
+// CHECK:     ret
+// CHECK:   }
+// CHECK: }
+
+package "😃"
+
+import "ϴ"
+ 
+func : function() : void {
+  ϴ::func();
+}
