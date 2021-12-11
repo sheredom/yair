@@ -1342,6 +1342,8 @@ impl<'a> Parser<'a> {
 
                         builder.ret_val(expr.0, location);
 
+                        self.expect_symbol(Token::RCurly)?;
+
                         return Ok((entry_block, current_block));
                     }
                     Token::If => {
@@ -1658,17 +1660,17 @@ impl<'a> Parser<'a> {
     }
 
     pub fn parse(&mut self, context: &mut yair::Context) -> Result<(), ParseError> {
-        let identifier = match self.parse_identifier() {
-            Ok(i) => i,
-            Err(ParseError::UnexpectedEndOfFile) => return Ok(()),
-            Err(e) => return Err(e),
-        };
+        loop {
+            let identifier = match self.parse_identifier() {
+                Ok(i) => i,
+                Err(ParseError::UnexpectedEndOfFile) => return Ok(()),
+                Err(e) => return Err(e),
+            };
 
-        self.expect_symbol(Token::Colon)?;
+            self.expect_symbol(Token::Colon)?;
 
-        let _ty = self.parse_type(Some(&identifier), context)?;
-
-        Ok(())
+            let _ty = self.parse_type(Some(&identifier), context)?;
+        }
     }
 
     pub fn display_error(
