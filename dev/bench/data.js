@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1638289616642,
+  "lastUpdate": 1639251709340,
   "repoUrl": "https://github.com/sheredom/yair",
   "entries": {
     "Rust Benchmark": [
@@ -13651,6 +13651,44 @@ window.BENCHMARK_DATA = {
             "name": "llvm__benchmarks__tests__bench_splat_adds",
             "value": 2924371,
             "range": "± 234012",
+            "unit": "ns/iter"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "sheredom",
+            "username": "sheredom"
+          },
+          "committer": {
+            "name": "sheredom",
+            "username": "sheredom"
+          },
+          "id": "58e09a44034f97639b1c4c0f223a15158a3b5ea0",
+          "message": "Add call support.",
+          "timestamp": "2021-12-10T16:36:43Z",
+          "url": "https://github.com/sheredom/yair/pull/45/commits/58e09a44034f97639b1c4c0f223a15158a3b5ea0"
+        },
+        "date": 1639251708379,
+        "tool": "cargo",
+        "benches": [
+          {
+            "name": "io__benchmarks__tests__create_block",
+            "value": 45,
+            "range": "± 16",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "io__benchmarks__tests__create_function",
+            "value": 140,
+            "range": "± 33",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "io__benchmarks__tests__create_global",
+            "value": 163,
+            "range": "± 22",
             "unit": "ns/iter"
           }
         ]
