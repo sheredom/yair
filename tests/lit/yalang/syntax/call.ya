@@ -1,0 +1,18 @@
+// RUN: @compiler --emit yair @file
+// CHECK: mod "" {
+// CHECK: fn called() : void {
+// CHECK:   b0():
+// CHECK:     ret
+// CHECK:   }
+// CHECK: fn func() : void {
+// CHECK:   b2():
+// CHECK:     v2 = call called from "" ()
+// CHECK:     ret
+// CHECK:   }
+// CHECK: }
+
+called : function() : void {}
+
+func : function() : void {
+  called();
+}
