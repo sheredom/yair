@@ -29,7 +29,7 @@ fn main() {
         "yair-llvm",
         "yair-verify",
     ] {
-        let size = get_file_size(*file);
+        let size = get_file_size(file);
 
         if first {
             first = false;
@@ -43,6 +43,6 @@ fn main() {
         );
     }
 
-    println!("");
+    println!();
     println!("]");
 }

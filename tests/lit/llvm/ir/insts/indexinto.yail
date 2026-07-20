@@ -1,12 +1,12 @@
 // RUN: @yair_as @file | @yair_llvm - --type Intermediate
 
 mod "😀" {
-  // CHECK: define i32* @"\F0\9F\98\80::foo"(i32* %[[ptr:\w+]], i32 %[[index:\w+]])
+  // CHECK: define ptr @"\F0\9F\98\80::foo"(ptr %[[ptr:\w+]], i32 %[[index:\w+]])
   fn foo(ptr : *any i32, index : i32) : *any i32 {
     bar(ptr : *any i32, index : i32):
-      // CHECK: %[[gep:\w+]] = getelementptr inbounds i32, i32* %$$ptr, i32 %$$index
+      // CHECK: %[[gep:\w+]] = getelementptr inbounds i32, ptr %$$ptr, i32 %$$index
       r = indexinto ptr, index
-      // CHECK: ret i32* %$$gep
+      // CHECK: ret ptr %$$gep
       ret r
   }
 }

@@ -1,19 +1,26 @@
-#[macro_use]
-extern crate clap;
 extern crate rmp_serde;
 extern crate serde;
 extern crate yair;
 
-use clap::App;
+use clap::{Arg, Command};
 use std::fs::File;
 use std::io::{self};
 use yair::Context;
 
 fn main() {
-    let yaml = load_yaml!("yair-verify.yml");
-    let matches = App::from_yaml(yaml).get_matches();
+    let matches = Command::new("yair-verify")
+        .version("0.0.1")
+        .author("Neil Henning <sheredom@gmail.com>")
+        .about("Verify a YAIR binary file (.yair) is valid.")
+        .arg(
+            Arg::new("input")
+                .help("The input .yair file (or - for stdin)")
+                .required(true)
+                .index(1),
+        )
+        .get_matches();
 
-    let input = matches.value_of("input").unwrap();
+    let input = matches.get_one::<String>("input").unwrap();
 
     let context: Context = if input == "-" {
         rmp_serde::from_read(io::stdin())

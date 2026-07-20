@@ -1,10 +1,10 @@
 // RUN: @yair_as @file | @yair_llvm - --type Intermediate
 
 mod "😀" {
-  // CHECK: define void @"\F0\9F\98\80::foo"(half* %[[a:\w+]], half %[[b:\w+]])
+  // CHECK: define void @"\F0\9F\98\80::foo"(ptr %[[a:\w+]], half %[[b:\w+]])
   fn foo(a : *any f16, b : f16) : void {
     bar(a : *any f16, b: f16):
-      // CHECK: store half %$$b, half* %$$a, align 2
+      // CHECK: store half %$$b, ptr %$$a, align 2
       store a, b
       // CHECK: ret void
       ret

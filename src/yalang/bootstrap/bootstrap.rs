@@ -1,9 +1,7 @@
-#[macro_use]
-extern crate clap;
 extern crate codemap;
 extern crate logos;
 
-use clap::App;
+use clap::{Arg, ArgAction, Command};
 use codemap::*;
 use logos::Logos;
 use std::cell::RefCell;
@@ -175,7 +173,7 @@ enum Token {
     #[token("..")]
     Range,
 
-    #[regex("[\\p{L}][\\p{L}0-9]*(::[\\p{L}][\\p{L}0-9]*)*")]
+    #[regex("[\\p{L}][\\p{L}0-9]*(::[\\p{L}][\\p{L}0-9]*)+")]
     IdentifierWithNamespace,
 
     #[regex("[\\p{L}][\\p{L}0-9]*", priority = 2)]
@@ -184,7 +182,7 @@ enum Token {
     #[regex("[1-9][0-9]*", priority = 2)]
     Integer,
 
-    #[regex("[+-]?([0-9]+([.][0-9]*)?([eE][+-]?[0-9]+)?|[.][0-9]+([eE][+-]?[0-9]+)?)")]
+    #[regex("[+-]?([0-9]+[.][0-9]*([eE][+-]?[0-9]+)?|[0-9]+[eE][+-]?[0-9]+|[.][0-9]+([eE][+-]?[0-9]+)?)")]
     Float,
 
     #[token("true")]
@@ -196,11 +194,10 @@ enum Token {
     #[regex("\"(\\.|[^\"])*\"")]
     String,
 
-    #[error]
     // Skip whitespace.
     #[regex(r"[ \t\r\n\f]+", logos::skip)]
     // Skip single-line comments.
-    #[regex("//[^\n\r]+", logos::skip)]
+    #[regex("//[^\n\r]+", logos::skip, allow_greedy = true)]
     // Skip multi-line comments.
     #[regex("/\\*[^*]*\\*+(?:[^/*][^*]*\\*+)*/", logos::skip)]
     Error,
@@ -212,12 +209,12 @@ enum ParseError {
     UnexpectedEndOfFile,
     ExpectedTokenNotFound(Token, Location),
     InvalidExpression(Location),
-    OperatorsInDifferentPrecedenceGroups(Location, Token, Location, Token),
+    OperatorsInDifferentPrecedenceGroups(Location, Location),
     TypesDoNotMatch(Location, yair::Type, Location, yair::Type),
     InvalidNonConcreteConstantUsed(Location),
     InvalidNonConcreteConstantsUsed(Location, Location),
     UnknownIdentifier(Location),
-    ComparisonOperatorsAlwaysNeedParenthesis(Location, Token, Location, Token),
+    ComparisonOperatorsAlwaysNeedParenthesis(Location, Location),
     UnknownIdentifierUsedInAssignment(Location),
     IdentifierShadowsPreviouslyDeclareIdentifier(Location, Location),
     ElseStatementWithoutIf(Location),
@@ -291,6 +288,7 @@ impl<'a> Lexer<'a> {
         let token = self.lexer.next();
 
         self.peek = if let Some(token) = token {
+            let token = token.unwrap_or(Token::Error);
             let lexer_span = self.lexer.span();
             let location = self
                 .file
@@ -638,7 +636,7 @@ impl<'a> Parser<'a> {
             || y_precedence.0 == PrecedenceGroup::Comparison
         {
             Err(ParseError::ComparisonOperatorsAlwaysNeedParenthesis(
-                y.0, y.1, x.0, x.1,
+                y.0, x.0,
             ))
         } else if x_precedence.0 == PrecedenceGroup::Parenthesis
             || y_precedence.0 == PrecedenceGroup::Parenthesis
@@ -646,9 +644,7 @@ impl<'a> Parser<'a> {
             // Parenthesis sit outside precedence groups because they are used to form pairs of precedence groups.
             Ok(())
         } else if x_precedence.0 != y_precedence.0 {
-            Err(ParseError::OperatorsInDifferentPrecedenceGroups(
-                y.0, y.1, x.0, x.1,
-            ))
+            Err(ParseError::OperatorsInDifferentPrecedenceGroups(y.0, x.0))
         } else {
             Ok(())
         }
@@ -890,11 +886,11 @@ impl<'a> Parser<'a> {
                         self.apply_if_lower_precedence_and_push_operator(
                             (token_loc.location, x),
                             &mut operand_stack,
-                            &mut &mut operator_stack,
+                            &mut operator_stack,
                             builder,
                         )?
                     }
-                    x if matches!(x, Token::Identifier | Token::IdentifierWithNamespace) => {
+                    Token::Identifier | Token::IdentifierWithNamespace => {
                         let identifier = Name::new(self.file.clone(), token_loc.location);
 
                         // If we've got a parenthesis straight after our identifier, we've got a function call!
@@ -1255,7 +1251,7 @@ impl<'a> Parser<'a> {
                         self.pop_scope();
                         return Ok((entry_block, current_block));
                     }
-                    x if matches!(x, Token::Identifier | Token::IdentifierWithNamespace) => {
+                    Token::Identifier | Token::IdentifierWithNamespace => {
                         let identifier = Name::new(self.file.clone(), token_loc.location);
 
                         if self.bump_if_symbol(Token::LParen) {
@@ -1716,7 +1712,7 @@ impl<'a> Parser<'a> {
                 writeln!(fmt, "error: Invalid expression")?;
                 write_range(fmt, range)?;
             }
-            ParseError::OperatorsInDifferentPrecedenceGroups(x_location, _, y_location, _) => {
+            ParseError::OperatorsInDifferentPrecedenceGroups(x_location, y_location) => {
                 let x_str = self.file.source_slice(x_location);
                 let y_str = self.file.source_slice(y_location);
 
@@ -1753,7 +1749,7 @@ impl<'a> Parser<'a> {
                 writeln!(fmt, "error: Unknown identifier '{}' used", str)?;
                 write_range(fmt, location)?;
             }
-            ParseError::ComparisonOperatorsAlwaysNeedParenthesis(x_location, _, y_location, _) => {
+            ParseError::ComparisonOperatorsAlwaysNeedParenthesis(x_location, y_location) => {
                 let x_str = self.file.source_slice(x_location);
                 let y_str = self.file.source_slice(y_location);
 
@@ -1804,10 +1800,45 @@ impl<'a> Parser<'a> {
 }
 
 fn main() {
-    let yaml = load_yaml!("bootstrap.yml");
-    let matches = App::from_yaml(yaml).get_matches();
+    let matches = Command::new("bootstrap")
+        .version("0.0.1")
+        .author("Neil Henning <neil.henning@hey.com>")
+        .about("Compile a .ya file.")
+        .arg(
+            Arg::new("input")
+                .help("The input .ya file (or - for stdin)")
+                .required(true)
+                .action(ArgAction::Append)
+                .num_args(1..)
+                .index(1),
+        )
+        .arg(
+            Arg::new("output")
+                .short('o')
+                .long("output")
+                .value_name("FILE")
+                .help("Where to write the output compiled file (or - for stdout)")
+                .default_value("-"),
+        )
+        .arg(
+            Arg::new("color")
+                .long("color")
+                .value_name("COLOR")
+                .help("Whether to allow colored command line output")
+                .default_value("auto")
+                .value_parser(["auto", "always", "ansi", "never"]),
+        )
+        .arg(
+            Arg::new("emit")
+                .long("emit")
+                .value_name("KIND")
+                .help("What kind of output to emit")
+                .default_value("native")
+                .value_parser(["native", "yair"]),
+        )
+        .get_matches();
 
-    let inputs = matches.values_of("input").unwrap();
+    let inputs = matches.get_many::<String>("input").unwrap();
 
     let mut parsers = Vec::new();
 
@@ -1836,7 +1867,7 @@ fn main() {
     let exported_package_functions: ExportedPackageFunctions =
         Rc::new(RefCell::new(HashMap::new()));
 
-    for (index, input) in matches.values_of("input").unwrap().enumerate() {
+    for (index, input) in matches.get_many::<String>("input").unwrap().enumerate() {
         parsers.push(Parser::new(
             exported_package_functions.clone(),
             input.to_string(),
@@ -1901,11 +1932,11 @@ fn main() {
         std::process::exit(1);
     }
 
-    let emit = matches.value_of("emit").unwrap();
+    let emit = matches.get_one::<String>("emit").unwrap();
 
-    match emit {
+    match emit.as_str() {
         "yair" => {
-            let output = matches.value_of("output").unwrap();
+            let output = matches.get_one::<String>("output").unwrap();
 
             if output == "-" {
                 disassemble(&context, io::stdout().lock())

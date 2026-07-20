@@ -45,6 +45,7 @@ pub use function::*;
 pub use global::*;
 pub use instructions::*;
 pub use jitgen::*;
+pub use linkgen::*;
 pub use location::*;
 pub use module::*;
 pub use value::*;
@@ -78,9 +79,10 @@ impl std::fmt::Display for Domain {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Default)]
 #[cfg_attr(feature = "io", derive(Serialize, Deserialize))]
 enum TypePayload {
+    #[default]
     Void,
     Bool,
     Int(u8),
@@ -97,12 +99,6 @@ enum TypePayload {
         Vec<(Name, Type, Option<Location>)>,
         Option<Location>,
     ),
-}
-
-impl Default for TypePayload {
-    fn default() -> Self {
-        TypePayload::Void
-    }
 }
 
 #[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]

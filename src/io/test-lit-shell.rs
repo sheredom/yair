@@ -1,14 +1,22 @@
-#[macro_use]
-extern crate clap;
 extern crate duct;
 
-use clap::App;
+use clap::{Arg, Command};
 
 fn main() {
-    let yaml = load_yaml!("test-lit-shell.yml");
-    let matches = App::from_yaml(yaml).get_matches();
+    let matches = Command::new("test-lit-shell")
+        .version("0.0.1")
+        .author("Neil Henning <sheredom@gmail.com>")
+        .about("Run a lit shell command.")
+        .arg(
+            Arg::new("command")
+                .short('c')
+                .value_name("command")
+                .help("The command to run.")
+                .required(true),
+        )
+        .get_matches();
 
-    let command = matches.value_of("command").unwrap();
+    let command = matches.get_one::<String>("command").unwrap();
 
     let splits = command.split('|');
 

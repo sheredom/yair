@@ -83,7 +83,7 @@ impl Context {
     /// # let mut context = Context::new();
     /// let module_builder = context.create_module();
     /// ```
-    pub fn create_module(&mut self) -> ModuleBuilder {
+    pub fn create_module(&mut self) -> ModuleBuilder<'_> {
         ModuleBuilder::with_context(self)
     }
 
@@ -362,7 +362,7 @@ impl Context {
     /// # assert_eq!(struct_ty, context.get_struct_type(&[ u32_ty, bool_ty, array_ty ]));
     /// ```
     pub fn get_struct_type(&mut self, elements: &[Type]) -> Type {
-        match self.struct_tys.get(&elements.to_vec()) {
+        match self.struct_tys.get(elements) {
             Some(ty) => *ty,
             None => {
                 let ty = Type(self.types.insert(TypePayload::Struct(elements.to_vec())));
@@ -545,7 +545,7 @@ impl Context {
     /// let result = context.verify();
     /// # assert!(result.is_ok());
     /// ```
-    pub fn verify(&self) -> Result<(), VerifyError> {
+    pub fn verify(&self) -> Result<(), VerifyError<'_>> {
         for module in self.get_modules() {
             module.verify(self)?;
         }
