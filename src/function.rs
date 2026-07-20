@@ -7,7 +7,7 @@ pub enum FunctionAttribute {
     Job,
 }
 
-impl<'a> std::fmt::Display for FunctionAttribute {
+impl std::fmt::Display for FunctionAttribute {
     fn fmt(
         &self,
         writer: &mut std::fmt::Formatter<'_>,

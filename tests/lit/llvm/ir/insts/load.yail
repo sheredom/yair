@@ -1,10 +1,10 @@
 // RUN: @yair_as @file | @yair_llvm - --type Intermediate
 
 mod "😀" {
-  // CHECK: define half @"\F0\9F\98\80::foo"(half* %[[a:\w+]])
+  // CHECK: define half @"\F0\9F\98\80::foo"(ptr %[[a:\w+]])
   fn foo(a : *any f16) : f16 {
     bar(a : *any f16):
-      // CHECK: %[[load:\w+]] = load half, half* %$$a, align 2
+      // CHECK: %[[load:\w+]] = load half, ptr %$$a, align 2
       r = load a
       // CHECK: ret half %$$load
       ret r

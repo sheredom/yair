@@ -152,7 +152,7 @@ pub struct ModuleBuilder<'a> {
 }
 
 impl<'a> ModuleBuilder<'a> {
-    pub(crate) fn with_context(context: &'a mut Context) -> ModuleBuilder {
+    pub(crate) fn with_context(context: &'a mut Context) -> ModuleBuilder<'a> {
         ModuleBuilder { context, name: "" }
     }
 

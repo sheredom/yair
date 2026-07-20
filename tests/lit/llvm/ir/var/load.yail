@@ -7,7 +7,7 @@ mod "😀" {
   // define f64 @"\F0\9F\98\80::foo"()
   fn foo() : f64 {
     bar():
-      // CHECK: %[[result:\w+]] = load double, double* @my_var, align 8
+      // CHECK: %[[result:\w+]] = load double, ptr @my_var, align 8
       r = load my_var
       // CHECK: ret double %$$result
       ret r

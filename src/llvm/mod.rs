@@ -401,7 +401,7 @@ impl<'a> Helpers<'a> {
         } else if ty.is_array(context) {
             let len = ty.get_len(context);
             let element = self.get_or_insert_type(context, ty.get_element(context, 0))?;
-            Ok(unsafe { core::LLVMArrayType(element, len as c_uint) })
+            Ok(unsafe { core::LLVMArrayType2(element, len as u64) })
         } else if ty.is_vector(context) {
             let len = ty.get_len(context);
             let element = self.get_or_insert_type(context, ty.get_element(context, 0))?;
@@ -551,10 +551,10 @@ impl<'a> Helpers<'a> {
                             let element_ty = ty.get_element(context, 0);
                             let llvm_element_ty = self.get_or_insert_type(context, element_ty)?;
                             unsafe {
-                                core::LLVMConstArray(
+                                core::LLVMConstArray2(
                                     llvm_element_ty,
                                     llvm_values.as_mut_ptr(),
-                                    llvm_values.len() as libc::c_uint,
+                                    llvm_values.len() as u64,
                                 )
                             }
                         } else if ty.is_vector(context) {
@@ -772,8 +772,9 @@ impl<'a> Helpers<'a> {
                         };
 
                     unsafe {
-                        core::LLVMBuildCall(
+                        core::LLVMBuildCall2(
                             builder,
+                            core::LLVMGlobalGetValueType(llvm_function),
                             llvm_function,
                             llvm_values.as_mut_ptr(),
                             llvm_values.len() as libc::c_uint,
@@ -822,8 +823,9 @@ impl<'a> Helpers<'a> {
                         let mut llvm_values = vec![llvm_x];
 
                         unsafe {
-                            core::LLVMBuildCall(
+                            core::LLVMBuildCall2(
                                 builder,
+                                core::LLVMGlobalGetValueType(llvm_intrinsic),
                                 llvm_intrinsic,
                                 llvm_values.as_mut_ptr(),
                                 llvm_values.len() as libc::c_uint,
@@ -1165,7 +1167,7 @@ impl<'a> Helpers<'a> {
                         };
 
                         unsafe {
-                            debuginfo::LLVMDIBuilderInsertDbgValueAtEnd(
+                            debuginfo::LLVMDIBuilderInsertDbgValueRecordAtEnd(
                                 self.dibuilder,
                                 alloca,
                                 llvm_variable,
@@ -1209,7 +1211,7 @@ impl<'a> Helpers<'a> {
                 }
             };
 
-            unsafe { core::LLVMSetInstDebugLocation(builder, llvm_value) };
+            unsafe { core::LLVMAddMetadataToInst(builder, llvm_value) };
 
             self.value_map.insert(instruction, llvm_value);
         }
@@ -1298,8 +1300,8 @@ impl Llvm {
             target_machine::LLVMCreateTargetMachine(
                 target,
                 triple.as_ptr() as *const libc::c_char,
-                ptr::null_mut(),
-                ptr::null_mut(),
+                EMPTY_NAME,
+                EMPTY_NAME,
                 target_machine::LLVMCodeGenOptLevel::LLVMCodeGenLevelDefault,
                 target_machine::LLVMRelocMode::LLVMRelocPIC,
                 target_machine::LLVMCodeModel::LLVMCodeModelLarge,
@@ -1353,7 +1355,7 @@ impl CodeGen for Llvm {
                 }
 
                 let memory_buffer_start =
-                    unsafe { core::LLVMGetBufferStart(memory_buffer) } as *const u8;
+                    unsafe { core::LLVMGetBufferStart(memory_buffer).cast::<u8>() };
                 let memory_buffer_size = unsafe { core::LLVMGetBufferSize(memory_buffer) };
 
                 writer.write_all(unsafe {
@@ -1392,7 +1394,7 @@ impl CodeGen for Llvm {
                 }
 
                 let memory_buffer_start =
-                    unsafe { core::LLVMGetBufferStart(memory_buffer) } as *const u8;
+                    unsafe { core::LLVMGetBufferStart(memory_buffer).cast::<u8>() };
                 let memory_buffer_size = unsafe { core::LLVMGetBufferSize(memory_buffer) };
 
                 writer.write_all(unsafe {
@@ -1453,7 +1455,7 @@ impl JitGen for Llvm {
     ) -> Result<Box<dyn JitFn<Args, Output>>, Self::Error> {
         unsafe { execution_engine::LLVMLinkInMCJIT() };
 
-        let mut helpers = Helpers::new(&self, context)?;
+        let mut helpers = Helpers::new(self, context)?;
 
         let module = helpers.make_module()?;
 

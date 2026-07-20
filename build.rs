@@ -1,13 +1,36 @@
 extern crate envcache;
 
 #[cfg(feature = "llvm")]
-use std::path::PathBuf;
+use std::{path::PathBuf, process::Command};
 
 #[cfg(feature = "llvm")]
 use envcache::EnvCache;
 
 #[cfg(not(feature = "llvm"))]
 fn link_in_llvm() {}
+
+#[cfg(feature = "llvm")]
+fn llvm_config_output(llvm_config: &PathBuf, args: &[&str]) -> String {
+    let output = Command::new(llvm_config)
+        .args(args)
+        .output()
+        .unwrap_or_else(|error| panic!("Failed to run {}: {error}", llvm_config.display()));
+
+    if !output.status.success() {
+        panic!(
+            "{} {} failed with status {}: {}",
+            llvm_config.display(),
+            args.join(" "),
+            output.status,
+            String::from_utf8_lossy(&output.stderr)
+        );
+    }
+
+    String::from_utf8(output.stdout)
+        .expect("llvm-config output was not UTF-8")
+        .trim()
+        .to_string()
+}
 
 #[cfg(feature = "llvm")]
 fn link_in_llvm() {
@@ -17,72 +40,32 @@ fn link_in_llvm() {
         .cache("YAIR_LLVM_INSTALL_DIR")
         .expect("Required environment variable 'YAIR_LLVM_INSTALL_DIR' was not set!");
 
-    let mut llvm_path = PathBuf::new();
+    let mut llvm_config = PathBuf::new();
+    llvm_config.push(llvm_dir);
+    llvm_config.push("bin");
+    llvm_config.push(if cfg!(target_os = "windows") {
+        "llvm-config.exe"
+    } else {
+        "llvm-config"
+    });
 
-    llvm_path.push(llvm_dir);
-    llvm_path.push("lib");
+    let libdir = llvm_config_output(&llvm_config, &["--libdir"]);
+    println!("cargo:rustc-link-search=native={libdir}");
 
-    println!(
-        "cargo:rustc-link-search=native={}",
-        llvm_path.to_str().unwrap()
-    );
-
-    if cfg!(not(target_os = "windows")) {
-        println!("cargo:rustc-link-lib=dylib=ncurses");
-        println!("cargo:rustc-link-lib=dylib=z");
+    if cfg!(target_os = "linux") || cfg!(target_os = "macos") {
+        println!("cargo:rustc-link-arg=-Wl,-rpath,{libdir}");
     }
 
-    println!("cargo:rustc-link-lib=static=LLVMAArch64AsmParser");
-    println!("cargo:rustc-link-lib=static=LLVMAArch64CodeGen");
-    println!("cargo:rustc-link-lib=static=LLVMAArch64Desc");
-    println!("cargo:rustc-link-lib=static=LLVMAArch64Disassembler");
-    println!("cargo:rustc-link-lib=static=LLVMAArch64Info");
-    println!("cargo:rustc-link-lib=static=LLVMAArch64Utils");
-    println!("cargo:rustc-link-lib=static=LLVMAsmPrinter");
-    println!("cargo:rustc-link-lib=static=LLVMAnalysis");
-    println!("cargo:rustc-link-lib=static=LLVMBinaryFormat");
-    println!("cargo:rustc-link-lib=static=LLVMBitReader");
-    println!("cargo:rustc-link-lib=static=LLVMBitstreamReader");
-    println!("cargo:rustc-link-lib=static=LLVMBitWriter");
-    println!("cargo:rustc-link-lib=static=LLVMCFGuard");
-    println!("cargo:rustc-link-lib=static=LLVMCodeGen");
-    println!("cargo:rustc-link-lib=static=LLVMCore");
-    println!("cargo:rustc-link-lib=static=LLVMDebugInfoCodeView");
-    println!("cargo:rustc-link-lib=static=LLVMDebugInfoDWARF");
-    println!("cargo:rustc-link-lib=static=LLVMDebugInfoGSYM");
-    println!("cargo:rustc-link-lib=static=LLVMDebugInfoMSF");
-    //println!("cargo:rustc-link-lib=static=LLVMDebugInfoPDB");
-    println!("cargo:rustc-link-lib=static=LLVMDemangle");
-    println!("cargo:rustc-link-lib=static=LLVMGlobalISel");
-    println!("cargo:rustc-link-lib=static=LLVMMC");
-    println!("cargo:rustc-link-lib=static=LLVMMCDisassembler");
-    println!("cargo:rustc-link-lib=static=LLVMMCParser");
-    println!("cargo:rustc-link-lib=static=LLVMObject");
-    println!("cargo:rustc-link-lib=static=LLVMProfileData");
-    println!("cargo:rustc-link-lib=static=LLVMRemarks");
-    println!("cargo:rustc-link-lib=static=LLVMScalarOpts");
-    println!("cargo:rustc-link-lib=static=LLVMSelectionDAG");
-    println!("cargo:rustc-link-lib=static=LLVMSupport");
-    println!("cargo:rustc-link-lib=static=LLVMTarget");
-    println!("cargo:rustc-link-lib=static=LLVMTextAPI");
-    println!("cargo:rustc-link-lib=static=LLVMTransformUtils");
-    println!("cargo:rustc-link-lib=static=LLVMX86AsmParser");
-    println!("cargo:rustc-link-lib=static=LLVMX86CodeGen");
-    println!("cargo:rustc-link-lib=static=LLVMX86Desc");
-    println!("cargo:rustc-link-lib=static=LLVMX86Disassembler");
-    println!("cargo:rustc-link-lib=static=LLVMX86Info");
-
-    // For JIT
-    println!("cargo:rustc-link-lib=static=LLVMExecutionEngine");
-    println!("cargo:rustc-link-lib=static=LLVMRuntimeDyld");
-    println!("cargo:rustc-link-lib=static=LLVMMCJIT");
-    println!("cargo:rustc-link-lib=static=LLVMOrcShared");
-    println!("cargo:rustc-link-lib=static=LLVMOrcTargetProcess");
-
-    if cfg!(target_os = "macos") {
-        println!("cargo:rustc-link-lib=dylib=c++");
-    } else if cfg!(target_os = "linux") {
-        println!("cargo:rustc-link-lib=dylib=stdc++");
+    for flag in llvm_config_output(&llvm_config, &["--libs", "--system-libs", "--link-shared"])
+        .split_whitespace()
+    {
+        if let Some(lib) = flag.strip_prefix("-l") {
+            println!("cargo:rustc-link-lib=dylib={lib}");
+        } else if let Some(path) = flag.strip_prefix("-L") {
+            println!("cargo:rustc-link-search=native={path}");
+        } else {
+            println!("cargo:rustc-link-arg={flag}");
+        }
     }
 }
 

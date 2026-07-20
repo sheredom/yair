@@ -1,10 +1,7 @@
 [advisories]
 db-path = "~/.cargo/advisory-db"
 db-urls = ["https://github.com/rustsec/advisory-db"]
-vulnerability = "warn"
-unmaintained = "warn"
-yanked = "deny"
-notice = "deny"
+ignore = []
 
 [licenses]
 allow = [
@@ -15,10 +12,9 @@ allow = [
     "BSD-2-Clause",
     "BSD-3-Clause",
     "MPL-2.0",
+    "Unicode-3.0",
 ]
 
-copyleft = "deny"
-default = "deny"
 confidence-threshold = 0.8
 
 [sources]

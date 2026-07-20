@@ -1,20 +1,35 @@
-#[macro_use]
-extern crate clap;
 extern crate rmp_serde;
 extern crate serde;
 extern crate yair;
 
-use clap::App;
+use clap::{Arg, Command};
 use std::fs::File;
 use std::io::{self};
 use yair::io::disassemble;
 use yair::Context;
 
 fn main() {
-    let yaml = load_yaml!("yair-dis.yml");
-    let matches = App::from_yaml(yaml).get_matches();
+    let matches = Command::new("yair-dis")
+        .version("0.0.1")
+        .author("Neil Henning <sheredom@gmail.com>")
+        .about("Disassemble a YAIR binary file (.yair) to a YAIR text file (.yail).")
+        .arg(
+            Arg::new("input")
+                .help("The input .yair file (or - for stdin)")
+                .required(true)
+                .index(1),
+        )
+        .arg(
+            Arg::new("output")
+                .short('o')
+                .long("output")
+                .value_name("FILE")
+                .help("Where to write the output disassembled .yail file (or - for stdout)")
+                .default_value("-"),
+        )
+        .get_matches();
 
-    let input = matches.value_of("input").unwrap();
+    let input = matches.get_one::<String>("input").unwrap();
 
     let context: Context = if input == "-" {
         rmp_serde::from_read(io::stdin())
@@ -24,7 +39,7 @@ fn main() {
     }
     .expect("Could not open malformed YAIR binary object");
 
-    let output = matches.value_of("output").unwrap();
+    let output = matches.get_one::<String>("output").unwrap();
 
     if output == "-" {
         disassemble(&context, io::stdout().lock())

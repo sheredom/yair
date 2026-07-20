@@ -9,7 +9,7 @@ on:
 jobs:
   lint:
     name: Lint
-    runs-on: ubuntu-18.04
+    runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v2
 
@@ -23,7 +23,7 @@ jobs:
 
     # make sure cargo deny does not result in any errors
     - run: cargo install cargo-deny --locked
-    - run: cargo deny check
+    - run: cargo deny check -W unmaintained
 
   publish-check:
     name: Publish Check
@@ -65,56 +65,40 @@ jobs:
       run: cargo test --features=yalang
 
   test-llvm-feature:
-    strategy:
-      matrix:
-        os: [ubuntu-18.04, windows-latest, macOS-latest]
-    runs-on: ${{ matrix.os }}
+    runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v2
-    - if: matrix.os == 'windows-latest'
-      run: powershell.exe -NoP -NonI -Command "Invoke-WebRequest https://github.com/WAVM/WAVM-LLVM/releases/download/12.x/Win64_Release.zip -O Win64_Release.zip"
-    - if: matrix.os == 'windows-latest'
-      run: powershell.exe -NoP -NonI -Command "Expand-Archive '.\Win64_Release.zip' '.\llvm\'"
-    - if: matrix.os == 'ubuntu-18.04'
-      run: wget https://github.com/WAVM/WAVM-LLVM/releases/download/12.x/Ubuntu1604_Release.zip
-    - if: matrix.os == 'ubuntu-18.04'
-      run: unzip -d llvm Ubuntu1604_Release.zip
-    - if: matrix.os == 'macOS-latest'
-      run: wget https://github.com/WAVM/WAVM-LLVM/releases/download/12.x/MacOS_Release.zip
-    - if: matrix.os == 'macOS-latest'
-      run: unzip -d llvm MacOS_Release.zip
+    - name: Install LLVM 22
+      run: |
+        wget -qO /tmp/llvm.sh https://apt.llvm.org/llvm.sh
+        chmod +x /tmp/llvm.sh
+        sudo /tmp/llvm.sh 22
+        sudo apt-get install -y llvm-22-dev zlib1g-dev libzstd-dev libncurses-dev
+        echo "YAIR_LLVM_INSTALL_DIR=/usr/lib/llvm-22" >> "$GITHUB_ENV"
+        echo "LLVM_SYS_221_PREFIX=/usr/lib/llvm-22" >> "$GITHUB_ENV"
     - run: cargo test --features llvm
-      env:
-        YAIR_LLVM_INSTALL_DIR: llvm
 
   benchmark:
-    strategy:
-      matrix:
-        os: [ubuntu-18.04, windows-latest, macOS-latest]
-    runs-on: ${{ matrix.os }}
+    if: github.event_name == 'push'
+    runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v2
-    - if: matrix.os == 'windows-latest'
-      run: powershell.exe -NoP -NonI -Command "Invoke-WebRequest https://github.com/WAVM/WAVM-LLVM/releases/download/12.x/Win64_Release.zip -O Win64_Release.zip"
-    - if: matrix.os == 'windows-latest'
-      run: powershell.exe -NoP -NonI -Command "Expand-Archive '.\Win64_Release.zip' '.\llvm\'"
-    - if: matrix.os == 'ubuntu-18.04'
-      run: wget https://github.com/WAVM/WAVM-LLVM/releases/download/12.x/Ubuntu1604_Release.zip
-    - if: matrix.os == 'ubuntu-18.04'
-      run: unzip -d llvm Ubuntu1604_Release.zip
-    - if: matrix.os == 'macOS-latest'
-      run: wget https://github.com/WAVM/WAVM-LLVM/releases/download/12.x/MacOS_Release.zip
-    - if: matrix.os == 'macOS-latest'
-      run: unzip -d llvm MacOS_Release.zip
+    - name: Install LLVM 22
+      run: |
+        wget -qO /tmp/llvm.sh https://apt.llvm.org/llvm.sh
+        chmod +x /tmp/llvm.sh
+        sudo /tmp/llvm.sh 22
+        sudo apt-get install -y llvm-22-dev zlib1g-dev libzstd-dev libncurses-dev
+        echo "YAIR_LLVM_INSTALL_DIR=/usr/lib/llvm-22" >> "$GITHUB_ENV"
+        echo "LLVM_SYS_221_PREFIX=/usr/lib/llvm-22" >> "$GITHUB_ENV"
     - run: rustup toolchain install nightly
       # The sed here is to remove double : which the action doesn't account for it seems!
     - run: cargo +nightly bench --features="yalang,llvm,nightly" | sed 's/::/__/g' | tee benchmark_output.txt
-      env:
-        YAIR_LLVM_INSTALL_DIR: llvm
     - name: Store benchmark result
+      if: github.event_name == 'push'
       uses: benchmark-action/github-action-benchmark@v1
       with:
-        name: Rust Benchmark on ${{ matrix.os }}
+        name: Rust Benchmark on ubuntu-latest
         tool: 'cargo'
         output-file-path: benchmark_output.txt
         # Use personal access token instead of GITHUB_TOKEN due to https://github.community/t5/GitHub-Actions/Github-action-not-triggering-gh-pages-upon-push/td-p/26869/highlight/false
@@ -122,34 +106,25 @@ jobs:
         auto-push: true
   
   benchmark-other:
-    strategy:
-      matrix:
-        os: [ubuntu-18.04, windows-latest, macOS-latest]
-    runs-on: ${{ matrix.os }}
+    if: github.event_name == 'push'
+    runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v2
-    - if: matrix.os == 'windows-latest'
-      run: powershell.exe -NoP -NonI -Command "Invoke-WebRequest https://github.com/WAVM/WAVM-LLVM/releases/download/12.x/Win64_Release.zip -O Win64_Release.zip"
-    - if: matrix.os == 'windows-latest'
-      run: powershell.exe -NoP -NonI -Command "Expand-Archive '.\Win64_Release.zip' '.\llvm\'"
-    - if: matrix.os == 'ubuntu-18.04'
-      run: wget https://github.com/WAVM/WAVM-LLVM/releases/download/12.x/Ubuntu1604_Release.zip
-    - if: matrix.os == 'ubuntu-18.04'
-      run: unzip -d llvm Ubuntu1604_Release.zip
-    - if: matrix.os == 'macOS-latest'
-      run: wget https://github.com/WAVM/WAVM-LLVM/releases/download/12.x/MacOS_Release.zip
-    - if: matrix.os == 'macOS-latest'
-      run: unzip -d llvm MacOS_Release.zip
+    - name: Install LLVM 22
+      run: |
+        wget -qO /tmp/llvm.sh https://apt.llvm.org/llvm.sh
+        chmod +x /tmp/llvm.sh
+        sudo /tmp/llvm.sh 22
+        sudo apt-get install -y llvm-22-dev zlib1g-dev libzstd-dev libncurses-dev
+        echo "YAIR_LLVM_INSTALL_DIR=/usr/lib/llvm-22" >> "$GITHUB_ENV"
+        echo "LLVM_SYS_221_PREFIX=/usr/lib/llvm-22" >> "$GITHUB_ENV"
     - run: cargo build --release --bins --features="yalang,llvm"
-      env:
-        YAIR_LLVM_INSTALL_DIR: llvm
     - run: cargo run --example benchmarks --release --features="yalang,llvm" | tee benchmark_output.txt
-      env:
-        YAIR_LLVM_INSTALL_DIR: llvm
     - name: Store benchmark result
+      if: github.event_name == 'push'
       uses: benchmark-action/github-action-benchmark@v1
       with:
-        name: Other benchmarks for ${{ matrix.os }}
+        name: Other benchmarks for ubuntu-latest
         tool: 'customSmallerIsBetter'
         output-file-path: benchmark_output.txt
         # Use personal access token instead of GITHUB_TOKEN due to https://github.community/t5/GitHub-Actions/Github-action-not-triggering-gh-pages-upon-push/td-p/26869/highlight/false

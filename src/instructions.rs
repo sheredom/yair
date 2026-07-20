@@ -496,7 +496,7 @@ impl<'a> InstructionBuilder<'a> {
     ///
     /// This is useful if you need to build a type or constant during instruction building.
     pub fn borrow_context(&mut self) -> &mut Context {
-        &mut self.context
+        self.context
     }
 
     /// Record a return from the function which closes the block.

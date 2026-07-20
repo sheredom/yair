@@ -579,7 +579,7 @@ impl<'a> Verifier<'a> {
     }
 }
 
-pub(crate) fn verify(context: &Context, module: Module) -> Result<(), VerifyError> {
+pub(crate) fn verify(context: &Context, module: Module) -> Result<(), VerifyError<'_>> {
     let mut verifier = Verifier::new(context);
     verifier.verify_module(module)
 }

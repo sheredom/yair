@@ -7,9 +7,21 @@ mod benchmarks;
 
 use crate::*;
 use codespan::{FileId, Span};
-use codespan_reporting::diagnostic::{Diagnostic, Label};
+use codespan_reporting::diagnostic::{Diagnostic as CodespanDiagnostic, Label};
 use std::collections::HashMap;
 use std::str::FromStr;
+
+type Diagnostic = CodespanDiagnostic<FileId>;
+
+fn diagnostic_error(message: impl std::fmt::Display, label: Label<FileId>) -> Diagnostic {
+    CodespanDiagnostic::error()
+        .with_message(message)
+        .with_labels(vec![label])
+}
+
+fn primary_label(file: FileId, span: Span, message: impl std::fmt::Display) -> Label<FileId> {
+    Label::primary(file, span).with_message(message)
+}
 
 struct Assembler<'a> {
     data: &'a str,
@@ -60,9 +72,9 @@ impl<'a> Assembler<'a> {
         self.skip_comments_or_whitespace();
 
         if self.get_current_str().is_empty() {
-            Err(Diagnostic::new_error(
+            Err(diagnostic_error(
                 "unexpected end of file",
-                Label::new(self.file, self.single_char_span(), "here"),
+                primary_label(self.file, self.single_char_span(), "here"),
             ))
         } else if self.get_current_str().starts_with(str) {
             self.bump_current_by(str.len());
@@ -143,9 +155,9 @@ impl<'a> Assembler<'a> {
             let c = match self.get_current_char() {
                 Some(c) => c,
                 None => {
-                    return Err(Diagnostic::new_error(
+                    return Err(diagnostic_error(
                         "Expected closing quote",
-                        Label::new(self.file, self.single_char_span(), "missing quote '\"'"),
+                        primary_label(self.file, self.single_char_span(), "missing quote '\"'"),
                     ));
                 }
             };
@@ -180,9 +192,9 @@ impl<'a> Assembler<'a> {
     }
 
     fn unexpected_end_of_file(&mut self) -> Diagnostic {
-        Diagnostic::new_error(
+        diagnostic_error(
             "Unexpected end of file",
-            Label::new(self.file, self.single_char_span(), "missing identifier"),
+            primary_label(self.file, self.single_char_span(), "missing identifier"),
         )
     }
 
@@ -262,9 +274,9 @@ impl<'a> Assembler<'a> {
             self.skip_comments_or_whitespace();
 
             if self.get_current_str().is_empty() {
-                return Err(Diagnostic::new_error(
+                return Err(diagnostic_error(
                     "Expected '}' to close a struct",
-                    Label::new(self.file, self.single_char_span(), "should be '}'"),
+                    primary_label(self.file, self.single_char_span(), "should be '}'"),
                 ));
             }
 
@@ -289,9 +301,9 @@ impl<'a> Assembler<'a> {
             }
 
             if !self.get_current_str().starts_with(',') {
-                return Err(Diagnostic::new_error(
+                return Err(diagnostic_error(
                     "Expected ',' between elements of a struct",
-                    Label::new(self.file, self.single_char_span(), "should be ','"),
+                    primary_label(self.file, self.single_char_span(), "should be ','"),
                 ));
             }
 
@@ -324,9 +336,9 @@ impl<'a> Assembler<'a> {
         let len = start - str.len();
 
         if len == 0 {
-            return Err(Diagnostic::new_error(
+            return Err(diagnostic_error(
                 "Unexpected empty literal",
-                Label::new(self.file, self.single_char_span(), "expected literal here"),
+                primary_label(self.file, self.single_char_span(), "expected literal here"),
             ));
         }
 
@@ -337,9 +349,9 @@ impl<'a> Assembler<'a> {
 
         match split.parse::<T>() {
             Ok(t) => Ok(t),
-            Err(_) => Err(Diagnostic::new_error(
+            Err(_) => Err(diagnostic_error(
                 "Literal did not parse as the correct type",
-                Label::new(self.file, self.single_char_span(), "here"),
+                primary_label(self.file, self.single_char_span(), "here"),
             )),
         }
     }
@@ -357,18 +369,18 @@ impl<'a> Assembler<'a> {
             } else if self.pop_if_next_symbol("false")? {
                 Ok(context.get_bool_constant(false))
             } else {
-                Err(Diagnostic::new_error(
+                Err(diagnostic_error(
                     "Expected 'true' or 'false' for boolean constant",
-                    Label::new(self.file, self.single_char_span(), "here"),
+                    primary_label(self.file, self.single_char_span(), "here"),
                 ))
             }
         } else if ty.is_pointer(context) {
             if self.pop_if_next_symbol("null")? {
                 Ok(context.get_pointer_constant_null(ty))
             } else {
-                Err(Diagnostic::new_error(
+                Err(diagnostic_error(
                     "Expected 'true' or 'false' for boolean constant",
-                    Label::new(self.file, self.single_char_span(), "here"),
+                    primary_label(self.file, self.single_char_span(), "here"),
                 ))
             }
         } else if ty.is_float(context) {
@@ -376,9 +388,9 @@ impl<'a> Assembler<'a> {
             Ok(context.get_float_constant(ty.get_bits(context) as u8, cnst))
         } else if ty.is_array(context) {
             if !self.pop_if_next_symbol("[")? {
-                return Err(Diagnostic::new_error(
+                return Err(diagnostic_error(
                     "Expected '[' to open an array constant",
-                    Label::new(self.file, self.single_char_span(), "here"),
+                    primary_label(self.file, self.single_char_span(), "here"),
                 ));
             }
 
@@ -391,9 +403,9 @@ impl<'a> Assembler<'a> {
 
             for _ in 1..len {
                 if !self.pop_if_next_symbol(",")? {
-                    return Err(Diagnostic::new_error(
+                    return Err(diagnostic_error(
                         "Expected ',' between array constant elements",
-                        Label::new(self.file, self.single_char_span(), "here"),
+                        primary_label(self.file, self.single_char_span(), "here"),
                     ));
                 }
 
@@ -401,18 +413,18 @@ impl<'a> Assembler<'a> {
             }
 
             if !self.pop_if_next_symbol("]")? {
-                return Err(Diagnostic::new_error(
+                return Err(diagnostic_error(
                     "Expected ']' to close an array constant",
-                    Label::new(self.file, self.single_char_span(), "here"),
+                    primary_label(self.file, self.single_char_span(), "here"),
                 ));
             }
 
             Ok(context.get_composite_constant(ty, &constants))
         } else if ty.is_vector(context) {
             if !self.pop_if_next_symbol("<")? {
-                return Err(Diagnostic::new_error(
+                return Err(diagnostic_error(
                     "Expected '<' to open a vector constant",
-                    Label::new(self.file, self.single_char_span(), "here"),
+                    primary_label(self.file, self.single_char_span(), "here"),
                 ));
             }
 
@@ -425,9 +437,9 @@ impl<'a> Assembler<'a> {
 
             for _ in 1..len {
                 if !self.pop_if_next_symbol(",")? {
-                    return Err(Diagnostic::new_error(
+                    return Err(diagnostic_error(
                         "Expected ',' between vector constant elements",
-                        Label::new(self.file, self.single_char_span(), "here"),
+                        primary_label(self.file, self.single_char_span(), "here"),
                     ));
                 }
 
@@ -435,18 +447,18 @@ impl<'a> Assembler<'a> {
             }
 
             if !self.pop_if_next_symbol(">")? {
-                return Err(Diagnostic::new_error(
+                return Err(diagnostic_error(
                     "Expected '>' to close a vector constant",
-                    Label::new(self.file, self.single_char_span(), "here"),
+                    primary_label(self.file, self.single_char_span(), "here"),
                 ));
             }
 
             Ok(context.get_composite_constant(ty, &constants))
         } else if ty.is_struct(context) {
             if !self.pop_if_next_symbol("{")? {
-                return Err(Diagnostic::new_error(
+                return Err(diagnostic_error(
                     "Expected '{' to open a struct constant",
-                    Label::new(self.file, self.single_char_span(), "here"),
+                    primary_label(self.file, self.single_char_span(), "here"),
                 ));
             }
 
@@ -456,9 +468,9 @@ impl<'a> Assembler<'a> {
 
             for i in 1..len {
                 if !self.pop_if_next_symbol(",")? {
-                    return Err(Diagnostic::new_error(
+                    return Err(diagnostic_error(
                         "Expected ',' between struct constant elements",
-                        Label::new(self.file, self.single_char_span(), "here"),
+                        primary_label(self.file, self.single_char_span(), "here"),
                     ));
                 }
 
@@ -466,9 +478,9 @@ impl<'a> Assembler<'a> {
             }
 
             if !self.pop_if_next_symbol("}")? {
-                return Err(Diagnostic::new_error(
+                return Err(diagnostic_error(
                     "Expected '}' to close a struct constant",
-                    Label::new(self.file, self.single_char_span(), "here"),
+                    primary_label(self.file, self.single_char_span(), "here"),
                 ));
             }
 
@@ -489,9 +501,9 @@ impl<'a> Assembler<'a> {
         self.skip_comments_or_whitespace();
 
         if !self.get_current_str().starts_with(',') {
-            return Err(Diagnostic::new_error(
+            return Err(diagnostic_error(
                 "Vector type was malformed",
-                Label::new(self.file, self.single_char_span(), "missing ','"),
+                primary_label(self.file, self.single_char_span(), "missing ','"),
             ));
         }
 
@@ -501,9 +513,9 @@ impl<'a> Assembler<'a> {
         let width = self.parse_literal()?;
 
         if !self.get_current_str().starts_with('>') {
-            return Err(Diagnostic::new_error(
+            return Err(diagnostic_error(
                 "Vector type was malformed",
-                Label::new(self.file, self.single_char_span(), "missing '>'"),
+                primary_label(self.file, self.single_char_span(), "missing '>'"),
             ));
         }
 
@@ -524,9 +536,9 @@ impl<'a> Assembler<'a> {
         self.skip_comments_or_whitespace();
 
         if !self.get_current_str().starts_with(',') {
-            return Err(Diagnostic::new_error(
+            return Err(diagnostic_error(
                 "Array type was malformed",
-                Label::new(self.file, self.single_char_span(), "missing ','"),
+                primary_label(self.file, self.single_char_span(), "missing ','"),
             ));
         }
 
@@ -536,9 +548,9 @@ impl<'a> Assembler<'a> {
         let len = self.parse_literal()?;
 
         if !self.get_current_str().starts_with(']') {
-            return Err(Diagnostic::new_error(
+            return Err(diagnostic_error(
                 "Array type was malformed",
-                Label::new(self.file, self.single_char_span(), "missing ']'"),
+                primary_label(self.file, self.single_char_span(), "missing ']'"),
             ));
         }
 
@@ -562,9 +574,9 @@ impl<'a> Assembler<'a> {
             self.bump_current_by("stack".len());
             Ok(Domain::Stack)
         } else {
-            Err(Diagnostic::new_error(
+            Err(diagnostic_error(
                 "Invalid pointer domain - expected any, cpu, gpu, or stack",
-                Label::new(self.file, self.single_char_span(), "unknown domain"),
+                primary_label(self.file, self.single_char_span(), "unknown domain"),
             ))
         }
     }
@@ -590,9 +602,9 @@ impl<'a> Assembler<'a> {
             let identifier = self.parse_identifier()?;
 
             if !self.structs.contains_key(identifier) {
-                return Err(Diagnostic::new_error(
+                return Err(diagnostic_error(
                     "Unknown named struct type",
-                    Label::new(self.file, self.single_char_span(), "unknown type"),
+                    primary_label(self.file, self.single_char_span(), "unknown type"),
                 ));
             }
 
@@ -626,9 +638,9 @@ impl<'a> Assembler<'a> {
         } else if self.get_current_str().starts_with('*') {
             self.parse_pointer_type(context)
         } else {
-            Err(Diagnostic::new_error(
+            Err(diagnostic_error(
                 "Could not deduce type",
-                Label::new(self.file, self.single_char_span(), "unknown type"),
+                primary_label(self.file, self.single_char_span(), "unknown type"),
             ))
         }
     }
@@ -646,9 +658,9 @@ impl<'a> Assembler<'a> {
             return Ok(*v);
         }
 
-        Err(Diagnostic::new_error(
+        Err(diagnostic_error(
             "Unknown identified value",
-            Label::new(self.file, span, "no match for this name"),
+            primary_label(self.file, span, "no match for this name"),
         ))
     }
 
@@ -658,9 +670,9 @@ impl<'a> Assembler<'a> {
         let name = self.parse_identifier()?;
 
         if !self.pop_if_next_symbol("(")? {
-            return Err(Diagnostic::new_error(
+            return Err(diagnostic_error(
                 "Expected '(' to open block arguments",
-                Label::new(self.file, self.single_char_span(), "unknown token"),
+                primary_label(self.file, self.single_char_span(), "unknown token"),
             ));
         }
 
@@ -673,9 +685,9 @@ impl<'a> Assembler<'a> {
         }
 
         if !self.pop_if_next_symbol(":")? {
-            return Err(Diagnostic::new_error(
+            return Err(diagnostic_error(
                 "Expected ':' between block definition and its instruction",
-                Label::new(self.file, self.single_char_span(), "here"),
+                primary_label(self.file, self.single_char_span(), "here"),
             ));
         }
 
@@ -728,9 +740,9 @@ impl<'a> Assembler<'a> {
                 let ptr = self.parse_value()?;
 
                 if !self.pop_if_next_symbol(",")? {
-                    return Err(Diagnostic::new_error(
+                    return Err(diagnostic_error(
                         "Expected ',' between arguments to an instruction",
-                        Label::new(self.file, self.single_char_span(), "here"),
+                        primary_label(self.file, self.single_char_span(), "here"),
                     ));
                 }
 
@@ -745,9 +757,9 @@ impl<'a> Assembler<'a> {
                 let name = self.parse_identifier()?;
 
                 if !self.pop_if_next_symbol("(")? {
-                    return Err(Diagnostic::new_error(
+                    return Err(diagnostic_error(
                         "Expected ',' between arguments to a function call",
-                        Label::new(self.file, self.single_char_span(), "here"),
+                        primary_label(self.file, self.single_char_span(), "here"),
                     ));
                 }
 
@@ -801,18 +813,18 @@ impl<'a> Assembler<'a> {
                 let cond = self.parse_value()?;
 
                 if !self.pop_if_next_symbol(",")? {
-                    return Err(Diagnostic::new_error(
+                    return Err(diagnostic_error(
                         "Expected ',' between parts of a conditional branch",
-                        Label::new(self.file, self.single_char_span(), "here"),
+                        primary_label(self.file, self.single_char_span(), "here"),
                     ));
                 }
 
                 let true_br = self.parse_identifier()?;
 
                 if !self.pop_if_next_symbol("(")? {
-                    return Err(Diagnostic::new_error(
+                    return Err(diagnostic_error(
                         "Expected '(' to open arguments to a conditional branch",
-                        Label::new(self.file, self.single_char_span(), "here"),
+                        primary_label(self.file, self.single_char_span(), "here"),
                     ));
                 }
 
@@ -856,18 +868,18 @@ impl<'a> Assembler<'a> {
                 };
 
                 if !self.pop_if_next_symbol(",")? {
-                    return Err(Diagnostic::new_error(
+                    return Err(diagnostic_error(
                         "Expected ',' between parts of a conditional branch",
-                        Label::new(self.file, self.single_char_span(), "here"),
+                        primary_label(self.file, self.single_char_span(), "here"),
                     ));
                 }
 
                 let false_br = self.parse_identifier()?;
 
                 if !self.pop_if_next_symbol("(")? {
-                    return Err(Diagnostic::new_error(
+                    return Err(diagnostic_error(
                         "Expected '(' to open arguments to a conditional branch",
-                        Label::new(self.file, self.single_char_span(), "here"),
+                        primary_label(self.file, self.single_char_span(), "here"),
                     ));
                 }
 
@@ -929,9 +941,9 @@ impl<'a> Assembler<'a> {
                 let identifier = self.parse_identifier()?;
 
                 if !self.pop_if_next_symbol("=")? {
-                    return Err(Diagnostic::new_error(
+                    return Err(diagnostic_error(
                         "Expected '=' between symbol and instruction",
-                        Label::new(self.file, self.single_char_span(), "here"),
+                        primary_label(self.file, self.single_char_span(), "here"),
                     ));
                 }
 
@@ -939,9 +951,9 @@ impl<'a> Assembler<'a> {
                     let aggregate = self.parse_value()?;
 
                     if !self.pop_if_next_symbol(",")? {
-                        return Err(Diagnostic::new_error(
+                        return Err(diagnostic_error(
                             "Expected ',' between arguments to an instruction",
-                            Label::new(self.file, self.single_char_span(), "here"),
+                            primary_label(self.file, self.single_char_span(), "here"),
                         ));
                     }
 
@@ -958,18 +970,18 @@ impl<'a> Assembler<'a> {
                     let aggregate = self.parse_value()?;
 
                     if !self.pop_if_next_symbol(",")? {
-                        return Err(Diagnostic::new_error(
+                        return Err(diagnostic_error(
                             "Expected ',' between arguments to an instruction",
-                            Label::new(self.file, self.single_char_span(), "here"),
+                            primary_label(self.file, self.single_char_span(), "here"),
                         ));
                     }
 
                     let value = self.parse_value()?;
 
                     if !self.pop_if_next_symbol(",")? {
-                        return Err(Diagnostic::new_error(
+                        return Err(diagnostic_error(
                             "Expected ',' between arguments to an instruction",
-                            Label::new(self.file, self.single_char_span(), "here"),
+                            primary_label(self.file, self.single_char_span(), "here"),
                         ));
                     }
 
@@ -996,18 +1008,18 @@ impl<'a> Assembler<'a> {
                     } else if self.pop_if_next_symbol("ge")? {
                         Cmp::Ge
                     } else {
-                        return Err(Diagnostic::new_error(
+                        return Err(diagnostic_error(
                             "Could not parse the kind of the compare (should be one of eq, ne, lt, le, gt, ge)",
-                            Label::new(self.file, self.single_char_span(), "here"),
+                            primary_label(self.file, self.single_char_span(), "here"),
                         ));
                     };
 
                     let lhs = self.parse_value()?;
 
                     if !self.pop_if_next_symbol(",")? {
-                        return Err(Diagnostic::new_error(
+                        return Err(diagnostic_error(
                             "Expected ',' between arguments to an instruction",
-                            Label::new(self.file, self.single_char_span(), "here"),
+                            primary_label(self.file, self.single_char_span(), "here"),
                         ));
                     }
 
@@ -1024,9 +1036,9 @@ impl<'a> Assembler<'a> {
                     let lhs = self.parse_value()?;
 
                     if !self.pop_if_next_symbol(",")? {
-                        return Err(Diagnostic::new_error(
+                        return Err(diagnostic_error(
                             "Expected ',' between arguments to an instruction",
-                            Label::new(self.file, self.single_char_span(), "here"),
+                            primary_label(self.file, self.single_char_span(), "here"),
                         ));
                     }
 
@@ -1043,9 +1055,9 @@ impl<'a> Assembler<'a> {
                     let lhs = self.parse_value()?;
 
                     if !self.pop_if_next_symbol(",")? {
-                        return Err(Diagnostic::new_error(
+                        return Err(diagnostic_error(
                             "Expected ',' between arguments to an instruction",
-                            Label::new(self.file, self.single_char_span(), "here"),
+                            primary_label(self.file, self.single_char_span(), "here"),
                         ));
                     }
 
@@ -1062,9 +1074,9 @@ impl<'a> Assembler<'a> {
                     let lhs = self.parse_value()?;
 
                     if !self.pop_if_next_symbol(",")? {
-                        return Err(Diagnostic::new_error(
+                        return Err(diagnostic_error(
                             "Expected ',' between arguments to an instruction",
-                            Label::new(self.file, self.single_char_span(), "here"),
+                            primary_label(self.file, self.single_char_span(), "here"),
                         ));
                     }
 
@@ -1081,9 +1093,9 @@ impl<'a> Assembler<'a> {
                     let lhs = self.parse_value()?;
 
                     if !self.pop_if_next_symbol(",")? {
-                        return Err(Diagnostic::new_error(
+                        return Err(diagnostic_error(
                             "Expected ',' between arguments to an instruction",
-                            Label::new(self.file, self.single_char_span(), "here"),
+                            primary_label(self.file, self.single_char_span(), "here"),
                         ));
                     }
 
@@ -1100,9 +1112,9 @@ impl<'a> Assembler<'a> {
                     let lhs = self.parse_value()?;
 
                     if !self.pop_if_next_symbol(",")? {
-                        return Err(Diagnostic::new_error(
+                        return Err(diagnostic_error(
                             "Expected ',' between arguments to an instruction",
-                            Label::new(self.file, self.single_char_span(), "here"),
+                            primary_label(self.file, self.single_char_span(), "here"),
                         ));
                     }
 
@@ -1129,9 +1141,9 @@ impl<'a> Assembler<'a> {
                     let lhs = self.parse_value()?;
 
                     if !self.pop_if_next_symbol(",")? {
-                        return Err(Diagnostic::new_error(
+                        return Err(diagnostic_error(
                             "Expected ',' between arguments to an instruction",
-                            Label::new(self.file, self.single_char_span(), "here"),
+                            primary_label(self.file, self.single_char_span(), "here"),
                         ));
                     }
 
@@ -1148,9 +1160,9 @@ impl<'a> Assembler<'a> {
                     let lhs = self.parse_value()?;
 
                     if !self.pop_if_next_symbol(",")? {
-                        return Err(Diagnostic::new_error(
+                        return Err(diagnostic_error(
                             "Expected ',' between arguments to an instruction",
-                            Label::new(self.file, self.single_char_span(), "here"),
+                            primary_label(self.file, self.single_char_span(), "here"),
                         ));
                     }
 
@@ -1167,9 +1179,9 @@ impl<'a> Assembler<'a> {
                     let lhs = self.parse_value()?;
 
                     if !self.pop_if_next_symbol(",")? {
-                        return Err(Diagnostic::new_error(
+                        return Err(diagnostic_error(
                             "Expected ',' between arguments to an instruction",
-                            Label::new(self.file, self.single_char_span(), "here"),
+                            primary_label(self.file, self.single_char_span(), "here"),
                         ));
                     }
 
@@ -1196,9 +1208,9 @@ impl<'a> Assembler<'a> {
                     let lhs = self.parse_value()?;
 
                     if !self.pop_if_next_symbol(",")? {
-                        return Err(Diagnostic::new_error(
+                        return Err(diagnostic_error(
                             "Expected ',' between arguments to an instruction",
-                            Label::new(self.file, self.single_char_span(), "here"),
+                            primary_label(self.file, self.single_char_span(), "here"),
                         ));
                     }
 
@@ -1215,9 +1227,9 @@ impl<'a> Assembler<'a> {
                     let lhs = self.parse_value()?;
 
                     if !self.pop_if_next_symbol(",")? {
-                        return Err(Diagnostic::new_error(
+                        return Err(diagnostic_error(
                             "Expected ',' between arguments to an instruction",
-                            Label::new(self.file, self.single_char_span(), "here"),
+                            primary_label(self.file, self.single_char_span(), "here"),
                         ));
                     }
 
@@ -1234,9 +1246,9 @@ impl<'a> Assembler<'a> {
                     let lhs = self.parse_value()?;
 
                     if !self.pop_if_next_symbol("to")? {
-                        return Err(Diagnostic::new_error(
+                        return Err(diagnostic_error(
                             "Expected 'to' between argument and type",
-                            Label::new(self.file, self.single_char_span(), "here"),
+                            primary_label(self.file, self.single_char_span(), "here"),
                         ));
                     }
 
@@ -1255,9 +1267,9 @@ impl<'a> Assembler<'a> {
                     let lhs = self.parse_value()?;
 
                     if !self.pop_if_next_symbol("to")? {
-                        return Err(Diagnostic::new_error(
+                        return Err(diagnostic_error(
                             "Expected 'to' between argument and type",
-                            Label::new(self.file, self.single_char_span(), "here"),
+                            primary_label(self.file, self.single_char_span(), "here"),
                         ));
                     }
 
@@ -1291,9 +1303,9 @@ impl<'a> Assembler<'a> {
                     let name = self.parse_identifier()?;
 
                     if !self.pop_if_next_symbol(",")? {
-                        return Err(Diagnostic::new_error(
+                        return Err(diagnostic_error(
                             "Expected ',' between arguments to an instruction",
-                            Label::new(self.file, self.single_char_span(), "here"),
+                            primary_label(self.file, self.single_char_span(), "here"),
                         ));
                     }
 
@@ -1312,9 +1324,9 @@ impl<'a> Assembler<'a> {
                         let module_name = self.parse_identifier()?;
 
                         if !self.modules.contains_key(&module_name) {
-                            return Err(Diagnostic::new_error(
+                            return Err(diagnostic_error(
                                 "Unknown module",
-                                Label::new(self.file, self.single_char_span(), "here"),
+                                primary_label(self.file, self.single_char_span(), "here"),
                             ));
                         }
 
@@ -1326,18 +1338,18 @@ impl<'a> Assembler<'a> {
                     let key = (name, module);
 
                     if !self.functions.contains_key(&key) {
-                        return Err(Diagnostic::new_error(
+                        return Err(diagnostic_error(
                             "Unknown function called",
-                            Label::new(self.file, self.single_char_span(), "here"),
+                            primary_label(self.file, self.single_char_span(), "here"),
                         ));
                     }
 
                     let function = *self.functions.get(&key).unwrap();
 
                     if !self.pop_if_next_symbol("(")? {
-                        return Err(Diagnostic::new_error(
+                        return Err(diagnostic_error(
                             "Expected ',' between arguments to a function call",
-                            Label::new(self.file, self.single_char_span(), "here"),
+                            primary_label(self.file, self.single_char_span(), "here"),
                         ));
                     }
 
@@ -1373,18 +1385,18 @@ impl<'a> Assembler<'a> {
                     let cond = self.parse_value()?;
 
                     if !self.pop_if_next_symbol(",")? {
-                        return Err(Diagnostic::new_error(
+                        return Err(diagnostic_error(
                             "Expected ',' between arguments to an instruction",
-                            Label::new(self.file, self.single_char_span(), "here"),
+                            primary_label(self.file, self.single_char_span(), "here"),
                         ));
                     }
 
                     let lhs = self.parse_value()?;
 
                     if !self.pop_if_next_symbol(",")? {
-                        return Err(Diagnostic::new_error(
+                        return Err(diagnostic_error(
                             "Expected ',' between arguments to an instruction",
-                            Label::new(self.file, self.single_char_span(), "here"),
+                            primary_label(self.file, self.single_char_span(), "here"),
                         ));
                     }
 
@@ -1404,9 +1416,9 @@ impl<'a> Assembler<'a> {
                     let ptr = self.parse_value()?;
 
                     if !self.pop_if_next_symbol(",")? {
-                        return Err(Diagnostic::new_error(
+                        return Err(diagnostic_error(
                             "Expected ',' between arguments to an instruction",
-                            Label::new(self.file, self.single_char_span(), "here"),
+                            primary_label(self.file, self.single_char_span(), "here"),
                         ));
                     }
 
@@ -1480,18 +1492,18 @@ impl<'a> Assembler<'a> {
         let name = self.parse_identifier()?;
 
         if !self.pop_if_next_symbol(":")? {
-            return Err(Diagnostic::new_error(
+            return Err(diagnostic_error(
                 "Expected ':' to declare an argument's type",
-                Label::new(self.file, self.single_char_span(), "missing ':'"),
+                primary_label(self.file, self.single_char_span(), "missing ':'"),
             ));
         }
 
         let ty = self.parse_type(context)?;
 
         if !self.peek_if_next_symbol(")") && !self.pop_if_next_symbol(",")? {
-            return Err(Diagnostic::new_error(
+            return Err(diagnostic_error(
                 "Expected ',' between arguments",
-                Label::new(self.file, self.single_char_span(), "should be ','"),
+                primary_label(self.file, self.single_char_span(), "should be ','"),
             ));
         }
 
@@ -1509,18 +1521,18 @@ impl<'a> Assembler<'a> {
         let loc = self.parse_quoted_identifier()?;
 
         if !self.pop_if_next_symbol(":")? {
-            return Err(Diagnostic::new_error(
+            return Err(diagnostic_error(
                 "Expected ':' between file and line of location",
-                Label::new(self.file, self.single_char_span(), "should be ':'"),
+                primary_label(self.file, self.single_char_span(), "should be ':'"),
             ));
         }
 
         let line = self.parse_literal()?;
 
         if !self.pop_if_next_symbol(":")? {
-            return Err(Diagnostic::new_error(
+            return Err(diagnostic_error(
                 "Expected ':' between line and column of location",
-                Label::new(self.file, self.single_char_span(), "should be ':'"),
+                primary_label(self.file, self.single_char_span(), "should be ':'"),
             ));
         }
 
@@ -1547,9 +1559,9 @@ impl<'a> Assembler<'a> {
                 } else if self.pop_if_next_symbol("job")? {
                     attributes |= FunctionAttribute::Job;
                 } else {
-                    return Err(Diagnostic::new_error(
+                    return Err(diagnostic_error(
                         "Unknown function attribute",
-                        Label::new(self.file, self.single_char_span(), "here"),
+                        primary_label(self.file, self.single_char_span(), "here"),
                     ));
                 }
 
@@ -1561,9 +1573,9 @@ impl<'a> Assembler<'a> {
                 } else if self.pop_if_next_symbol(",")? {
                     continue;
                 } else {
-                    return Err(Diagnostic::new_error(
+                    return Err(diagnostic_error(
                         "Expected ']' or ',' in function attributes",
-                        Label::new(self.file, self.single_char_span(), "missing '(' or ','"),
+                        primary_label(self.file, self.single_char_span(), "missing '(' or ','"),
                     ));
                 }
             }
@@ -1574,9 +1586,9 @@ impl<'a> Assembler<'a> {
         self.skip_comments_or_whitespace();
 
         if !self.pop_if_next_symbol("(")? {
-            return Err(Diagnostic::new_error(
+            return Err(diagnostic_error(
                 "Expected '(' to open a functions arguments",
-                Label::new(self.file, self.single_char_span(), "missing '('"),
+                primary_label(self.file, self.single_char_span(), "missing '('"),
             ));
         }
 
@@ -1594,9 +1606,9 @@ impl<'a> Assembler<'a> {
         self.skip_comments_or_whitespace();
 
         if !self.get_current_str().starts_with(':') {
-            return Err(Diagnostic::new_error(
+            return Err(diagnostic_error(
                 "Expected ':' to declare a functions return type",
-                Label::new(self.file, self.single_char_span(), "missing ':'"),
+                primary_label(self.file, self.single_char_span(), "missing ':'"),
             ));
         }
 
@@ -1658,9 +1670,9 @@ impl<'a> Assembler<'a> {
                 if self.pop_if_next_symbol("export")? {
                     attributes |= GlobalAttribute::Export;
                 } else {
-                    return Err(Diagnostic::new_error(
+                    return Err(diagnostic_error(
                         "Unknown variable attribute",
-                        Label::new(self.file, self.single_char_span(), "here"),
+                        primary_label(self.file, self.single_char_span(), "here"),
                     ));
                 }
 
@@ -1672,9 +1684,9 @@ impl<'a> Assembler<'a> {
                 } else if self.pop_if_next_symbol(",")? {
                     continue;
                 } else {
-                    return Err(Diagnostic::new_error(
+                    return Err(diagnostic_error(
                         "Expected ']' or ',' in variable attributes",
-                        Label::new(self.file, self.single_char_span(), "missing '(' or ','"),
+                        primary_label(self.file, self.single_char_span(), "missing '(' or ','"),
                     ));
                 }
             }
@@ -1685,9 +1697,9 @@ impl<'a> Assembler<'a> {
         self.skip_comments_or_whitespace();
 
         if !self.get_current_str().starts_with(':') {
-            return Err(Diagnostic::new_error(
+            return Err(diagnostic_error(
                 "Expected ':' to declare a variables type",
-                Label::new(self.file, self.single_char_span(), "missing ':'"),
+                primary_label(self.file, self.single_char_span(), "missing ':'"),
             ));
         }
 
@@ -1699,9 +1711,9 @@ impl<'a> Assembler<'a> {
         let domain = self.parse_domain()?;
 
         if !self.get_current_str().starts_with(',') {
-            return Err(Diagnostic::new_error(
+            return Err(diagnostic_error(
                 "Expected ',' between domain and type of a global",
-                Label::new(self.file, self.single_char_span(), "here"),
+                primary_label(self.file, self.single_char_span(), "here"),
             ));
         }
 
@@ -1737,16 +1749,16 @@ impl<'a> Assembler<'a> {
         let identifier = self.parse_identifier()?;
 
         if !self.pop_if_next_symbol(":")? {
-            return Err(Diagnostic::new_error(
+            return Err(diagnostic_error(
                 "Expected ':' to declare a struct type",
-                Label::new(self.file, self.single_char_span(), "missing ':'"),
+                primary_label(self.file, self.single_char_span(), "missing ':'"),
             ));
         }
 
         if !self.pop_if_next_symbol("{")? {
-            return Err(Diagnostic::new_error(
+            return Err(diagnostic_error(
                 "Expected '{' to open a declaration of a struct type",
-                Label::new(self.file, self.single_char_span(), "missing '{'"),
+                primary_label(self.file, self.single_char_span(), "missing '{'"),
             ));
         }
 
@@ -1756,9 +1768,9 @@ impl<'a> Assembler<'a> {
             let element_name = self.parse_identifier()?;
 
             if !self.pop_if_next_symbol(":")? {
-                return Err(Diagnostic::new_error(
+                return Err(diagnostic_error(
                     "Expected ':' for a structs element type",
-                    Label::new(self.file, self.single_char_span(), "missing ':'"),
+                    primary_label(self.file, self.single_char_span(), "missing ':'"),
                 ));
             }
 
@@ -1773,9 +1785,9 @@ impl<'a> Assembler<'a> {
             } else if self.pop_if_next_symbol("}")? {
                 break;
             } else {
-                return Err(Diagnostic::new_error(
+                return Err(diagnostic_error(
                     "Expected ',' or '}' for a struct type declaration",
-                    Label::new(self.file, self.single_char_span(), "missing ',' or '}'"),
+                    primary_label(self.file, self.single_char_span(), "missing ',' or '}'"),
                 ));
             }
         }
@@ -1802,9 +1814,9 @@ impl<'a> Assembler<'a> {
         } else if self.get_current_str().starts_with('}') || self.get_current_str().is_empty() {
             Ok(())
         } else {
-            Err(Diagnostic::new_error(
+            Err(diagnostic_error(
                 "Unknown declaration within module",
-                Label::new(
+                primary_label(
                     self.file,
                     self.single_char_span(),
                     "expected fn, var, struct, or '}' to close the module",
@@ -1824,9 +1836,9 @@ impl<'a> Assembler<'a> {
         self.skip_comments_or_whitespace();
 
         if !self.get_current_str().starts_with('{') {
-            return Err(Diagnostic::new_error(
+            return Err(diagnostic_error(
                 "Expected '{' to open a module",
-                Label::new(self.file, self.single_char_span(), "should be '{'"),
+                primary_label(self.file, self.single_char_span(), "should be '{'"),
             ));
         }
 
@@ -1843,9 +1855,9 @@ impl<'a> Assembler<'a> {
             self.skip_comments_or_whitespace();
 
             if self.get_current_str().is_empty() {
-                return Err(Diagnostic::new_error(
+                return Err(diagnostic_error(
                     "Expected '}' to close a module",
-                    Label::new(self.file, self.single_char_span(), "should be '}'"),
+                    primary_label(self.file, self.single_char_span(), "should be '}'"),
                 ));
             }
 
@@ -1882,9 +1894,9 @@ impl<'a> Assembler<'a> {
                     Err(e) => return Err(e),
                 }
             } else {
-                return Err(Diagnostic::new_error(
+                return Err(diagnostic_error(
                     "Unknown symbol in input",
-                    Label::new(self.file, self.single_char_span(), "here"),
+                    primary_label(self.file, self.single_char_span(), "here"),
                 ));
             }
         }
